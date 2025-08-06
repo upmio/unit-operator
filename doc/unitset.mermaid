@@ -1,0 +1,45 @@
+sequenceDiagram
+    participant User
+    participant API Server
+    participant Unitset Controller
+    participant Unit Controller
+    participant Servicemonitor Controller
+    participant Configmap Controller
+    participant Service Controller
+
+    User->>API Server: Create Unitset
+    API Server-->>User: Confirm creation
+
+    Unitset Controller->>API Server: Listen to Unitset changes
+    API Server-->>Unitset Controller: Notify new Unitset creation
+
+    Unitset Controller->>Unitset Controller: Check finalizers
+
+    Unitset Controller->>API Server: Create configmap
+    API Server->>Configmap Controller: Notify new configmap creation
+
+    Unitset Controller->>API Server: Create Unit
+    API Server->>Unit Controller: Notify new unit creation
+
+    Unit Controller ->> API Server: Update unit creation status
+    API Server-->>Unitset Controller: Confirm creation
+
+    alt Servicemonitor crd exists
+        Unitset Controller->>API Server: Create ServiceMonitor
+        API Server->>Servicemonitor Controller: Notify new servicemonitor creation
+    end
+
+    Unitset Controller->>API Server: Listen to Unit status
+    Unitset Controller->>Unitset Controller: Update unitset status
+
+    Unitset Controller->>API Server: Create service
+    API Server->>Service Controller: Notify new service creation
+
+    Unitset Controller->>API Server : Sync unit labels
+    API Server->>Unit Controller:Notify to sync labels
+
+    Unitset Controller->>API Server : Sync unit resource information
+    API Server->>Unit Controller:Notify to sync resource request
+
+    Unitset Controller->>API Server : Sync unit image version
+    API Server->>Unit Controller:Notify to sync image version

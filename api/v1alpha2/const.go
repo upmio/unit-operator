@@ -1,0 +1,47 @@
+package v1alpha2
+
+const (
+	UnitsetName = "unitset.name"
+	UnitName    = "unit.name"
+	UnitSn      = "unit.sn"
+
+	NoneSetFlag = "noneSet"
+
+	AnnotationMaintenance          = "maintenance"
+	AnnotationMainContainerName    = "kubectl.kubernetes.io/default-container"
+	AnnotationMainContainerVersion = "kubectl.kubernetes.io/default-container-version"
+	AnnotationForceDelete          = "upm.io/force-delete"
+	AnnotationLastUnitBelongNode   = "last.unit.belong.node"
+
+	FinalizerUnitDelete      = "upm.io/unit-delete"
+	FinalizerConfigMapDelete = "upm.io/configmap-delete"
+	FinalizerPodDelete       = "upm.io/pod-delete"
+	FinalizerPvcDelete       = "upm.io/pvc-delete"
+)
+
+// UnitPhase is a label for the condition of a pod at the current time.
+// +enum
+type UnitPhase string
+
+// These are the valid statuses of pods.
+const (
+	// UnitPending means the pod has been accepted by the system, but one or more of the containers
+	// has not been started. This includes time before being bound to a node, as well as time spent
+	// pulling images onto the host.
+	UnitPending UnitPhase = "Pending"
+	// UnitRunning means the pod has been bound to a node and all of the containers have been started.
+	// At least one container is still running or is in the process of being restarted.
+	UnitRunning UnitPhase = "Running"
+	// UnitReady means the pod Running and ready condition = true
+	UnitReady UnitPhase = "Ready"
+	// UnitSucceeded means that all containers in the pod have voluntarily terminated
+	// with a container exit code of 0, and the system is not going to restart any of these containers.
+	UnitSucceeded UnitPhase = "Succeeded"
+	// UnitFailed means that all containers in the pod have terminated, and at least one container has
+	// terminated in a failure (exited with a non-zero exit code or was stopped by the system).
+	UnitFailed UnitPhase = "Failed"
+	// UnitUnknown means that for some reason the state of the pod could not be obtained, typically due
+	// to an error in communicating with the host of the pod.
+	// Deprecated: It isn't being set since 2015 (74da3b14b0c0f658b3bb8d2def5094686d0e9095)
+	UnitUnknown UnitPhase = "Unknown"
+)

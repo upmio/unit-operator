@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package config;
+option go_package="github.com/upmio/unit-operator/pkg/agent/app/config";
+
+
+message SyncConfigRequest {
+  string namespace = 1;
+  string template_configmap_name = 2;
+  string value_configmap_name = 3;
+  string key = 4;
+  repeated string extend_value_configmaps = 5;
+}
+
+message RewriteConfigRequest {
+  string configmap_name = 1;
+  string namespace = 2;
+  string key = 3;
+  string value = 4;
+}
+
+message RewriteConfigResponse {
+  string message = 1;
+}
+
+message SyncConfigResponse {
+  string message = 1;
+}
+
+service SyncConfigService {
+  rpc SyncConfig (SyncConfigRequest) returns (SyncConfigResponse);
+  rpc RewriteConfig (RewriteConfigRequest) returns (RewriteConfigResponse);
+}

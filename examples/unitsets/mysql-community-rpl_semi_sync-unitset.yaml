@@ -1,0 +1,190 @@
+# Description: This is an example of a UnitSet that deploys a MySQL Community edition version 8.0.41.
+# UnitSet CRD from the unit-operator is used to create the MySQL Community service group.
+# The UnitSet creates a MySQL Community service group with 3 MySQL Community units using rpl_semi_sync mode to synchronize data between the two MySQL instances.
+# The MySQL Community service group is created using the shared configuration ConfigMap and the secret.
+# MysqlReplication CRD from the compose-operator is used to create the MySQL Data Replication.
+# The MysqlReplication will manage the replication between the units of the MySQL Community service group.
+
+# Secret is used to store the credentials for the MySQL Community service group.
+# The secret contains the following
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    upm.api/service-group.name: ustest
+    upm.api/service-group.type: mysql-sg
+    upm.io/owner: upm
+  name: mysql-sg-ustest-secret
+  namespace: test
+data:
+  # Remote administrator user, used to manage the database with all privileges. Plaintext password is 'Y4&7@6!@A7f!i!t0'
+  helix: SmNOT0tEY0Y3ZnM3aUpWajlWSDRiOVV0WjQrc01ldHB1MnJsUnJ4NG1kWT0=
+  # monitor user, used to monitor the database. Plaintext password is 'hwkfEfrw3v@@5N3@'
+  monitor: WXErRzMreWx6ajUwVTlzQWovQStiOHU3UHhEL000NVo2R2pSRCs3RW9Xcz0=
+  # replication user, used to support replication. Plaintext password is 'I5@b&@@75h@68f!q'
+  replication: V1Y2MVZyZFRjbEVuT1lkbEx0R1c5cTljUmd0UjZubTlOM05aZkw2NkRxbz0=
+  # local administrator user, used to manage the database with all privileges. Plaintext password is '7aW&te9m8b3y!tcm'
+  root: VjVyOExqQmxyM3N2ODNsUHVrbmhDK29KZGRRQXl1dzlOWTJmNEJ6djdoRT0=
+type: Opaque
+
+# ConfigMap is used to store the shared configuration for the MySQL Community service group.
+# The ConfigMap contains the following
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    upm.api/service-group.name: ustest
+    upm.api/service-group.type: mysql-sg
+    upm.io/owner: upm
+  name: mysql-sg-ustest-sharedconfigmap
+  namespace: test
+data:
+  service_group_uid: "6fa3ca2a-0ffd-4ca7-8615-e2589f7dd413" # Unique identifier for the service group
+  mysql_ports: '[{"name": "mysql", "containerPort": "3306","protocol": "TCP"},{"name": "mgr", "containerPort": "33061","protocol": "TCP"}]' # Ports used by mysql
+
+# UnitSet is used to create the MySQL Community service group and the MySQL Replication service group.
+# The UnitSet contains the following
+---
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: UnitSet
+metadata:
+  # finalizers are used to delete the resources created by the UnitSet
+  # upm.io/unit-delete will delete the Units
+  # upm.io/configmap-delete will delete the ConfigMap
+  finalizers:
+    - upm.io/unit-delete
+    - upm.io/configmap-delete
+  # labels are used to filter the resources
+  # upm.api/service-group.name: <service-group-name>
+  # upm.api/service-group.type: <service-group-type>
+  # upm.api/service.type: <service-type>
+  # upm.io/owner: <owner>
+  labels:
+    upm.api/service-group.name: ustest
+    upm.api/service-group.type: mysql-sg
+    upm.api/service.type: mysql
+    upm.io/owner: upm
+  # name rule is <service-group-name>-<service-type>-<random-string>
+  name: ustest-mysql-foo
+  namespace: test
+spec:
+  type: mysql
+  version: 8.0.41
+  edition: community
+  units: 3
+  # sharedConfigName is the name of the ConfigMap that contains the shared configuration
+  # upm-api-server will create this ConfigMap in the same namespace as the UnitSet
+  sharedConfigName: mysql-sg-ustest-sharedconfigmap
+  # resources are used to set the resource limits and requests for mysql container in the Unit
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: "1"
+      memory: 1Gi
+  # storages and emptyDir are used to specify the volume type of Unit's data directory and log directory. You can only choose one way to define the volume type.
+  # storages is used to create a persistent volume for the mysql container in the Unit
+  # mountPath is the path where the storage is mounted in the container
+  # size is the size of the storage
+  # storageClassName is the name of the storage class
+  storages:
+    - name: data
+      mountPath: /DATA_MOUNT
+      size: 10Gi
+      storageClassName: openebs-lvmsc-hdd
+    - name: log
+      mountPath: /LOG_MOUNT
+      size: 10Gi
+      storageClassName: openebs-lvmsc-hdd
+  # emptyDir is a temporary directory that is initially empty, created when a Pod is assigned to a node and automatically deleted when the Pod is deleted.
+  # emptyDir is used to create an empty directory in the mysql container in the Unit
+  # emptyDir:
+  #   - name: data
+  #     mountPath: /DATA_MOUNT
+  #     size: 10Gi
+  #   - name: log
+  #     mountPath: /LOG_MOUNT
+  #     size: 10Gi
+  # secret is used to mount the secret in the Unit
+  secret:
+    mountPath: /SECRET_MOUNT
+    name: mysql-sg-ustest-secret
+  # Additional Service configuration, used to set external access, type optional values are NodePort, LoadBalancer
+  # externalService:
+  #   type: NodePort
+  env:
+    # ARCH_MODE Displays the specified replication mode, optional values are: rpl_async, rpl_semi_sync, group_replication
+    - name: ARCH_MODE
+      value: rpl_semi_sync
+    - name: ADM_USER
+      value: root
+    - name: MON_USER
+      value: monitor
+    - name: REPL_USER
+      value: replication
+    - name: PROV_USER
+      value: helix
+  nodeAffinityPreset:
+    # Used to set node affinity to ensure that mysql is deployed on the specified node. kubernetes.io/arch amd64 means deployed on the node of the amd64 architecture.
+    - key: kubernetes.io/arch
+      values:
+        - amd64
+    # Used to set node affinity to ensure that mysql is deployed on the specified node. upm.api/software.mysql means deployed on the node with the software.mysql label.
+    - key: upm.api/software.mysql
+      values:
+        - "true"
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      partition: 0
+    type: ""
+
+# MysqlReplication CRD from the compose-operator is used to create the MySQL Data Replication.
+# The MySQL Replication will manage the replication between the units of the MySQL Community service group.
+# The MySQL Replication service group contains the following
+---
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: MysqlReplication
+metadata:
+  labels:
+    upm.api/service-group.name: ustest
+    upm.api/service-group.type: mysql-sg
+    upm.api/service.name: ustest-mysql-foo
+    upm.io/owner: upm
+  name: ustest-mysql-foo-replication
+  namespace: test
+spec:
+  # mode is used to set the replication mode, optional values are rpl_async, rpl_semi_sync
+  mode: rpl_semi_sync
+  secret:
+    name: mysql-sg-ustest-secret
+    # 'mysql' is the key in the Secret used to specify the user managing the replication relationship.
+    # The Manage Replication User is a special account designed for the master library in the MySQL semi replication architecture.
+    # This user needs REPLICATION CLIENT, REPLICATION SLAVE, SYSTEM_VARIABLES_ADMIN, and REPLICATION_SLAVE_ADMIN privileges.
+    mysql: replication
+    # 'replication' is used to specify a user that supports replication.
+    # The Replication User is a special account designed for slave libraries in the MySQL semi replication architecture.
+    # This user follows the principle of least privileges and is usually granted only REPLICATION SLAVE and REPLICATION CLIENT privileges.
+    replication: replication
+  # Specify the instance name and port of the primary database
+  source:
+    name: ustest-mysql-foo-0
+    host: ustest-mysql-foo-0.ustest-mysql-foo-headless-svc.test
+    port: 3306
+  # Specify the instance name and port of the secondary database
+  replica:
+    - name: ustest-mysql-foo-1
+      host: ustest-mysql-foo-1.ustest-mysql-foo-headless-svc.test
+      port: 3306
+    - name: ustest-mysql-foo-2
+      host: ustest-mysql-foo-2.ustest-mysql-foo-headless-svc.test
+      port: 3306
+  # Specifies the type of external access service. Optional values are NodePort, LoadBalancer.
+  service:
+    type: NodePort
+
+# If you want to delete the resources created by the UnitSet, you can use the following commands
+# kubectl delete secrets -n test mysql-sg-ustest-secret; kubectl delete configmaps -n test mysql-sg-ustest-sharedconfigmap; kubectl delete mysqlreplications -n test ustest-mysql-foo-replication; kubectl delete unitsets -n test ustest-mysql-foo

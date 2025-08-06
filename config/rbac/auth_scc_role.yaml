@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: scc-role
+    app.kubernetes.io/component: kube-rbac-scc
+    app.kubernetes.io/created-by: tesseract-cube
+    app.kubernetes.io/part-of: tesseract-cube
+    app.kubernetes.io/managed-by: kustomize
+  name: scc-role
+rules:
+  - apiGroups:
+      - security.openshift.io
+    resourceNames:
+      - privileged
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - use

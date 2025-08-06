@@ -1,0 +1,87 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "swagger test",
+        "title": "unit-agent api demo",
+        "contact": {
+            "name": "yuzhenhao",
+            "url": "http://bsgchind.io",
+            "email": "yuzhenhao0906@gmail.com"
+        },
+        "version": "1.0"
+    },
+    "host": "127.0.0.1:22104",
+    "paths": {
+        "/config/sync": {
+            "post": {
+                "description": "In the kubernetes cluster to obtain the contents of the ConfigMap, the use of confd landing generated into the corresponding software format configuration file",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Synchronization Profile Interface"
+                ],
+                "summary": "Synchronization Profile Interface",
+                "parameters": [
+                    {
+                        "description": "ConfigMap info",
+                        "name": "SyncConfigRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.SyncConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/config.SyncConfigResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/config.SyncConfigResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/config.SyncConfigResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "config.SyncConfigRequest": {
+            "type": "object",
+            "required": [
+                "configmap_name",
+                "namespace"
+            ],
+            "properties": {
+                "configmap_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "config.SyncConfigResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

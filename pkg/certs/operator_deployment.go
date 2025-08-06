@@ -1,0 +1,119 @@
+package certs
+
+import (
+	"context"
+	"fmt"
+	"k8s.io/klog/v2"
+
+	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// SetAsOwnedByOperatorDeployment sets the controlled object as owned by the operator deployment.
+//
+// IMPORTANT: The controlled resource must reside in the same namespace as the operator as described by:
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
+func SetAsOwnedByOperatorDeployment(ctx context.Context,
+	kubeClient client.Client,
+	controlled *metav1.ObjectMeta,
+	operatorLabelSelector string,
+) error {
+	deployment, err := GetOperatorDeployment(ctx, kubeClient, controlled.Namespace, operatorLabelSelector)
+	if err != nil {
+		return err
+	}
+
+	// The deployment typeMeta is empty (kubernetes bug), so we need to explicitly populate it.
+	typeMeta := metav1.TypeMeta{
+		Kind:       "Deployment",
+		APIVersion: "apps/v1",
+	}
+	setAsOwnedBy(controlled, deployment.ObjectMeta, typeMeta)
+
+	return nil
+}
+
+// GetOperatorDeployment find the operator deployment using labels
+// and then return the deployment object, in case we can't find a deployment
+// or we find more than one, we just return an error.
+func GetOperatorDeployment(
+	ctx context.Context,
+	kubeClient client.Client,
+	namespace, operatorLabelSelector string,
+) (*v1.Deployment, error) {
+	labelMap, err := labels.ConvertSelectorToLabelsMap(operatorLabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	deployment, err := findOperatorDeploymentByFilter(ctx,
+		kubeClient,
+		namespace,
+		client.MatchingLabelsSelector{Selector: labelMap.AsSelector()})
+	if err != nil {
+		return nil, err
+	}
+	if deployment != nil {
+		return deployment, nil
+	}
+
+	deployment, err = findOperatorDeploymentByFilter(ctx,
+		kubeClient,
+		namespace,
+		client.HasLabels{"operators.coreos.com/unit-operator.openshift-operators="})
+	if err != nil {
+		return nil, err
+	}
+	if deployment != nil {
+		return deployment, nil
+	}
+
+	return nil, fmt.Errorf("no deployment detected")
+}
+
+// findOperatorDeploymentByFilter search in a defined namespace
+// looking for a deployment with the defined filter
+func findOperatorDeploymentByFilter(ctx context.Context,
+	kubeClient client.Client,
+	namespace string,
+	filter client.ListOption,
+) (*v1.Deployment, error) {
+
+	deploymentList := &v1.DeploymentList{}
+	err := kubeClient.List(
+		ctx,
+		deploymentList,
+		client.InNamespace(namespace),
+		filter,
+	)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case len(deploymentList.Items) == 1:
+		return &deploymentList.Items[0], nil
+	case len(deploymentList.Items) > 1:
+		err = fmt.Errorf("more than one operator deployment running")
+		klog.Error(err, "more than one operator deployment found with the filter", "filter", filter)
+		return nil, err
+	}
+
+	err = fmt.Errorf("no operator deployment found")
+	klog.Error(err, "no operator deployment found with the filter", "filter", filter)
+	return nil, err
+}
+
+func setAsOwnedBy(controlled *metav1.ObjectMeta, controller metav1.ObjectMeta, typeMeta metav1.TypeMeta) {
+	isController := true
+
+	controlled.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion: typeMeta.APIVersion,
+			Kind:       typeMeta.Kind,
+			Name:       controller.Name,
+			UID:        controller.UID,
+			Controller: &isController,
+		},
+	})
+}

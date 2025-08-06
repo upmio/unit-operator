@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package mysql;
+option go_package="github.com/upmio/unit-operator/pkg/agent/app/mysql";
+
+enum PhysicalBackupTool {
+  Xtrabackup = 0;
+  Meb = 1;
+}
+
+enum LogicalBackupMode {
+  Full = 0;
+  Database = 1;
+  Table = 2;
+}
+
+enum ArchMode {
+  Replication = 0;
+  GroupReplication = 1;
+}
+
+message CloneRequest {
+  string source_clone_user = 1;
+  string source_clone_password = 2;
+  string source_host = 3;
+  int64 source_port = 4;
+  string socket_file = 5;
+  string username = 6;
+  string password = 7;
+}
+
+message S3Storage {
+  string endpoint = 1;
+  string bucket = 2;
+  string access_key = 3;
+  string secret_key = 4;
+}
+
+message LocalStorage {
+  string path = 1;
+}
+
+message LogicalBackupRequest {
+  string backup_file = 1;
+  string conf_file = 2;
+  string socket_file = 3;
+  string username = 4;
+  string password = 5;
+  string database = 6;
+  string table = 7;
+  LogicalBackupMode logical_backup_mode = 8;
+  oneof StorageType {
+    S3Storage s3_storage = 9;
+    LocalStorage local_storage = 10;
+  }
+}
+
+message PhysicalBackupRequest {
+  string backup_file = 1;
+  string conf_file = 2;
+  string socket_file = 3;
+  string username = 4;
+  string password = 5;
+  int64  parallel = 6;
+  PhysicalBackupTool physical_backup_tool = 7;
+  oneof StorageType {
+    S3Storage s3_storage = 8;
+    LocalStorage local_storage = 9;
+  }
+}
+
+message RestoreRequest {
+  string backup_file = 1;
+  int64  parallel = 2;
+  oneof StorageType {
+    S3Storage s3_storage = 3;
+    LocalStorage local_storage = 4;
+  }
+}
+
+message GtidPurgeRequest {
+  string socket_file = 1;
+  string username = 2;
+  string password = 3;
+  ArchMode arch_mode = 4;
+}
+
+message SetVariableRequest {
+  string key = 1;
+  string value = 2;
+  string socket_file = 3;
+  string username = 4;
+  string password = 5;
+}
+
+message Response {
+  string message = 1;
+}
+
+service MysqlOperation {
+  rpc Clone (CloneRequest) returns (Response);
+  rpc PhysicalBackup (PhysicalBackupRequest) returns (Response);
+  rpc LogicalBackup (LogicalBackupRequest) returns (Response);
+  rpc Restore (RestoreRequest ) returns (Response);
+  rpc GtidPurge (GtidPurgeRequest) returns (Response);
+  rpc SetVariable (SetVariableRequest) returns (Response);
+}

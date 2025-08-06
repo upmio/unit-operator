@@ -1,0 +1,258 @@
+/*
+Copyright 2025.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package unitset
+
+import (
+	"context"
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	rbacV1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sync"
+	"time"
+
+	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	controllerKind          = upmiov1alpha2.GroupVersion.WithKind("UnitSet")
+	maxConcurrentReconciles = 10
+)
+
+// UnitSetReconciler reconciles a UnitSet object
+type UnitSetReconciler struct {
+	client.Client
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
+}
+
+// +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=unitsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=unitsets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=unitsets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=units,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=podtemplates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=issuers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=redisreplications,verbs=get;list;watch;create;update;patch;delete
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+// TODO(user): Modify the Reconcile function to compare the state specified by
+// the UnitSet object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.0/pkg/reconcile
+func (r *UnitSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
+	startTime := time.Now()
+
+	unitset := &upmiov1alpha2.UnitSet{}
+	if err := r.Get(ctx, req.NamespacedName, unitset); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: 3 * time.Second,
+			}, nil
+		}
+
+		klog.Errorf("unable to fetch Unitset [%s], error: [%v]", req.String(), err.Error())
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: 3 * time.Second,
+		}, err
+	}
+
+	retErr = r.reconcileUnitset(ctx, req, unitset)
+
+	defer func() {
+		// 如果 retErr 为空，则打印日志
+		// 如果 retErr 不为空，则打印日志并把报错更新到 unitset 的 event
+		if retErr == nil {
+			klog.Infof("finished reconciling Unitset [%s], duration [%v]", req.String(), time.Since(startTime))
+		} else {
+			klog.Errorf("failed to reconcile Unitset [%s], error: [%v]", req.String(), retErr)
+			// 更新 unitset 的 event
+			r.Recorder.Eventf(unitset, v1.EventTypeWarning, "FailedReconcile", retErr.Error())
+		}
+	}()
+
+	return ctrl.Result{
+		Requeue:      true,
+		RequeueAfter: 3 * time.Second,
+	}, retErr
+}
+
+func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) (err error) {
+	klog.Infof("start reconciling Unitset [%s]", req.String())
+
+	if !unitset.ObjectMeta.DeletionTimestamp.IsZero() || unitset.ObjectMeta.DeletionTimestamp != nil {
+
+		errs := []error{}
+		var wg sync.WaitGroup
+
+		toRemoveFinalizer := unitset.GetFinalizers()
+
+		// The object is being deleted
+		for _, myFinalizerName := range toRemoveFinalizer {
+			wg.Add(1)
+			go func(finalizer string) {
+				defer wg.Done()
+
+				// our finalizer is present, so lets handle any external dependency
+				if err := r.deleteResources(ctx, req, unitset, finalizer); err != nil {
+					// if fail to delete the external dependency here, return with error
+					// so that it can be retried.
+					errs = append(errs, err)
+					return
+				}
+
+				return
+			}(myFinalizerName)
+		}
+		wg.Wait()
+
+		// remove our finalizer from the list and update it.
+		err = utilerrors.NewAggregate(errs)
+		if err != nil {
+			return fmt.Errorf("UNITSET DELETING:error [%s]", err.Error())
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return nil
+	}
+
+	err = r.reconcileServiceAccount(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileConfigmap(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	ports, err := r.getPortsFromSharedConfig(ctx, req, unitset)
+	if err != nil {
+		return fmt.Errorf("get ports in sharedconfig:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
+	}
+
+	err = r.reconcileHeadlessService(ctx, req, unitset, ports)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileExternalService(ctx, req, unitset, ports)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileUnitService(ctx, req, unitset, ports)
+	if err != nil {
+		return err
+	}
+
+	// the pod template is old version, when image update, it will be updated in updateImage func
+	podTemplate, err := r.getPodTemplate(ctx, req, unitset)
+	if err != nil {
+		return fmt.Errorf("get pod template error:[%s]", err.Error())
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return r.reconcileUnitsetStatus(ctx, req, unitset)
+	})
+	if err != nil {
+		klog.Errorf("failed to reconcile UnitsetStatus [%s], err: [%v]", req.String(), err.Error())
+		return fmt.Errorf("failed to reconcile UnitsetStatus, err: [%v]", err.Error())
+	}
+
+	err = r.reconcileUnit(ctx, req, unitset, &podTemplate, ports)
+	if err != nil {
+		return err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return r.reconcilePatchUnitset(ctx, req, unitset)
+	})
+	if err != nil {
+		klog.Errorf("failed to reconcile PatchUnitset [%s], err: [%v]", req.String(), err.Error())
+		return fmt.Errorf("failed to reconcile PatchUnitset, err: [%v]", err.Error())
+	}
+
+	err = r.reconcileImageVersion(ctx, req, unitset, &podTemplate, ports)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileResources(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileStorage(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return r.reconcileUnitsetStatus(ctx, req, unitset)
+	})
+	if err != nil {
+		klog.Errorf("failed to reconcile UnitsetStatus [%s], err: [%v]", req.String(), err.Error())
+		return fmt.Errorf("failed to reconcile UnitsetStatus, err: [%v]", err.Error())
+	}
+
+	return nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *UnitSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&upmiov1alpha2.UnitSet{}).
+		Owns(&v1.Pod{}).
+		Owns(&upmiov1alpha2.Unit{}).
+		Owns(&rbacV1.Role{}).
+		Owns(&rbacV1.RoleBinding{}).
+		Owns(&v1.Service{}).
+		Owns(&v1.ServiceAccount{}).
+		Owns(&v1.Secret{}).
+		Owns(&v1.ConfigMap{}).
+		WithOptions(
+			controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles},
+		).
+		Complete(r)
+}

@@ -1,0 +1,102 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: unit-operator-mutating-webhook-configuration
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: /mutate-upm-syntropycloud-io-v1alpha2-unit
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: munit.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - units
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: /mutate-upm-syntropycloud-io-v1alpha2-unitset
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: munitset.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - unitsets
+    sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: unit-operator-validating-webhook-configuration
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: /validate-upm-syntropycloud-io-v1alpha2-unit
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: vunit.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - units
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: /validate-upm-syntropycloud-io-v1alpha2-unitset
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: vunitset.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - unitsets
+    sideEffects: None

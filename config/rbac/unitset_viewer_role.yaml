@@ -1,0 +1,27 @@
+# permissions for end users to view unitsets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: unitset-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: upm
+    app.kubernetes.io/part-of: upm
+    app.kubernetes.io/managed-by: kustomize
+  name: unitset-viewer-role
+rules:
+  - apiGroups:
+      - upm.syntropycloud.io
+    resources:
+      - unitsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - upm.syntropycloud.io
+    resources:
+      - unitsets/status
+    verbs:
+      - get

@@ -1,0 +1,342 @@
+# MySQL Backup Operations Examples
+
+This directory contains examples for performing backup operations on MySQL databases using the Unit Operator.
+
+## 📁 Available Examples
+
+### 1. Logical Backup
+- **File**: `mysql-logical-backup.yaml`
+- **Description**: Perform logical backup using mysqldump
+- **Use Case**: Regular logical backups for small to medium databases
+
+### 2. Physical Backup
+- **File**: `mysql-physical-backup.yaml`
+- **Description**: Perform physical backup using Percona XtraBackup
+- **Use Case**: Full physical backups for large databases
+
+### 3. Incremental Backup
+- **File**: `mysql-incremental-backup.yaml`
+- **Description**: Perform incremental backup from last full backup
+- **Use Case**: Regular incremental backups to reduce storage usage
+
+### 4. Compressed Backup
+- **File**: `mysql-compressed-backup.yaml`
+- **Description**: Perform backup with compression
+- **Use Case**: Storage-efficient backups
+
+### 5. Encrypted Backup
+- **File**: `mysql-encrypted-backup.yaml`
+- **Description**: Perform backup with encryption
+- **Use Case**: Secure backup storage
+
+## 🚀 Quick Start
+
+### Perform Logical Backup
+```bash
+# Apply the backup operation
+kubectl apply -f mysql-logical-backup.yaml
+
+# Monitor the backup progress
+kubectl describe grpccall mysql-logical-backup
+
+# Check the backup status
+kubectl get grpccall mysql-logical-backup -o yaml
+```
+
+### Perform Physical Backup
+```bash
+# Apply the backup operation
+kubectl apply -f mysql-physical-backup.yaml
+
+# Monitor the backup progress
+kubectl describe grpccall mysql-physical-backup
+
+# Check the backup status
+kubectl get grpccall mysql-physical-backup -o yaml
+```
+
+## 📋 Backup Types and Parameters
+
+### Logical Backup Parameters
+```yaml
+parameters:
+  backupType: "full"          # full, incremental
+  compression: "gzip"         # gzip, bzip2, none
+  destination: "s3://backups/mysql/"
+  retention: "7d"             # Retention period
+  encryption: "AES256"        # Encryption algorithm
+  databases: ["db1", "db2"]   # Specific databases to backup
+  tables: ["db1.table1"]     # Specific tables to backup
+  excludeDatabases: ["test"]  # Databases to exclude
+  excludeTables: ["db1.temp_*"]  # Tables to exclude
+```
+
+### Physical Backup Parameters
+```yaml
+parameters:
+  backupType: "full"          # full, incremental
+  compression: "true"         # Enable compression
+  destination: "s3://backups/mysql/"
+  parallel: "4"               # Number of parallel threads
+  encrypt: "true"             # Enable encryption
+  encryptKey: "key-name"      # Encryption key name
+  slaveThreads: "4"          # Number of slave threads
+  safeSlaveBackup: "true"    # Stop slave SQL thread
+  noLock: "false"            # Don't lock tables
+```
+
+## 🎯 Common Use Cases
+
+### 1. Daily Logical Backup
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-daily-logical-backup
+  namespace: default
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: logical-backup
+  ttlSecondsAfterFinished: 86400  # 24 hours
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "s3://backups/mysql/daily/"
+    retention: "30d"
+    encryption: "AES256"
+```
+
+### 2. Weekly Physical Backup
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-weekly-physical-backup
+  namespace: default
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: physical-backup
+  ttlSecondsAfterFinished: 604800  # 7 days
+  parameters:
+    backupType: "full"
+    compression: "true"
+    destination: "s3://backups/mysql/weekly/"
+    parallel: "8"
+    encrypt: "true"
+    encryptKey: "weekly-backup-key"
+```
+
+### 3. Hourly Incremental Backup
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-hourly-incremental-backup
+  namespace: default
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: logical-backup
+  ttlSecondsAfterFinished: 3600  # 1 hour
+  parameters:
+    backupType: "incremental"
+    compression: "gzip"
+    destination: "s3://backups/mysql/hourly/"
+    retention: "7d"
+    encryption: "AES256"
+```
+
+## 🔧 Configuration Options
+
+### Destination Types
+- **S3**: `s3://bucket-name/path/`
+- **Local**: `/local/path/`
+- **NFS**: `/nfs/path/`
+- **GCS**: `gs://bucket-name/path/`
+
+### Compression Options
+- **gzip**: Standard gzip compression
+- **bzip2**: Higher compression ratio
+- **none**: No compression
+
+### Encryption Options
+- **AES256**: AES-256 encryption
+- **AES128**: AES-128 encryption
+- **none**: No encryption
+
+## 📊 Monitoring Backups
+
+### Check Backup Status
+```bash
+# Check backup operation status
+kubectl describe grpccall mysql-backup
+
+# View backup logs
+kubectl logs mysql-cluster-0 -c agent | grep backup
+
+# Check backup files
+kubectl exec -it mysql-cluster-0 -- ls -la /backup/
+```
+
+### Monitor Backup Performance
+```bash
+# Monitor backup progress
+kubectl get grpccall mysql-backup -w
+
+# Check resource usage during backup
+kubectl top pods -l upm.api/service-group.name=mysql-cluster
+
+# Check disk usage
+kubectl exec -it mysql-cluster-0 -- df -h
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **Backup Fails Due to Insufficient Space**
+   - Check available disk space
+   - Clean up old backup files
+   - Consider compression or incremental backups
+
+2. **Backup Fails Due to Permission Issues**
+   - Check file permissions on backup directory
+   - Verify S3 credentials
+   - Check database user privileges
+
+3. **Backup Takes Too Long**
+   - Consider parallel backup
+   - Use incremental backups
+   - Optimize backup parameters
+
+### Debug Commands
+```bash
+# Check backup operation details
+kubectl describe grpccall mysql-backup
+
+# Check agent logs
+kubectl logs mysql-cluster-0 -c agent
+
+# Check database status
+kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW STATUS LIKE 'Handler%'"
+
+# Check disk space
+kubectl exec -it mysql-cluster-0 -- df -h
+
+# Check network connectivity
+kubectl exec -it mysql-cluster-0 -- curl -I s3.amazonaws.com
+```
+
+## 📝 Backup Strategy Examples
+
+### 1. Production Backup Strategy
+```yaml
+# Daily logical backup (retention: 30 days)
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-daily-backup
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: logical-backup
+  ttlSecondsAfterFinished: 86400
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "s3://backups/mysql/daily/"
+    retention: "30d"
+    encryption: "AES256"
+```
+
+### 2. Development Backup Strategy
+```yaml
+# Weekly physical backup (retention: 4 weeks)
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-dev-weekly-backup
+spec:
+  targetUnit: mysql-dev-0
+  type: mysql
+  action: physical-backup
+  ttlSecondsAfterFinished: 604800
+  parameters:
+    backupType: "full"
+    compression: "true"
+    destination: "/local/backups/mysql/"
+    retention: "4w"
+```
+
+### 3. High-Frequency Backup Strategy
+```yaml
+# Hourly incremental backup (retention: 24 hours)
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-hourly-backup
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: logical-backup
+  ttlSecondsAfterFinished: 3600
+  parameters:
+    backupType: "incremental"
+    compression: "gzip"
+    destination: "s3://backups/mysql/hourly/"
+    retention: "24h"
+```
+
+## 🔄 Scheduling Backups
+
+### Using CronJobs
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-daily-backup
+  namespace: default
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: bitnami/kubectl
+            command:
+            - /bin/sh
+            - -c
+            - kubectl apply -f /backup/mysql-daily-backup.yaml
+            volumeMounts:
+            - name: backup-config
+              mountPath: /backup
+          volumes:
+          - name: backup-config
+            configMap:
+              name: mysql-backup-config
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+```
+
+## 📚 Additional Resources
+
+- [API Documentation](../../api-documentation.md) - Complete API reference
+- [Quick Reference](../../api-quick-reference.md) - Fast reference guide
+- [Troubleshooting Guide](../../README.md#troubleshooting) - Common issues and solutions
+- [Restore Examples](../restore) - Database restore operations
+
+---
+
+<div align="center">
+  <p>
+    <img src="https://img.icons8.com/color/48/000000/mysql.png" alt="MySQL" width="24" height="24">
+    <img src="https://img.icons8.com/color/48/000000/backup.png" alt="Backup" width="24" height="24">
+    <img src="https://img.icons8.com/color/48/000000/database.png" alt="Database" width="24" height="24">
+  </p>
+  <p><strong>MySQL Backup Operations</strong></p>
+  <p>Comprehensive backup solutions for MySQL databases</p>
+</div>

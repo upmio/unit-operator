@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/instance: scc-rolebinding
+    app.kubernetes.io/component: kube-rbac-scc
+    app.kubernetes.io/created-by: tesseract-cube
+    app.kubernetes.io/part-of: tesseract-cube
+    app.kubernetes.io/managed-by: kustomize
+  name: scc-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: scc-role
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+    namespace: system

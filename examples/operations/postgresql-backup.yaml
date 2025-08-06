@@ -1,0 +1,354 @@
+# PostgreSQL Backup Operations Examples
+
+This directory contains examples for performing backup operations on PostgreSQL databases using the Unit Operator.
+
+## 📁 Available Examples
+
+### 1. Physical Backup
+- **File**: `postgresql-physical-backup.yaml`
+- **Description**: Perform physical backup using pg_basebackup
+- **Use Case**: Full physical backups for PostgreSQL clusters
+
+### 2. Logical Backup
+- **File**: `postgresql-logical-backup.yaml`
+- **Description**: Perform logical backup using pg_dump
+- **Use Case**: Regular logical backups for specific databases
+
+### 3. WAL Archive Backup
+- **File**: `postgresql-wal-backup.yaml`
+- **Description**: Configure WAL archiving for point-in-time recovery
+- **Use Case**: Continuous WAL archiving for PITR
+
+### 4. Compressed Backup
+- **File**: `postgresql-compressed-backup.yaml`
+- **Description**: Perform backup with compression
+- **Use Case**: Storage-efficient backups
+
+### 5. Parallel Backup
+- **File**: `postgresql-parallel-backup.yaml`
+- **Description**: Perform backup with parallel processing
+- **Use Case**: Fast backups for large databases
+
+## 🚀 Quick Start
+
+### Perform Physical Backup
+```bash
+# Apply the backup operation
+kubectl apply -f postgresql-physical-backup.yaml
+
+# Monitor the backup progress
+kubectl describe grpccall postgresql-physical-backup
+
+# Check the backup status
+kubectl get grpccall postgresql-physical-backup -o yaml
+```
+
+### Perform Logical Backup
+```bash
+# Apply the backup operation
+kubectl apply -f postgresql-logical-backup.yaml
+
+# Monitor the backup progress
+kubectl describe grpccall postgresql-logical-backup
+
+# Check the backup status
+kubectl get grpccall postgresql-logical-backup -o yaml
+```
+
+## 📋 Backup Types and Parameters
+
+### Physical Backup Parameters
+```yaml
+parameters:
+  backupType: "full"          # full, incremental
+  compression: "gzip"         # gzip, bzip2, none
+  destination: "s3://backups/postgresql/"
+  parallel: "4"               # Number of parallel jobs
+  checkpoint: "fast"         # fast, spread
+  walMethod: "stream"         # stream, fetch, none
+  maxRate: "100M"            # Maximum transfer rate
+  label: "production-backup" # Backup label
+```
+
+### Logical Backup Parameters
+```yaml
+parameters:
+  backupType: "full"          # full, schema, data
+  compression: "gzip"         # gzip, bzip2, none
+  destination: "s3://backups/postgresql/"
+  format: "custom"           # custom, directory, plain, tar
+  encoding: "UTF8"           # Character encoding
+  schemaOnly: "false"        # Backup schema only
+  dataOnly: "false"          # Backup data only
+  databases: ["db1", "db2"]   # Specific databases to backup
+  excludeDatabases: ["test"]  # Databases to exclude
+  schemas: ["public"]         # Specific schemas to backup
+  excludeSchemas: ["temp"]    # Schemas to exclude
+  tables: ["public.users"]   # Specific tables to backup
+  excludeTables: ["temp.*"]   # Tables to exclude
+```
+
+### WAL Archive Parameters
+```yaml
+parameters:
+  walMethod: "archive"       # archive, stream
+  archiveCommand: "archive_command"
+  archiveTimeout: "60"        # Archive timeout in seconds
+  compression: "gzip"        # WAL compression
+  destination: "s3://backups/postgresql/wal/"
+```
+
+## 🎯 Common Use Cases
+
+### 1. Daily Physical Backup
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-daily-physical-backup
+  namespace: default
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: physical-backup
+  ttlSecondsAfterFinished: 86400  # 24 hours
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "s3://backups/postgresql/daily/"
+    parallel: "4"
+    checkpoint: "fast"
+    walMethod: "stream"
+    label: "daily-backup"
+```
+
+### 2. Weekly Logical Backup
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-weekly-logical-backup
+  namespace: default
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: logical-backup
+  ttlSecondsAfterFinished: 604800  # 7 days
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "s3://backups/postgresql/weekly/"
+    format: "custom"
+    encoding: "UTF8"
+    databases: ["app_db", "config_db"]
+```
+
+### 3. Continuous WAL Archiving
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-wal-archive
+  namespace: default
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: set-variable
+  ttlSecondsAfterFinished: 3600  # 1 hour
+  parameters:
+    variables:
+      archive_mode: "on"
+      archive_command: "gzip < %p > /backup/wal/%f.gz"
+      archive_timeout: "60"
+      wal_level: "replica"
+      max_wal_senders: "3"
+```
+
+## 🔧 Configuration Options
+
+### Backup Formats
+- **custom**: PostgreSQL custom format (recommended)
+- **directory**: Directory format
+- **plain**: Plain SQL format
+- **tar**: Tar archive format
+
+### Compression Options
+- **gzip**: Standard gzip compression
+- **bzip2**: Higher compression ratio
+- **none**: No compression
+
+### Parallel Processing
+- **parallel**: Number of parallel jobs
+- **maxRate**: Maximum transfer rate
+- **checkpoint**: Checkpoint mode (fast, spread)
+
+## 📊 Monitoring Backups
+
+### Check Backup Status
+```bash
+# Check backup operation status
+kubectl describe grpccall postgresql-backup
+
+# View backup logs
+kubectl logs postgresql-cluster-0 -c agent | grep backup
+
+# Check backup files
+kubectl exec -it postgresql-cluster-0 -- ls -la /backup/
+```
+
+### Monitor WAL Archiving
+```bash
+# Check WAL archive status
+kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT * FROM pg_stat_archiver"
+
+# Check WAL files
+kubectl exec -it postgresql-cluster-0 -- ls -la /backup/wal/
+
+# Check archive lag
+kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) as lag_bytes FROM pg_stat_replication"
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **Backup Fails Due to Insufficient Space**
+   - Check available disk space
+   - Clean up old backup files
+   - Consider compression or incremental backups
+
+2. **Backup Fails Due to Permission Issues**
+   - Check file permissions on backup directory
+   - Verify database user privileges
+   - Check PostgreSQL configuration
+
+3. **WAL Archiving Fails**
+   - Check archive command configuration
+   - Verify archive directory permissions
+   - Monitor archive lag
+
+### Debug Commands
+```bash
+# Check backup operation details
+kubectl describe grpccall postgresql-backup
+
+# Check agent logs
+kubectl logs postgresql-cluster-0 -c agent
+
+# Check database status
+kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT * FROM pg_stat_activity"
+
+# Check disk space
+kubectl exec -it postgresql-cluster-0 -- df -h
+
+# Check WAL settings
+kubectl exec -it postgresql-cluster-0 -- psql -c "SHOW archive_mode"
+```
+
+## 📝 Backup Strategy Examples
+
+### 1. Production Backup Strategy
+```yaml
+# Daily physical backup + WAL archiving
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-production-backup
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: physical-backup
+  ttlSecondsAfterFinished: 86400
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "s3://backups/postgresql/production/"
+    parallel: "8"
+    checkpoint: "fast"
+    walMethod: "stream"
+    label: "production-backup"
+```
+
+### 2. Development Backup Strategy
+```yaml
+# Weekly logical backup for development
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-dev-backup
+spec:
+  targetUnit: postgresql-dev-0
+  type: postgresql
+  action: logical-backup
+  ttlSecondsAfterFinished: 604800
+  parameters:
+    backupType: "full"
+    compression: "gzip"
+    destination: "/local/backups/postgresql/"
+    format: "custom"
+    databases: ["dev_db"]
+```
+
+### 3. High Availability Backup Strategy
+```yaml
+# Continuous WAL archiving + daily base backup
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-ha-backup
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: set-variable
+  ttlSecondsAfterFinished: 3600
+  parameters:
+    variables:
+      archive_mode: "on"
+      archive_command: "aws s3 cp %p s3://backups/postgresql/wal/%f"
+      archive_timeout: "60"
+      wal_level: "replica"
+      max_wal_senders: "5"
+      hot_standby: "on"
+```
+
+## 🔄 Point-in-Time Recovery (PITR)
+
+### Recovery Configuration
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: postgresql-pitr-recovery
+  namespace: default
+spec:
+  targetUnit: postgresql-cluster-0
+  type: postgresql
+  action: restore
+  ttlSecondsAfterFinished: 7200
+  parameters:
+    source: "s3://backups/postgresql/base-backup/"
+    targetTime: "2024-01-01 10:30:00 UTC"
+    recoveryTarget: "exact"
+    restoreCommand: "restore_command"
+    cleanupAfterRestore: "true"
+```
+
+## 📚 Additional Resources
+
+- [API Documentation](../../api-documentation.md) - Complete API reference
+- [Quick Reference](../../api-quick-reference.md) - Fast reference guide
+- [Troubleshooting Guide](../../README.md#troubleshooting) - Common issues and solutions
+- [Restore Examples](../restore) - Database restore operations
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/) - Official PostgreSQL documentation
+
+---
+
+<div align="center">
+  <p>
+    <img src="https://img.icons8.com/color/48/000000/postgresql.png" alt="PostgreSQL" width="24" height="24">
+    <img src="https://img.icons8.com/color/48/000000/backup.png" alt="Backup" width="24" height="24">
+    <img src="https://img.icons8.com/color/48/000000/database.png" alt="Database" width="24" height="24">
+  </p>
+  <p><strong>PostgreSQL Backup Operations</strong></p>
+  <p>Comprehensive backup solutions for PostgreSQL databases</p>
+</div>

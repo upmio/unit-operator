@@ -1,0 +1,9 @@
+test: {{ getv "/default/test" }}
+connect: {{ join (jsonArrayAppend (getv "/default/connect") ":9000" ":2900") "," }}
+ip: {{ getenv "HOST_IP" }}
+password: {{ AESCBCDecrypt "/ru+KsOJgjj+JZS11HRh1IDFsQILgnyoqn16XqyoKoo=" }}
+extend1: {{ getv "/extend1" }}
+extend2: {{ getv "/extend2" }}
+{{- range $index,$value := jsonArray (getv "/default/save")}}
+save {{ $index }} {{ $value }}
+{{- end }}

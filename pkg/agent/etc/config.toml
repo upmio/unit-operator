@@ -1,0 +1,17 @@
+[app]
+host = "0.0.0.0"
+port = 2215
+grpc_host = "0.0.0.0"
+grpc_port = 2214
+
+[kube]
+#if not
+#kubeConfigPath = "./etc/config"
+
+[Supervisor]
+Addr = "127.0.0.1"
+Port = 9001
+
+[log]
+level = "info"
+dir = "logs"
