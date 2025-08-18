@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/abrander/go-supervisord"
+	supervisord "github.com/abrander/go-supervisord"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
@@ -39,7 +39,6 @@ func (s *service) getProcessInfo() (*supervisord.ProcessInfo, error) {
 	return pi, nil
 }
 
-
 // convertProcessState converts supervisord state to ProcessState
 func convertProcessState(state supervisord.ProcessState) ProcessState {
 	switch state {
@@ -65,7 +64,7 @@ func convertProcessState(state supervisord.ProcessState) ProcessState {
 }
 
 func (s *service) Config() error {
-	client, err := conf.GetConf().Supervisor.GetSupervisorClient()
+	client, err := conf.GetConf().GetSupervisorClient()
 	if err != nil {
 		return err
 	}

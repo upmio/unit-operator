@@ -14,18 +14,18 @@ func TestSanitizeForLogging(t *testing.T) {
 		{
 			name: "basic password and key fields",
 			input: map[string]interface{}{
-				"username":    "user123",
-				"password":    "secret123",
-				"access_key":  "ak123",
-				"secret_key":  "sk456",
-				"host":        "localhost",
+				"username":   "user123",
+				"password":   "secret123",
+				"access_key": "ak123",
+				"secret_key": "sk456",
+				"host":       "localhost",
 			},
 			expected: map[string]interface{}{
-				"username":    "user123",
-				"password":    "***",
-				"access_key":  "***",
-				"secret_key":  "***",
-				"host":        "localhost",
+				"username":   "user123",
+				"password":   "***",
+				"access_key": "***",
+				"secret_key": "***",
+				"host":       "localhost",
 			},
 		},
 		{
@@ -50,18 +50,18 @@ func TestSanitizeForLogging(t *testing.T) {
 		{
 			name: "fields without sensitive information",
 			input: map[string]interface{}{
-				"username":  "user123",
-				"host":      "localhost",
-				"port":      3306,
-				"database":  "mydb",
-				"timeout":   30,
+				"username": "user123",
+				"host":     "localhost",
+				"port":     3306,
+				"database": "mydb",
+				"timeout":  30,
 			},
 			expected: map[string]interface{}{
-				"username":  "user123",
-				"host":      "localhost",
-				"port":      3306,
-				"database":  "mydb",
-				"timeout":   30,
+				"username": "user123",
+				"host":     "localhost",
+				"port":     3306,
+				"database": "mydb",
+				"timeout":  30,
 			},
 		},
 		{
@@ -118,7 +118,7 @@ func TestIsSensitiveField(t *testing.T) {
 		{"ssh_key", true},
 		{"privateKey", true},
 		{"publicKey", true},
-		
+
 		// Should not be sensitive
 		{"username", false},
 		{"host", false},

@@ -34,8 +34,6 @@ func GetVersion() string {
 	tempVer := "dev"
 	if VERSION != "" {
 		tempVer = VERSION
-	} else {
-		tempVer = "dev"
 	}
 
 	version := fmt.Sprintf(

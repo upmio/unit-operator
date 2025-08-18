@@ -19,15 +19,11 @@ message RewriteConfigRequest {
   string value = 4;
 }
 
-message RewriteConfigResponse {
-  string message = 1;
-}
-
-message SyncConfigResponse {
+message Response {
   string message = 1;
 }
 
 service SyncConfigService {
-  rpc SyncConfig (SyncConfigRequest) returns (SyncConfigResponse);
-  rpc RewriteConfig (RewriteConfigRequest) returns (RewriteConfigResponse);
+  rpc SyncConfig (SyncConfigRequest) returns (Response);
+  rpc RewriteConfig (RewriteConfigRequest) returns (Response);
 }

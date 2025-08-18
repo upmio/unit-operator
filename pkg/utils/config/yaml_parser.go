@@ -15,7 +15,7 @@ func NewViper(originConfig, configType string) (*viper.Viper, error) {
 		viperConfig = viper.NewWithOptions(viper.KeyDelimiter(keyDelimiter))
 	}
 
-	// 目前配置文件格式都改为yaml
+	// Currently all configuration file formats are changed to yaml
 	if configType == "" {
 		configType = "yaml"
 	}
@@ -23,7 +23,7 @@ func NewViper(originConfig, configType string) (*viper.Viper, error) {
 
 	err := viperConfig.ReadConfig(bytes.NewBuffer([]byte(originConfig)))
 	if err != nil {
-		return nil, fmt.Errorf("Viper read origin config ERROR:[%s] ", err.Error())
+		return nil, fmt.Errorf("viper read origin config ERROR:[%s] ", err.Error())
 	}
 
 	return viperConfig, nil

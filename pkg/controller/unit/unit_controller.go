@@ -106,7 +106,7 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 
 	var err error
 	// examine DeletionTimestamp to determine if object is under deletion
-	if unit.ObjectMeta.DeletionTimestamp != nil || !unit.ObjectMeta.DeletionTimestamp.IsZero() {
+	if unit.DeletionTimestamp != nil || !unit.DeletionTimestamp.IsZero() {
 		errs := []error{}
 		var wg sync.WaitGroup
 
@@ -124,8 +124,6 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 					errs = append(errs, err)
 					return
 				}
-
-				return
 			}(myFinalizerName)
 		}
 		wg.Wait()

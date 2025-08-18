@@ -6,7 +6,6 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends"
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -46,7 +45,7 @@ type TemplateResource struct {
 // NewTemplateResource creates a TemplateResource.
 func NewTemplateResource(config Config) (*TemplateResource, error) {
 	if config.StoreClient == nil {
-		return nil, errors.New("A valid StoreClient is required.")
+		return nil, errors.New("valid storeClient is required")
 	}
 
 	// Set the default uid and gid so we can determine if it was
@@ -111,16 +110,16 @@ func (t *TemplateResource) createStageFile() error {
 
 	tmpl, err := template.New(filepath.Base(t.Src)).Funcs(t.funcMap).ParseFiles(t.Src)
 	if err != nil {
-		return fmt.Errorf("Unable to process template %s, %s", t.Src, err)
+		return fmt.Errorf("unable to process template %s, %s", t.Src, err)
 	}
 
 	if _, err := os.Stat(filepath.Dir(t.Dest)); os.IsNotExist(err) {
 		if err := os.Mkdir(filepath.Dir(t.Dest), dirMode); err != nil {
-			return fmt.Errorf("Create %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
+			return fmt.Errorf("create %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
 		}
 
 		if err := os.Chown(filepath.Dir(t.Dest), uid, gid); err != nil {
-			return fmt.Errorf("Chown %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
+			return fmt.Errorf("chown %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
 		}
 	}
 
@@ -131,11 +130,19 @@ func (t *TemplateResource) createStageFile() error {
 	}
 
 	if err = tmpl.Execute(temp, nil); err != nil {
-		temp.Close()
-		os.Remove(temp.Name())
+		if closeErr := temp.Close(); closeErr != nil {
+			fmt.Printf("failed to close temp file: %v\n", closeErr)
+		}
+		if removeErr := os.Remove(temp.Name()); removeErr != nil {
+			fmt.Printf("failed to remove temp file: %v\n", removeErr)
+		}
 		return err
 	}
-	defer temp.Close()
+	defer func() {
+		if err := temp.Close(); err != nil {
+			fmt.Printf("failed to close temp file: %v\n", err)
+		}
+	}()
 
 	// check to see if there is any rewrite configuration in the original configuration file,
 	// and if so, append it to the current file.
@@ -144,7 +151,11 @@ func (t *TemplateResource) createStageFile() error {
 		if err != nil {
 			return err
 		}
-		defer destFileObj.Close()
+		defer func() {
+			if err := destFileObj.Close(); err != nil {
+				fmt.Printf("failed to close dest file: %v\n", err)
+			}
+		}()
 		content, err := io.ReadAll(destFileObj)
 		if err != nil {
 			return err
@@ -157,15 +168,21 @@ func (t *TemplateResource) createStageFile() error {
 			}
 
 			if needWriteFlag && len(line) != 0 {
-				temp.WriteString(line + "\n")
+				if _, err := temp.WriteString(line + "\n"); err != nil {
+					fmt.Printf("failed to write to temp file: %v\n", err)
+				}
 			}
 		}
 	}
 
 	// Set the owner, group, and mode on the stage file now to make it easier to
 	// compare against the destination configuration file later.
-	os.Chmod(temp.Name(), t.FileMode)
-	os.Chown(temp.Name(), t.Uid, t.Gid)
+	if err := os.Chmod(temp.Name(), t.FileMode); err != nil {
+		fmt.Printf("failed to chmod temp file: %v\n", err)
+	}
+	if err := os.Chown(temp.Name(), t.Uid, t.Gid); err != nil {
+		fmt.Printf("failed to chown temp file: %v\n", err)
+	}
 	t.StageFile = temp
 	return nil
 }
@@ -178,7 +195,11 @@ func (t *TemplateResource) createStageFile() error {
 func (t *TemplateResource) sync() error {
 	staged := t.StageFile.Name()
 
-	defer os.Remove(staged)
+	defer func() {
+		if err := os.Remove(staged); err != nil {
+			fmt.Printf("failed to remove staged file: %v\n", err)
+		}
+	}()
 	ok, err := util.IsConfigChanged(staged, t.Dest)
 	if err != nil {
 		return err
@@ -200,13 +221,15 @@ func (t *TemplateResource) sync() error {
 				// try to open the file and write to it
 				var contents []byte
 				var rerr error
-				contents, rerr = ioutil.ReadFile(staged)
+				contents, rerr = os.ReadFile(staged)
 				if rerr != nil {
 					return rerr
 				}
-				err := ioutil.WriteFile(t.Dest, contents, t.FileMode)
+				err := os.WriteFile(t.Dest, contents, t.FileMode)
 				// make sure owner and group match the temp file, in case the file was created with WriteFile
-				os.Chown(t.Dest, t.Uid, t.Gid)
+				if chownErr := os.Chown(t.Dest, t.Uid, t.Gid); chownErr != nil {
+					fmt.Printf("failed to chown dest file: %v\n", chownErr)
+				}
 				if err != nil {
 					return err
 				}

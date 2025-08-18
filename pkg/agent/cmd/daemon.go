@@ -38,7 +38,11 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run as a daemon process",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				fmt.Printf("failed to close file: %v\n", err)
+			}
+		}()
 
 		// initialize global variables
 		if err := conf.LoadConfigFromToml(configPath); err != nil {
@@ -50,7 +54,11 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 
-		defer zap.L().Sync()
+		defer func() {
+			if err := zap.L().Sync(); err != nil {
+				fmt.Printf("failed to sync logger: %v\n", err)
+			}
+		}()
 
 		unitType := os.Getenv("UNIT_TYPE")
 		zap.L().Named("[INIT]").Sugar().Infof("get env UNIT_TYPE=%s", unitType)
@@ -85,7 +93,7 @@ var daemonCmd = &cobra.Command{
 
 		// start service
 		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL, syscall.SIGHUP, syscall.SIGQUIT)
+		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 
 		// init service
 		svr, err := newService()
@@ -115,17 +123,13 @@ func init() {
 }
 
 type service struct {
-	http   *protocol.HTTPService
 	grpc   *protocol.GrpcService
 	logger *zap.SugaredLogger
 }
 
 func newService() (*service, error) {
-	http := protocol.NewHTTPService()
-	grpc := protocol.NewGrpcService()
 	svr := &service{
-		http:   http,
-		grpc:   grpc,
+		grpc:   protocol.NewGrpcService(),
 		logger: zap.L().Named("[INIT]").Sugar(),
 	}
 
@@ -133,31 +137,21 @@ func newService() (*service, error) {
 }
 
 func (s *service) start() error {
-	s.logger.Info(fmt.Sprintf("loaded http apps: %s", app.LoadedHttpApp()))
 	s.logger.Info(fmt.Sprintf("loaded grpc apps %s", app.LoadedGrpcApp()))
 	go s.grpc.Start()
 
-	if httpEnable {
-		return s.http.Start()
-	} else {
-		return nil
-	}
+	return nil
 }
 
+//nolint:staticcheck // S1000: keeping select structure for future extensibility
 func (s *service) waitSign(sign chan os.Signal, wg *sync.WaitGroup) {
 	for {
 		select {
 		case sg := <-sign:
 			switch v := sg.(type) {
 			default:
-				if httpEnable {
-					zap.L().Named("[HTTP SERVICE]").Sugar().Infof("receive signal '%v', start graceful shutdown", v.String())
-					if err := s.http.Stop(); err != nil {
-						zap.L().Named("[HTTP SERVICE]").Sugar().Errorf("http graceful shutdown err: %s, force exit", err)
-					} else {
-						zap.L().Named("[HTTP SERVICE]").Info("http service stop complete")
-					}
-				}
+				zap.L().Named("[GRPC SERVICE]").Sugar().Infof("receive signal '%v', start graceful shutdown", v.String())
+
 				s.grpc.Stop()
 				wg.Done()
 				return
@@ -176,29 +170,29 @@ func loadGlobalLogger() error {
 	cfg.EncodeTime = zapcore.ISO8601TimeEncoder
 	cfg.EncodeLevel = zapcore.CapitalLevelEncoder
 
-	if _, err := os.Stat(conf.GetConf().Log.PathDir); os.IsNotExist(err) {
-		err := os.Mkdir(conf.GetConf().Log.PathDir, 0755)
+	if _, err := os.Stat(conf.GetConf().PathDir); os.IsNotExist(err) {
+		err := os.Mkdir(conf.GetConf().PathDir, 0755)
 		if err != nil {
-			return fmt.Errorf("Create %s directory fail, error: %v ", conf.GetConf().Log.PathDir, err)
+			return fmt.Errorf("create %s directory fail, error: %v ", conf.GetConf().PathDir, err)
 		}
 	}
 
-	logJsonfile := filepath.Join(conf.GetConf().Log.PathDir, version.ServiceName+"-json.log")
+	logJsonfile := filepath.Join(conf.GetConf().PathDir, version.ServiceName+"-json.log")
 	fileJson, err := os.Create(logJsonfile)
 	if err != nil {
-		return fmt.Errorf("Create log json file fail, error: %v ", err)
+		return fmt.Errorf("create log json file fail, error: %v ", err)
 	}
 
-	logfile := filepath.Join(conf.GetConf().Log.PathDir, version.ServiceName+".log")
+	logfile := filepath.Join(conf.GetConf().PathDir, version.ServiceName+".log")
 	file, err := os.Create(logfile)
 	if err != nil {
-		return fmt.Errorf("Create log file fail, error: %v ", err)
+		return fmt.Errorf("create log file fail, error: %v ", err)
 	}
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(zapcore.NewJSONEncoder(cfg), zapcore.AddSync(fileJson), conf.GetConf().Log.GetLogLevel()),
-		zapcore.NewCore(zapcore.NewConsoleEncoder(cfg), zapcore.AddSync(file), conf.GetConf().Log.GetLogLevel()),
-		zapcore.NewCore(zapcore.NewConsoleEncoder(cfg), zapcore.Lock(os.Stdout), conf.GetConf().Log.GetLogLevel()),
+		zapcore.NewCore(zapcore.NewJSONEncoder(cfg), zapcore.AddSync(fileJson), conf.GetConf().GetLogLevel()),
+		zapcore.NewCore(zapcore.NewConsoleEncoder(cfg), zapcore.AddSync(file), conf.GetConf().GetLogLevel()),
+		zapcore.NewCore(zapcore.NewConsoleEncoder(cfg), zapcore.Lock(os.Stdout), conf.GetConf().GetLogLevel()),
 	)
 	//logger := zap.New(core, zap.AddCaller())
 	logger := zap.New(core)

@@ -24,11 +24,11 @@ func (r *ResponseWithMessage) GetMessage() string {
 // This function creates a response object with the given message constructor function
 func LogAndReturnError[T any](logger *zap.SugaredLogger, newResponse func(string) *T, errMsg string, err error) (*T, error) {
 	if err != nil {
-		errMsg = fmt.Sprintf("%s: %v", errMsg, err)
+		errMsg = fmt.Errorf("%s: %v", errMsg, err).Error()
 	}
 	logger.Error(errMsg)
 	response := newResponse(errMsg)
-	return response, fmt.Errorf(errMsg)
+	return response, fmt.Errorf("%s", errMsg)
 }
 
 // LogAndReturnSuccess logs success and returns response
@@ -50,15 +50,19 @@ func LogAndReturnErrorWithEvent[T any](logger *zap.SugaredLogger, recorder Event
 	if err != nil {
 		errMsg = fmt.Sprintf("%s: %v", errMsg, err)
 	}
-	recorder.SendWarningEventToUnit(unitName, namespace, reason, errMsg)
+	if err := recorder.SendWarningEventToUnit(unitName, namespace, reason, errMsg); err != nil {
+		logger.Errorf("failed to send warning event: %v", err)
+	}
 	logger.Error(errMsg)
 	response := newResponse(errMsg)
-	return response, fmt.Errorf(errMsg)
+	return response, fmt.Errorf("%s", errMsg)
 }
 
 // LogAndReturnSuccessWithEvent logs success, sends normal event, and returns response
 func LogAndReturnSuccessWithEvent[T any](logger *zap.SugaredLogger, recorder EventRecorder, newResponse func(string) *T, unitName, namespace, reason, msg string) (*T, error) {
-	recorder.SendNormalEventToUnit(unitName, namespace, reason, msg)
+	if err := recorder.SendNormalEventToUnit(unitName, namespace, reason, msg); err != nil {
+		logger.Errorf("failed to send normal event: %v", err)
+	}
 	logger.Info(msg)
 	response := newResponse(msg)
 	return response, nil

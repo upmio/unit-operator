@@ -7,13 +7,15 @@
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png" alt="Kubernetes Operator" width="120" height="120">
-  <h3>Unit Operator - Database and Middleware Operator for Kubernetes</h3>
-  <p>Manage database and middleware workloads with built-in high availability, scaling, and lifecycle management capabilities</p>
+  <h3>Unit Operator - Distributed Workload Operator for Kubernetes</h3>
+  <p>Manage UnitSet, Unit, and GrpcCall resources with built-in high availability, scaling, and lifecycle management capabilities</p>
 </div>
 
 ## ✨ Features
 
-- 🗄️ **Database Support**: MySQL, PostgreSQL, ProxySQL, Redis Sentinel
+- 🎯 **UnitSet Management**: Manages sets of distributed units with shared configuration
+- 📦 **Unit Lifecycle**: Individual workload instance management with sidecar agents
+- 📞 **gRPC Operations**: Manages gRPC-based operations between units
 - 🛡️ **High Availability**: Built-in replication and failover mechanisms
 - 📈 **Scaling**: Horizontal and vertical scaling capabilities
 - 🔄 **Lifecycle Management**: Automated backup, recovery, and upgrades
@@ -24,9 +26,9 @@
 ## 🏗️ Architecture
 
 <div align="center">
-  <img src="https://img.icons8.com/color/96/000000/kubernetes.png" alt="Kubernetes" width="48" height="48">
-  <img src="https://img.icons8.com/color/96/000000/database.png" alt="Database" width="48" height="48">
-  <img src="https://img.icons8.com/color/96/000 infinity-loop.png" alt="Loop" width="48" height="48">
+  <img src="https://img.icons8.com/color/96/kubernetes.png" alt="Kubernetes" width="48" height="48">
+  <img src="https://img.icons8.com/color/96/database.png" alt="Database" width="48" height="48">
+  <img src="https://img.icons8.com/color/96/infinity.png" alt="Loop" width="48" height="48">
 </div>
 
 The Unit Operator follows a two-layer architecture:
@@ -48,9 +50,10 @@ The Unit Operator follows a two-layer architecture:
 └─────────────────────────────────────┘
 ```
 
-- 🎯 **UnitSet**: Manages a cluster of database instances with shared configuration
-- 📦 **Unit**: Individual database instances with sidecar agents for advanced operations
-- 🤖 **Agent**: Sidecar container providing database-specific operations and configuration management
+- 🎯 **UnitSet**: Manages a set of distributed units with shared configuration
+- 📦 **Unit**: Individual workload instances with sidecar agents for advanced operations
+- 📞 **GrpcCall**: Manages gRPC-based operations between units
+- 🤖 **Agent**: Sidecar container providing unit-specific operations and configuration management
 
 ## 📋 Prerequisites
 
@@ -80,87 +83,101 @@ helm install unit-operator --namespace upm-system --create-namespace \
 kubectl apply -f config/crd/bases/
 ```
 
-### 🐳 Example: Deploy MySQL Cluster
+### 🐳 Example: Deploy UnitSet with gRPC Communication
 
 ```yaml
-# Create secret for credentials
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mysql-cluster-secret
-  namespace: default
-data:
-  root: VjVyOExqQmxyM3N2ODNsUHVrbmhDK29KZGRRQXl1dzlOWTJmNEJ6djdoRT0=  # base64 encoded password
-  replication: V1Y2MVZyZFRjbEVuT1lkbEx0R1c5cTljUmd0UjZubTlOM05aZkw2NkRxbz0=
-type: Opaque
-
 # Create shared configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mysql-cluster-config
+  name: unitset-config
   namespace: default
 data:
   service_group_uid: "6fa3ca2a-0ffd-4ca7-8615-e2589f7dd413"
-  mysql_ports: '[{"name": "mysql", "containerPort": "3306","protocol": "TCP"}]'
+  mysql_ports: '[{"name": "grpc", "containerPort": "50051","protocol": "TCP"}]'
 
-# Deploy MySQL cluster
+# Deploy UnitSet
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
-  name: mysql-cluster
+  name: example-unitset
   namespace: default
 spec:
   type: mysql
-  version: "8.0.41"
-  edition: community
+  version: "1.0.0"
   units: 3
-  sharedConfigName: mysql-cluster-config
+  sharedConfigName: unitset-config
   resources:
     limits:
       cpu: "1"
       memory: 2Gi
     requests:
-      cpu: "1"
+      cpu: "500m"
       memory: 1Gi
   storages:
     - name: data
       mountPath: /DATA_MOUNT
       size: 10Gi
       storageClassName: standard
-  secret:
-    mountPath: /SECRET_MOUNT
-    name: mysql-cluster-secret
   env:
-    - name: ARCH_MODE
-      value: rpl_semi_sync
-    - name: ADM_USER
-      value: root
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+```
+
+### 📞 Example: Create gRPC Call
+
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: example-grpc-call
+  namespace: default
+spec:
+  targetUnit: "example-unitset-0"
+  type: mysql
+  action: set-variable
+  ttlSecondsAfterFinished: 600
+  parameters:
+    variables:
+      ping: "true"
 ```
 
 ### ✅ Verify Deployment
 
 ```bash
 # Check UnitSet status
-kubectl get unitset mysql-cluster
+kubectl get unitset example-unitset
 
 # Check individual units
 kubectl get units
 
 # Check pod status
-kubectl get pods -l app=mysql-cluster
+kubectl get pods -l app=example-unitset
 ```
 
 ## ⚙️ Configuration
 
-### 🗄️ Supported Database Types
+### 🎯 Supported Resource Types
 
-| Database | 📊 Versions | 🔄 Replication Modes |
+| Resource | 📊 API Version | 📝 Description |
 |-----------|-------------|-------------------|
-| MySQL | 5.7, 8.0+ | Async, Semi-sync, Group Replication |
-| PostgreSQL | 12, 13, 14, 15+ | Streaming Replication |
-| ProxySQL | 2.0+ | N/A |
-| Redis Sentinel | 6.0+ | Sentinel HA |
+| UnitSet | v1alpha2 | Manages a set of distributed units |
+| Unit | v1alpha2 | Individual workload instances |
+| GrpcCall | v1alpha1 | Manages gRPC-based operations |
+
+### 📞 gRPC Communication
+
+The operator supports gRPC communication between units:
+- Service discovery and registration
+- Health checks and monitoring
+- Configuration synchronization
+- Cross-unit communication
 
 ### 💾 Storage Configuration
 

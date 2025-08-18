@@ -74,6 +74,7 @@ spec:
 | `units` | int | Yes | `3` |
 | `storages` | []StorageSpec | No | See below |
 | `secret` | SecretInfo | No | See below |
+| Annotation `upm.io/node-name-map` | map[string]string (JSON) | No | `{ "cluster-0": "node-a", "cluster-1": "noneSet" }` |
 
 ### Storage Configuration
 ```yaml

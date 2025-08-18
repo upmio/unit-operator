@@ -5,14 +5,14 @@ import (
 	"flag"
 	"fmt"
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
+	klog "k8s.io/klog/v2"
 	"os"
 	"time"
 
 	"github.com/upmio/unit-operator/pkg/certs"
 	"github.com/upmio/unit-operator/pkg/utils/log"
-	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alph2"
+	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
 
-	"github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/controller/unit"
 	"github.com/upmio/unit-operator/pkg/controller/unitset"
 
@@ -32,14 +32,12 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	componentbaseconfig "k8s.io/component-base/config"
-	"k8s.io/klog/v2"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	syntropycloudiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 
 	certmanagerV1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -75,8 +73,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
-	utilruntime.Must(syntropycloudiov1alpha2.AddToScheme(scheme))
+	utilruntime.Must(upmv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(upmv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 

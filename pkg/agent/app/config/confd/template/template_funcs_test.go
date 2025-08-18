@@ -5,6 +5,7 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -12,19 +13,12 @@ const (
 	testDir = "./test"
 )
 
-const (
-	tomlFilePath = "test/confd/config.toml"
-	tmplFilePath = "test/templates/test.conf.tmpl"
-)
-
 type templateTest struct {
-	desc             string                  // description of the test (for helpful errors)
-	toml             string                  // toml file contents
-	tmpl             string                  // template file contents
-	content          string                  // value contents
-	extetend_content string                  // value extend contents
-	expected         interface{}             // expected generated file contents
-	updateStore      func(*TemplateResource) // function for setting values in store
+	desc             string      // description of the test (for helpful errors)
+	tmpl             string      // template file contents
+	content          string      // value contents
+	extetend_content string      // value extend contents
+	expected         interface{} // expected generated file contents
 }
 
 // templateTests is an array of templateTest structs, each representing a test of
@@ -36,17 +30,20 @@ var templateTests = []templateTest{
 		tmpl: `test: {{ getv "/default/test" }}
 connect: {{ join (jsonArrayAppend (getv "/default/connect") ":9000" ":2900") "," }}
 ip: {{ getenv "HOST_IP" }}
-password: {{ AESCBCDecrypt "/ru+KsOJgjj+JZS11HRh1IDFsQILgnyoqn16XqyoKoo=" }}
 extend1: {{ getv "/extend1" }}
 extend2: {{ getv "/extend2" }}
 {{- range $index,$value := jsonArray (getv "/default/save")}}
 save {{ $index }} {{ $value }}
 {{- end }}
+{{- $key := "key" }}
+{{- $count := 6 }}
+{{- range $i := seq 0 (sub $count 1) }}
+{{ $key }}-{{ $i }}
+{{- end }}
 `,
 		expected: `test: xxxxxx
 connect: aaaa:9000:2900,bbbb:9000:2900,cccc:9000:2900
 ip: 192.168.1.1
-password: 18c6!@nkBNK9P!*d8&1Iq2Qt
 extend1: abc
 extend2: def
 save 0 [aaa bbb ccc]
@@ -76,91 +73,51 @@ extend2: def
 }
 
 // TestTemplates runs all tests in templateTests
-//func TestTemplates(t *testing.T) {
-//	for _, tt := range templateTests {
-//		ExecuteTestTemplate(tt, t)
-//	}
-//}
+func TestTemplates(t *testing.T) {
+	for _, tt := range templateTests {
+		ExecuteTestTemplate(tt, t)
+	}
+}
 
-// ExectureTestTemplate builds a TemplateResource based on the toml and tmpl files described
-// in the templateTest, writes a config file, and compares the result against the expectation
-// in the templateTest.
 func ExecuteTestTemplate(tt templateTest, t *testing.T) {
-	setupDirectoriesAndFiles(tt, t)
-	defer os.RemoveAll("test")
-
-	tr, err := templateResource()
-	if err != nil {
-		t.Errorf(tt.desc + ": failed to create TemplateResource: " + err.Error())
+	if err := os.MkdirAll(testDir, os.ModePerm); err != nil {
+		t.Error(tt.desc + ": failed to create template directory: " + err.Error())
 	}
 
-	tt.updateStore(tr)
+	//defer os.RemoveAll(testDir)
 
-	if err := tr.createStageFile(); err != nil {
-		t.Errorf(tt.desc + ": failed createStageFile: " + err.Error())
+	if err := ioutil.WriteFile(filepath.Join(testDir, "test.tmpl"), []byte(tt.tmpl), os.ModePerm); err != nil {
+		t.Error(tt.desc + ": failed to write template file: " + err.Error())
 	}
 
-	actual, err := ioutil.ReadFile(tr.StageFile.Name())
-	if err != nil {
-		t.Errorf(tt.desc + ": failed to read StageFile: " + err.Error())
-	}
-	switch tt.expected.(type) {
-	case string:
-		if string(actual) != tt.expected.(string) {
-			t.Errorf(fmt.Sprintf("%v: invalid StageFile. Expected %v, actual %v", tt.desc, tt.expected, string(actual)))
-		}
-	case []string:
-		for _, expected := range tt.expected.([]string) {
-			if string(actual) == expected {
-				break
-			}
-		}
-		t.Errorf(fmt.Sprintf("%v: invalid StageFile. Possible expected values %v, actual %v", tt.desc, tt.expected, string(actual)))
-	}
-}
-
-// setUpDirectoriesAndFiles creates folders for the toml, tmpl, and output files and
-// creates the toml and tmpl files as specified in the templateTest struct.
-func setupDirectoriesAndFiles(tt templateTest, t *testing.T) {
-	// create confd directory and toml file
-	if err := os.MkdirAll("./test/confd", os.ModePerm); err != nil {
-		t.Errorf(tt.desc + ": failed to created confd directory: " + err.Error())
-	}
-	if err := ioutil.WriteFile(tomlFilePath, []byte(tt.toml), os.ModePerm); err != nil {
-		t.Errorf(tt.desc + ": failed to write toml file: " + err.Error())
-	}
-	// create templates directory and tmpl file
-	if err := os.MkdirAll("./test/templates", os.ModePerm); err != nil {
-		t.Errorf(tt.desc + ": failed to create template directory: " + err.Error())
-	}
-	if err := ioutil.WriteFile(tmplFilePath, []byte(tt.tmpl), os.ModePerm); err != nil {
-		t.Errorf(tt.desc + ": failed to write toml file: " + err.Error())
-	}
-	// create tmp directory for output
-	if err := os.MkdirAll("./test/tmp", os.ModePerm); err != nil {
-		t.Errorf(tt.desc + ": failed to create tmp directory: " + err.Error())
-	}
-}
-
-// templateResource creates a templateResource for creating a config file
-func templateResource() (*TemplateResource, error) {
 	backendConf := backends.Config{
-		Backend: "env"}
+		Backend:  "content",
+		Contents: []string{tt.content, tt.extetend_content},
+	}
 	client, err := backends.New(backendConf)
 	if err != nil {
-		return nil, err
+		t.Error(tt.desc + ": create backends client failed: " + err.Error())
 	}
 
 	config := Config{
-		StoreClient: client, // not used but must be set
-		//TemplateDir: "./test/templates",
+		StoreClient:  client,
+		TemplateFile: filepath.Join(testDir, "test.tmpl"),
+		DestFile:     filepath.Join(testDir, "test.conf"),
 	}
 
-	tr, err := NewTemplateResource(config)
+	t.Setenv("HOST_IP", "192.168.1.1")
+	err = Process(config)
 	if err != nil {
-		return nil, err
+		t.Error(tt.desc + ": generate failed: " + err.Error())
 	}
-	tr.Dest = "./test/tmp/test.conf"
-	tr.FileMode = 0666
-	return tr, nil
+
+	actual, err := os.ReadFile(filepath.Join(testDir, "test.conf"))
+	if err != nil {
+		t.Error(tt.desc + ": failed to read StageFile: " + err.Error())
+	}
+	t.Log(string(actual))
+
+	if string(actual) != tt.expected.(string) {
+		t.Error(fmt.Sprintf("%v: invalid StageFile.\nExpected:\n%vActual:\n%v", tt.desc, tt.expected, string(actual)))
+	}
 }

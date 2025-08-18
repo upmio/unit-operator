@@ -29,7 +29,7 @@ func (r *UnitSetReconciler) reconcileUnit(
 	unitNames, unitNamesWithIndex := unitset.UnitNames()
 	klog.V(4).Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
 
-	// 此处 volumes 中没有 pvc name，需要在生成单元时填入
+	// PVC name needs to be filled in during unit generation
 	volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
 	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumeMounts len:[%d],[%v]", req.String(), len(volumeMounts), volumeMounts)
 	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumes len:[%d],[%v]", req.String(), len(volumes), volumes)
@@ -73,8 +73,6 @@ func (r *UnitSetReconciler) reconcileUnit(
 				errsMutex.Unlock()
 				return
 			}
-
-			return
 
 		}(unitName)
 	}
@@ -166,20 +164,55 @@ func fillUnitPersonalizedInfo(
 
 	unit.Spec.ConfigValueName = unitset.ConfigValueName(unitName)
 
-	// if NodeNameMap not empty, fill node name to unit.spec and unit.annotation
-	if unitset.Spec.NodeNameMap != nil && len(unitset.Spec.NodeNameMap) != 0 {
-		nodeName, ok := unitset.Spec.NodeNameMap[unitName]
+	// if NodeNameMap (from annotations) not empty, fill node name to node affinity
+	nodeNameMap := getNodeNameMapFromAnnotations(unitset)
+	if len(nodeNameMap) != 0 {
+		nodeName, ok := nodeNameMap[unitName]
 		if ok && nodeName != upmiov1alpha2.NoneSetFlag {
-			unit.Spec.Template.Spec.NodeName = nodeName
 			unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
+
+			if unit.Spec.Template.Spec.Affinity == nil {
+				unit.Spec.Template.Spec.Affinity = &v1.Affinity{}
+			}
+
+			matchExpressions := v1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: v1.NodeSelectorOpIn,
+				Values:   []string{nodeName},
+			}
+
+			// append matchExpressions
+			if unit.Spec.Template.Spec.Affinity.NodeAffinity == nil {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity = &v1.NodeAffinity{}
+			}
+
+			if unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								matchExpressions,
+							},
+						},
+					},
+				}
+			} else {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+					unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+					v1.NodeSelectorTerm{
+						MatchExpressions: []v1.NodeSelectorRequirement{
+							matchExpressions,
+						},
+					})
+			}
 		}
 	}
 
-	// emptyDir 不需要 pvc
-	if unitset.Spec.Storages != nil && len(unitset.Spec.Storages) != 0 {
-		if unit.Spec.Template.Spec.Volumes != nil && len(unit.Spec.Template.Spec.Volumes) != 0 {
+	// emptyDir doesn't need pvc
+	if len(unitset.Spec.Storages) != 0 {
+		if len(unit.Spec.Template.Spec.Volumes) != 0 {
 			for i := range unit.Spec.Template.Spec.Volumes {
-				// 非 secret
+				// ignore secret
 				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
@@ -238,21 +271,18 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 		},
 	}
 
-	if pvcs != nil && len(pvcs) != 0 {
+	if len(pvcs) != 0 {
 		unit.Spec.VolumeClaimTemplates = pvcs
 	}
 
-	//// 此处 volumes 中没有 pvc name，需要在生成单元时填入
-	//volumeMounts, volumes, envVars := fillVolumeClaimTemplatesGenerateVolumeMountsAndEnvs(unitset, unit)
-
-	if unitset.Labels != nil && len(unitset.Labels) != 0 {
+	if len(unitset.Labels) != 0 {
 		for k, v := range unitset.Labels {
 			unit.Labels[k] = v
 		}
 	}
 	unit.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
 
-	if unitset.Annotations != nil && len(unitset.Annotations) != 0 {
+	if len(unitset.Annotations) != 0 {
 		for k, v := range unitset.Annotations {
 			unit.Annotations[k] = v
 		}
@@ -279,7 +309,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 }
 
 func fillPortToDefaultContainer(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet, ports upmiov1alpha2.Ports) {
-	if ports == nil || len(ports) == 0 {
+	if len(ports) == 0 {
 		return
 	}
 
@@ -303,7 +333,7 @@ func fillPortToDefaultContainer(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2
 
 func fillNodeAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 	matchExpressions := []v1.NodeSelectorRequirement{}
-	if unitset.Spec.NodeAffinityPreset != nil && len(unitset.Spec.NodeAffinityPreset) != 0 {
+	if len(unitset.Spec.NodeAffinityPreset) != 0 {
 		for i := range unitset.Spec.NodeAffinityPreset {
 			matchExpressions = append(matchExpressions, v1.NodeSelectorRequirement{
 				Key:      unitset.Spec.NodeAffinityPreset[i].Key,
@@ -313,7 +343,7 @@ func fillNodeAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) 
 		}
 	}
 
-	if matchExpressions != nil && len(matchExpressions) != 0 {
+	if len(matchExpressions) != 0 {
 		if unit.Spec.Template.Spec.Affinity == nil {
 			unit.Spec.Template.Spec.Affinity = &v1.Affinity{}
 		}
@@ -332,10 +362,9 @@ func fillNodeAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) 
 
 func fillPodAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 	if unitset.Spec.PodAntiAffinityPreset != "" {
-		matchExpressions := metav1.LabelSelectorRequirement{}
 		switch unitset.Spec.PodAntiAffinityPreset {
 		case "soft":
-			matchExpressions = metav1.LabelSelectorRequirement{
+			matchExpressions := metav1.LabelSelectorRequirement{
 				Key:      upmiov1alpha2.UnitsetName,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{unitset.Name},
@@ -383,7 +412,7 @@ func fillPodAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 					},
 				})
 		case "hard":
-			matchExpressions = metav1.LabelSelectorRequirement{
+			matchExpressions := metav1.LabelSelectorRequirement{
 				Key:      upmiov1alpha2.UnitsetName,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{unitset.Name},
@@ -437,8 +466,8 @@ func fillEnvs(
 
 	klog.V(4).Infof("---------------------------------------")
 
-	// 顺序：unitset 中的、volume mount(包括 shared config)中的、pod template中的
-	// 所有容器都需要
+	// Order: unitset, volume mount (including shared config), pod template
+	// All containers need these
 
 	firstEnvs := getFirstEnvs(unitset)
 	secondEnvs := getSecondEnvs(mountEnvs, ports)
@@ -458,9 +487,10 @@ func updateContainerEnvs(unit *upmiov1alpha2.Unit, firstEnvs, secondEnvs []v1.En
 		var thirdEnvs = []v1.EnvVar{}
 		// thirdEnvs := unit.Spec.Template.Spec.InitContainers[i].Env
 		if len(unit.Spec.Template.Spec.InitContainers[i].Env) != 0 {
-			for _, env := range unit.Spec.Template.Spec.InitContainers[i].Env {
-				thirdEnvs = append(thirdEnvs, env)
-			}
+			//for _, env := range unit.Spec.Template.Spec.InitContainers[i].Env {
+			//	thirdEnvs = append(thirdEnvs, env)
+			//}
+			thirdEnvs = append(thirdEnvs, unit.Spec.Template.Spec.InitContainers[i].Env...)
 		}
 
 		klog.V(4).Infof("---[fillEnvs] unit:[%s] Container:[%s], [thirdEnvs] len:[%d], Envs:[%v]",
@@ -495,9 +525,10 @@ func updateContainerEnvs(unit *upmiov1alpha2.Unit, firstEnvs, secondEnvs []v1.En
 		var thirdEnvs = []v1.EnvVar{}
 		//thirdEnvs := unit.Spec.Template.Spec.Containers[i].Env
 		if len(unit.Spec.Template.Spec.Containers[i].Env) != 0 {
-			for _, env := range unit.Spec.Template.Spec.Containers[i].Env {
-				thirdEnvs = append(thirdEnvs, env)
-			}
+			//for _, env := range unit.Spec.Template.Spec.Containers[i].Env {
+			//	thirdEnvs = append(thirdEnvs, env)
+			//}
+			thirdEnvs = append(thirdEnvs, unit.Spec.Template.Spec.Containers[i].Env...)
 		}
 		klog.V(4).Infof("---[fillEnvs] unit:[%s] Container:[%s], [thirdEnvs] len:[%d], Envs:[%v]",
 			unit.Name, unit.Spec.Template.Spec.Containers[i].Name, len(thirdEnvs), getEnvNames(thirdEnvs))
@@ -531,7 +562,7 @@ func updateContainerEnvs(unit *upmiov1alpha2.Unit, firstEnvs, secondEnvs []v1.En
 func getFirstEnvs(unitset *upmiov1alpha2.UnitSet) []v1.EnvVar {
 
 	firstEnvs := make([]v1.EnvVar, 0)
-	if unitset.Spec.Env != nil && len(unitset.Spec.Env) != 0 {
+	if len(unitset.Spec.Env) != 0 {
 		firstEnvs = append(firstEnvs, unitset.Spec.Env...)
 	}
 
@@ -541,7 +572,7 @@ func getFirstEnvs(unitset *upmiov1alpha2.UnitSet) []v1.EnvVar {
 func getSecondEnvs(mountEnvs []v1.EnvVar, ports upmiov1alpha2.Ports) []v1.EnvVar {
 
 	secondEnvs := make([]v1.EnvVar, 0)
-	if mountEnvs != nil && len(mountEnvs) != 0 {
+	if len(mountEnvs) != 0 {
 		secondEnvs = append(secondEnvs, mountEnvs...)
 	}
 
@@ -580,11 +611,11 @@ func fillVolumeMountsAndVolumes(
 
 	klog.V(4).Infof("fillVolumeMountsAndVolumes: volumeMounts len:[%d]", len(volumeMounts))
 
-	if volumes != nil && len(volumes) != 0 {
+	if len(volumes) != 0 {
 		unit.Spec.Template.Spec.Volumes = append(unit.Spec.Template.Spec.Volumes, volumes...)
 	}
 
-	// 需要先对volumeMounts进行去重
+	// Need to deduplicate volumeMounts first
 	volumeMountsMap := make(map[string]v1.VolumeMount)
 	for _, mount := range volumeMounts {
 		volumeMountsMap[mount.Name] = mount
@@ -594,8 +625,8 @@ func fillVolumeMountsAndVolumes(
 		volumeMounts = append(volumeMounts, mount)
 	}
 
-	if volumeMounts != nil && len(volumeMounts) != 0 {
-		if unit.Spec.Template.Spec.InitContainers != nil && len(unit.Spec.Template.Spec.InitContainers) != 0 {
+	if len(volumeMounts) != 0 {
+		if len(unit.Spec.Template.Spec.InitContainers) != 0 {
 			for i := range unit.Spec.Template.Spec.InitContainers {
 				for j := range volumeMounts {
 					containerAddMounter(&unit.Spec.Template.Spec.InitContainers[i], volumeMounts[j])
@@ -603,7 +634,7 @@ func fillVolumeMountsAndVolumes(
 			}
 		}
 
-		if unit.Spec.Template.Spec.Containers != nil && len(unit.Spec.Template.Spec.Containers) != 0 {
+		if len(unit.Spec.Template.Spec.Containers) != 0 {
 			for i := range unit.Spec.Template.Spec.Containers {
 				for j := range volumeMounts {
 					containerAddMounter(&unit.Spec.Template.Spec.Containers[i], volumeMounts[j])
@@ -633,7 +664,7 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 	var volumes []v1.Volume
 	var envs []v1.EnvVar
 
-	if unitset.Spec.Storages != nil && len(unitset.Spec.Storages) != 0 {
+	if len(unitset.Spec.Storages) != 0 {
 		for _, storageInfo := range unitset.Spec.Storages {
 			volumeClaimTemplates = append(volumeClaimTemplates, v1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -674,7 +705,7 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 		}
 	}
 
-	if unitset.Spec.EmptyDir != nil && len(unitset.Spec.EmptyDir) != 0 {
+	if len(unitset.Spec.EmptyDir) != 0 {
 		for _, emptyDirInfo := range unitset.Spec.EmptyDir {
 			volumeMount = append(volumeMount, v1.VolumeMount{
 				Name:      emptyDirInfo.Name,

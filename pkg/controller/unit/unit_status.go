@@ -89,7 +89,7 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 		unit.Status.NodeName = node.Name
 	}
 
-	if pvcs != nil && len(pvcs) != 0 {
+	if len(pvcs) != 0 {
 		pvcInfo := []upmiov1alpha2.PvcInfo{}
 		for _, claim := range pvcs {
 			onePvc := upmiov1alpha2.PvcInfo{
@@ -122,43 +122,46 @@ func (r *UnitReconciler) unitManagedResources(
 	[]*v1.PersistentVolumeClaim,
 	*v1.Node,
 	error) {
-	//pod, pvc, node
-	po := &v1.Pod{}
-	node := &v1.Node{}
-	claims := []*v1.PersistentVolumeClaim{}
 
+	// Pod
+	po := &v1.Pod{}
 	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, po)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			po = nil
+		} else {
+			return nil, nil, nil, fmt.Errorf("get unit pod failed, error: [%s]", err.Error())
 		}
-		return nil, nil, nil, fmt.Errorf("get unit pod failed, error: [%s]", err.Error())
 	}
 
-	if po == nil {
-		node = nil
-	} else {
-		nodeName := po.Spec.NodeName
-		err = r.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+	// Node
+	var node *v1.Node
+	if po != nil && po.Spec.NodeName != "" {
+		node = &v1.Node{}
+		err = r.Get(ctx, client.ObjectKey{Name: po.Spec.NodeName}, node)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				node = nil
+			} else {
+				return nil, nil, nil, fmt.Errorf("get unit node failed, error: [%s]", err.Error())
 			}
-			return nil, nil, nil, fmt.Errorf("get unit node failed, error: [%s]", err.Error())
 		}
 	}
 
-	if unit.Spec.VolumeClaimTemplates != nil && len(unit.Spec.VolumeClaimTemplates) != 0 {
-		for _, one := range unit.Spec.VolumeClaimTemplates {
+	// PVCs
+	var claims []*v1.PersistentVolumeClaim
+	if unit.Spec.VolumeClaimTemplates != nil {
+		for _, template := range unit.Spec.VolumeClaimTemplates {
 			claim := &v1.PersistentVolumeClaim{}
+			pvcName := upmiov1alpha2.PersistentVolumeClaimName(unit, template.Name)
 
-			pvcName := upmiov1alpha2.PersistentVolumeClaimName(unit, one.Name)
 			err = r.Get(ctx, client.ObjectKey{Name: pvcName, Namespace: unit.Namespace}, claim)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					claim = nil
+					continue
+				} else {
+					return nil, nil, nil, fmt.Errorf("get unit pvc:[%s] failed, error: [%s]", pvcName, err.Error())
 				}
-				return nil, nil, nil, fmt.Errorf("get unit pvc:[%s] failed, error: [%s]", pvcName, err.Error())
 			}
 			claims = append(claims, claim)
 		}

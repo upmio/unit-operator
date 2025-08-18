@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	clientset      kubernetes.Interface
-	gauntletClient client.Client
-	unitClient     client.Client
+	clientset     kubernetes.Interface
+	composeClient client.Client
+	unitClient    client.Client
 )
 
 func (k *Kube) GetClientSet() (kubernetes.Interface, error) {
@@ -56,20 +56,20 @@ func (k *Kube) getClientSet() (kubernetes.Interface, error) {
 	return clientset, nil
 }
 
-func (k *Kube) GetGauntletClient() (client.Client, error) {
+func (k *Kube) GetComposeClient() (client.Client, error) {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	if gauntletClient == nil {
-		conn, err := k.getGauntletClient()
+	if composeClient == nil {
+		conn, err := k.getComposeClient()
 		if err != nil {
 			return nil, err
 		}
-		gauntletClient = conn
+		composeClient = conn
 	}
-	return gauntletClient, nil
+	return composeClient, nil
 }
 
-func (k *Kube) getGauntletClient() (client.Client, error) {
+func (k *Kube) getComposeClient() (client.Client, error) {
 	var (
 		err error
 		cfg *rest.Config

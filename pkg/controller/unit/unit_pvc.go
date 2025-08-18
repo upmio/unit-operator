@@ -3,6 +3,8 @@ package unit
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -10,11 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
-	if unit.Spec.VolumeClaimTemplates == nil || len(unit.Spec.VolumeClaimTemplates) == 0 {
+	if len(unit.Spec.VolumeClaimTemplates) == 0 {
 		return nil
 	}
 
@@ -27,11 +28,11 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 			// spec.claimRef.name == pvcName: list the pv corresponding to the pvc to be created.
 			pvList := &v1.PersistentVolumeList{}
 
-			listOps := &client.ListOptions{
-				FieldSelector: fields.OneTermEqualSelector(".spec.claimRef.name", pvcName),
-			}
+			// Note: envtest does not support custom field selectors on PVs. List all and filter in-memory.
+			// Keep listOps var to avoid unused import of fields if refactored later.
+			_ = &client.ListOptions{FieldSelector: fields.OneTermEqualSelector(".spec.claimRef.name", pvcName)}
 
-			err := r.List(ctx, pvList, listOps)
+			err := r.List(ctx, pvList)
 			if err != nil {
 				return fmt.Errorf("list pv error:[%s]", err.Error())
 			}
@@ -39,13 +40,15 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 			// if a pv exists, the new pvc is not allowed to be built,
 			// an error is returned, and the error message prints that a pv already exists.
 			if len(pvList.Items) != 0 {
-
 				pvNames := []string{}
 				for _, one := range pvList.Items {
-					pvNames = append(pvNames, one.Name)
+					if one.Spec.ClaimRef != nil && one.Spec.ClaimRef.Name == pvcName {
+						pvNames = append(pvNames, one.Name)
+					}
 				}
-
-				return fmt.Errorf("pv [%s] already exists, please delete them first", strings.Join(pvNames, ","))
+				if len(pvNames) != 0 {
+					return fmt.Errorf("pv [%s] already exists, please delete them first", strings.Join(pvNames, ","))
+				}
 			}
 
 			// no pv exists, create pvc
@@ -71,7 +74,7 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 			err = r.Update(ctx, newClaim)
 			if err != nil {
 				return fmt.Errorf("update pvc:[%s] error:[%s]", claim.Name, err.Error())
-			} else {
+				//} else {
 				//r.EventRecorder.Eventf(unit, corev1.EventTypeNormal, SuccessUpdated, "update pvc [%s] ok~", pvcName)
 			}
 		}

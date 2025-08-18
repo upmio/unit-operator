@@ -23,9 +23,9 @@ var (
 )
 
 type service struct {
-	sentinelOps    SentinelOperationServer
-	gauntletClient client.Client
-	recorder       event.IEventRecorder
+	sentinelOps   SentinelOperationServer
+	composeClient client.Client
+	recorder      event.IEventRecorder
 	UnimplementedSentinelOperationServer
 	logger *zap.SugaredLogger
 }
@@ -37,10 +37,9 @@ func newSentinelResponse(message string) *Response {
 	return &Response{Message: message}
 }
 
-
 func (s *service) Config() error {
 	s.sentinelOps = app.GetGrpcApp(appName).(SentinelOperationServer)
-	c, err := conf.GetConf().Kube.GetGauntletClient()
+	c, err := conf.GetConf().GetComposeClient()
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (s *service) Config() error {
 		return err
 	}
 
-	s.gauntletClient = c
+	s.composeClient = c
 	s.logger = zap.L().Named("[SENTINEL]").Sugar()
 	return nil
 }
@@ -73,17 +72,17 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	instance := &composev1alpha1.RedisReplication{}
 
 	// 1. Fetch redis replication resource
-	if err := s.gauntletClient.Get(context.Background(), types.NamespacedName{
+	if err := s.composeClient.Get(context.Background(), types.NamespacedName{
 		Namespace: req.GetNamespace(),
 		Name:      req.GetRedisReplicationName(),
 	}, instance); err != nil {
-		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", 
+		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
 			fmt.Sprintf("failed to fetch redis replication[%s] in namespace[%s]", req.GetRedisReplicationName(), req.GetNamespace()), err)
 	}
 
 	// 2. Check if master host is already set correctly
 	if req.GetMasterHost() == instance.Spec.Source.Host {
-		successMsg := fmt.Sprintf("the source node host of redis replication[%s] in namespace[%s] is already %s, no update needed", 
+		successMsg := fmt.Sprintf("the source node host of redis replication[%s] in namespace[%s] is already %s, no update needed",
 			req.GetRedisReplicationName(), req.GetNamespace(), req.GetMasterHost())
 		return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", successMsg)
 	}
@@ -94,7 +93,9 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 		if req.GetMasterHost() == node.Host {
 			msg := fmt.Sprintf("found node host %s in replica set, will update", req.GetMasterHost())
 			s.logger.Info(msg)
-			s.recorder.SendNormalEventToUnit(req.GetSelfUnitName(), req.GetNamespace(), "Failover", msg)
+			if err := s.recorder.SendNormalEventToUnit(req.GetSelfUnitName(), req.GetNamespace(), "Failover", msg); err != nil {
+				s.logger.Errorf("failed to send normal event: %v", err)
+			}
 
 			found = true
 			instance.Spec.Source, instance.Spec.Replica[index] = node, instance.Spec.Source
@@ -102,17 +103,17 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	}
 
 	if !found {
-		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", 
+		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
 			fmt.Sprintf("cannot find host %s in redis replication", req.GetMasterHost()), nil)
 	}
 
 	// 4. Update the redis replication resource
-	if err := s.gauntletClient.Update(ctx, instance); err != nil {
-		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", 
+	if err := s.composeClient.Update(ctx, instance); err != nil {
+		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
 			"failed to update redis replication", err)
 	}
 
-	return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", 
+	return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
 		"update redis replication successfully")
 }
 

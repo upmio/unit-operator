@@ -54,7 +54,7 @@ func (s *service) sendEventToUnit(name, namespace, reason, msg, eventType string
 	}
 
 	// Send event
-	s.EventRecorder.Event(instance, eventType, reason, msg)
+	s.Event(instance, eventType, reason, msg)
 	return nil
 }
 
@@ -67,7 +67,7 @@ func (s *service) SendWarningEventToUnit(name, namespace, reason, msg string) er
 }
 
 func NewIEventRecorder() (IEventRecorder, error) {
-	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	clientSet, err := conf.GetConf().GetClientSet()
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func NewIEventRecorder() (IEventRecorder, error) {
 
 	recorder := eventBroadcaster.NewRecorder(schema, v1.EventSource{Component: "unit-agent"})
 
-	c, err := conf.GetConf().Kube.GetUnitClient()
+	c, err := conf.GetConf().GetUnitClient()
 	if err != nil {
 		return nil, err
 	}

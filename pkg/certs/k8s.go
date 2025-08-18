@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/utils/file"
-	"k8s.io/klog/v2"
+	klog "k8s.io/klog/v2"
 	"path"
 	"reflect"
 	"time"

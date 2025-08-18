@@ -1,6 +1,7 @@
 package unitset
 
 import (
+	"encoding/json"
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,51 @@ func TestFillEnvs(t *testing.T) {
 	}
 }
 
+func TestNodeNameMapAnnotationAppliedToAffinity(t *testing.T) {
+	unitset := &upmiov1alpha2.UnitSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "mysql-cluster",
+			Namespace:   "default",
+			Annotations: map[string]string{},
+		},
+		Spec: upmiov1alpha2.UnitSetSpec{
+			Type:  "mysql",
+			Units: 1,
+			Env:   []v1.EnvVar{},
+		},
+	}
+	// node-name-map annotation
+	m := map[string]string{"mysql-cluster-0": "node-a"}
+	b, _ := json.Marshal(m)
+	unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] = string(b)
+
+	unitTemplate := upmiov1alpha2.Unit{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: upmiov1alpha2.UnitSpec{
+			Template: v1.PodTemplateSpec{Spec: v1.PodSpec{Containers: []v1.Container{{Name: "mysql"}}}},
+		},
+	}
+
+	// personalize for unit-0
+	unit := fillUnitPersonalizedInfo(unitTemplate, unitset, map[string]string{"mysql-cluster-0": "0"}, "mysql-cluster-0")
+
+	if unit.Spec.Template.Spec.Affinity == nil || unit.Spec.Template.Spec.Affinity.NodeAffinity == nil || unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		t.Fatalf("expected node affinity to be set from annotation")
+	}
+	terms := unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	found := false
+	for _, term := range terms {
+		for _, me := range term.MatchExpressions {
+			if me.Key == "kubernetes.io/hostname" && len(me.Values) == 1 && me.Values[0] == "node-a" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected hostname match expression for node-a")
+	}
+}
+
 func TestAddEnvVar(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -87,7 +133,7 @@ func TestAddEnvVar(t *testing.T) {
 		expected []v1.EnvVar
 	}{
 		{
-			name: "添加新的环境变量",
+			name: "Add new environment variable",
 			envs: []v1.EnvVar{
 				{Name: "EXISTING_VAR", Value: "existing_value"},
 			},
@@ -101,7 +147,7 @@ func TestAddEnvVar(t *testing.T) {
 			},
 		},
 		{
-			name: "不添加已经存在的环境变量",
+			name: "Don't add existing environment variable",
 			envs: []v1.EnvVar{
 				{Name: "EXISTING_VAR", Value: "existing_value"},
 			},
@@ -114,7 +160,7 @@ func TestAddEnvVar(t *testing.T) {
 			},
 		},
 		{
-			name: "添加多个新的环境变量",
+			name: "Add multiple new environment variables",
 			envs: []v1.EnvVar{
 				{Name: "EXISTING_VAR", Value: "existing_value"},
 			},

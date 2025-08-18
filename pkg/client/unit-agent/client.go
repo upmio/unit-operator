@@ -24,7 +24,9 @@ func SyncConfig(agentHostType, unitsetHeadlessSvc, host, port, namespace, templa
 		klog.Errorf("[SyncConfig] make connection err:[%s]", err.Error())
 		return "", fmt.Errorf("sync config make connection error:[%s]", err.Error())
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	client := config.NewSyncConfigServiceClient(conn)
 
@@ -55,7 +57,9 @@ func ServiceLifecycleManagement(agentHostType, unitsetHeadlessSvc, host, namespa
 		klog.Errorf("[ServiceLifecycleManagement] make connection err:[%s]", err.Error())
 		return "", fmt.Errorf("service lifecycle management make connection error:[%s]", err.Error())
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	req := service.ServiceRequest{}
 
@@ -93,7 +97,9 @@ func GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, 
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	req := service.ServiceRequest{}
 

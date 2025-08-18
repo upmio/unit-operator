@@ -37,7 +37,7 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 	klog.Infof("unit:[%s] start delete pvc and remove finalizer:[%s]", req.String(), finalizer)
 
 	needDeletePVCNames := []string{}
-	if unit.Spec.VolumeClaimTemplates != nil && len(unit.Spec.VolumeClaimTemplates) != 0 {
+	if len(unit.Spec.VolumeClaimTemplates) != 0 {
 		for _, one := range unit.Spec.VolumeClaimTemplates {
 			pvcName := upmiov1alpha2.PersistentVolumeClaimName(unit, one.Name)
 			needDeletePVCNames = append(needDeletePVCNames, pvcName)
@@ -187,7 +187,6 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 								errs = append(errs, fmt.Errorf("error waiting for pv deleted: %s", err.Error()))
 							}
 
-							return
 						}(one.Name)
 					}
 					pvDeleteWG.Wait()

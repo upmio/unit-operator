@@ -3,7 +3,7 @@ package certs
 import (
 	"context"
 	"github.com/upmio/unit-operator/pkg/vars"
-	"k8s.io/klog/v2"
+	klog "k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -1,0 +1,49 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+    createdAt: "2025-08-07T07:01:14Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.39.2
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+  name: unit-operator.v2.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: Unit Operator - Database and Middleware Operator for Kubernetes
+  displayName: unit-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: []
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - MySQL
+  - Redis
+  - ElasticSearch
+  - PosrgreSQL
+  - Kafka
+  links:
+  - name: Unit Operator
+    url: https://unit-operator.domain
+  maintainers:
+  - email: chenxiinn@gmail.com
+    name: chenxiinn
+  maturity: alpha
+  provider:
+    name: upm
+    url: upm.io
+  version: 2.0.0

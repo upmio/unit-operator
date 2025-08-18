@@ -2,6 +2,7 @@ package unitset
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
@@ -20,29 +21,25 @@ func (r *UnitSetReconciler) reconcilePatchUnitset(ctx context.Context, req ctrl.
 		return fmt.Errorf("[reconcilePatchUnitset] error getting units: [%s]", err.Error())
 	}
 
-	// patch unitset
-	if units != nil && len(units) != 0 {
+	// patch unitset: backfill NodeNameMap into annotation upm.io/node-name-map
+	if len(units) != 0 {
 		originalUnitset := unitset.DeepCopy()
-		needPatch := false
-		if unitset.Spec.NodeNameMap == nil {
-			needPatch = true
-			unitset.Spec.NodeNameMap = make(map[string]string)
+		current := getNodeNameMapFromAnnotations(unitset)
+		if current == nil {
+			current = map[string]string{}
 		}
-
 		for _, one := range units {
 			if one.Status.NodeName == "" {
 				continue
 			}
-
-			if unitset.Spec.NodeNameMap[one.Name] == upmiov1alpha2.NoneSetFlag {
+			if current[one.Name] == upmiov1alpha2.NoneSetFlag {
 				continue
 			}
-
-			unitset.Spec.NodeNameMap[one.Name] = one.Status.NodeName
+			current[one.Name] = one.Status.NodeName
 		}
-
-		if needPatch || mapsEqual(originalUnitset.Spec.NodeNameMap, unitset.Spec.NodeNameMap) == false {
-			_, err = r.patchUnitset(ctx, originalUnitset, unitset)
+		_ = setNodeNameMapToAnnotations(unitset, current)
+		if originalUnitset.Annotations == nil || originalUnitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] != unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] {
+			_, _ = r.patchUnitset(ctx, originalUnitset, unitset)
 		}
 	}
 
@@ -75,7 +72,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	unitset.Status.Units = len(units)
 	inTaskUnit := ""
 	unitset.Status.ReadyUnits = 0
-	if units != nil && len(units) != 0 {
+	if len(units) != 0 {
 		for _, one := range units {
 			if one.Status.Phase == upmiov1alpha2.UnitReady {
 				unitset.Status.ReadyUnits++
@@ -87,14 +84,18 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	unitImageSyncedCount := 0
 	unitResourceSyncedCount := 0
 
-	if units != nil && len(units) != 0 {
+	if len(units) != 0 {
 		for _, one := range units {
 			//if one.Status.Phase == upmiov1alpha2.UnitReady {
 			//	unitset.Status.ReadyUnits++
 			//}
 
 			if one.Status.Task != "" {
-				inTaskUnit = inTaskUnit + "_" + one.Name
+				if inTaskUnit == "" {
+					inTaskUnit = one.Name
+				} else {
+					inTaskUnit = inTaskUnit + "," + one.Name
+				}
 			}
 
 			for _, pvc := range one.Status.PersistentVolumeClaim {
@@ -164,10 +165,12 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		}
 	}
 
-	if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
+	if inTaskUnit != "" {
+		unitset.Status.InUpdate = inTaskUnit
+	} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
 		unitset.Status.InUpdate = ""
 	} else {
-		unitset.Status.InUpdate = inTaskUnit
+		unitset.Status.InUpdate = ""
 	}
 
 	//if equality.Semantic.DeepEqual(orig.Status, unitset.Status) {
@@ -202,17 +205,33 @@ func (r *UnitSetReconciler) patchUnitset(ctx context.Context, old, _new *upmiov1
 	return _new, nil
 }
 
-func mapsEqual(a, b map[string]string) bool {
-	// check length
-	if len(a) != len(b) {
-		return false
+// getNodeNameMapFromAnnotations reads the UnitSet annotation upm.io/node-name-map
+// and returns the parsed map. Returns empty map when absent or invalid.
+func getNodeNameMapFromAnnotations(unitset *upmiov1alpha2.UnitSet) map[string]string {
+	out := map[string]string{}
+	if unitset == nil {
+		return out
 	}
+	if unitset.Annotations == nil {
+		return out
+	}
+	data, ok := unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap]
+	if !ok || data == "" {
+		return out
+	}
+	_ = json.Unmarshal([]byte(data), &out)
+	return out
+}
 
-	// check keys
-	for k, value1 := range a {
-		if value2, exists := b[k]; !exists || value2 != value1 {
-			return false // not equal
-		}
+// setNodeNameMapToAnnotations marshals and stores the map into UnitSet annotations.
+func setNodeNameMapToAnnotations(unitset *upmiov1alpha2.UnitSet, m map[string]string) error {
+	if unitset.Annotations == nil {
+		unitset.Annotations = map[string]string{}
 	}
-	return true
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] = string(b)
+	return nil
 }

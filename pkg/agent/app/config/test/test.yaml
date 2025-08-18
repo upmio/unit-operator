@@ -1,0 +1,8 @@
+test: xxxxxx
+connect: aaaa:9000:2900,bbbb:9000:2900,cccc:9000:2900
+ip: 
+password: I@7995KPu@C!&x@7
+extend1: abc
+extend2: def
+save 0 [aaa bbb ccc]
+save 1 [eee fff ggg]

@@ -36,12 +36,12 @@ func compareStatus(new, old *upmv1alpha1.GrpcCallStatus, reqLogger logr.Logger) 
 	}
 
 	if new.StartTime.Time != old.StartTime.Time {
-		klog.Infof("found status.StartTime changed: the old one is %s, new one is %s", old.StartTime.Time.String(), new.StartTime.Time.String())
+		klog.Infof("found status.StartTime changed: the old one is %s, new one is %s", old.StartTime.String(), new.StartTime.String())
 		return true
 	}
 
 	if new.CompletionTime.Time != old.CompletionTime.Time {
-		klog.Infof("found status.CompletionTime changed: the old one is %s, new one is %s", old.CompletionTime.Time.String(), new.CompletionTime.Time.String())
+		klog.Infof("found status.CompletionTime changed: the old one is %s, new one is %s", old.CompletionTime.String(), new.CompletionTime.String())
 		return true
 	}
 

@@ -26,7 +26,9 @@ func NewGrpcService() *GrpcService {
 }
 
 func (g *GrpcService) Start() {
-	app.LoadGrpcApp(g.s)
+	if err := app.LoadGrpcApp(g.s); err != nil {
+		g.l.Error("load grpc app failed", zap.Error(err))
+	}
 
 	addr := conf.GetConf().GrpcAddr()
 	lsr, err := net.Listen("tcp", addr)

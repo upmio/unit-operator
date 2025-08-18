@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(version.FullVersion())
 			return nil
 		}
-		return errors.New("No flags find")
+		return errors.New("no flags find")
 	},
 }
 

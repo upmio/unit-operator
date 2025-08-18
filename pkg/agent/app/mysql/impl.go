@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
@@ -19,11 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	// this import  needs to be done otherwise the mysql driver don't work
@@ -60,53 +59,33 @@ func newMysqlResponse(message string) *Response {
 func (s *service) newMysqlDB(ctx context.Context, username, password, socketFile string) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@unix(%s)/?timeout=5s&multiStatements=true&interpolateParams=true",
 		username, password, socketFile)
-	
+
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %v", err)
 	}
-	
+
 	if err = db.PingContext(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to ping database: %v, and failed to close db: %v", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to ping database: %v", err)
 	}
-	
+
 	return db, nil
 }
 
-// createS3Client creates an S3 client
-// createS3ClientWithCustomResolver creates an S3 client with custom resolver (for restore operations)
-func (s *service) createS3ClientWithCustomResolver(s3Config *S3Storage) (*s3.Client, error) {
+// createMinioClient creates an S3 client
+func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) {
 	if s3Config == nil {
 		return nil, fmt.Errorf("S3 storage configuration is required")
 	}
-	
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL:               s3Config.GetEndpoint(),
-			HostnameImmutable: true,
-		}, nil
-	})
-	
-	creds := credentials.NewStaticCredentialsProvider(
-		s3Config.GetAccessKey(), 
-		s3Config.GetSecretKey(), 
-		"",
-	)
-	
-	cfg, err := config.LoadDefaultConfig(
-		context.Background(),
-		config.WithCredentialsProvider(creds),
-		config.WithEndpointResolverWithOptions(customResolver),
-		config.WithRegion("auto"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %v", err)
-	}
-	
-	return s3.NewFromConfig(cfg), nil
-}
 
+	return minio.New(s3Config.GetEndpoint(), &minio.Options{
+		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
+		Secure: false,
+	})
+}
 
 // getEnvVarOrError gets environment variable or returns error if not found
 func getEnvVarOrError(key string) (string, error) {
@@ -153,7 +132,11 @@ func (s *service) Clone(ctx context.Context, req *CloneRequest) (*Response, erro
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			s.logger.Errorf("failed to close database connection: %v", err)
+		}
+	}()
 
 	// cloneStatus: Not Started, In Progress, Completed and Failed.
 	var clonePluginStatus, cloneStatus, cloneErrMsg string
@@ -172,9 +155,7 @@ func (s *service) Clone(ctx context.Context, req *CloneRequest) (*Response, erro
 		return common.LogAndReturnError(s.logger, newMysqlResponse, fmt.Sprintf("failed to set clone_valid_donor_list=%s", sourceAddr), err)
 	}
 
-	var execSql string
-
-	execSql = fmt.Sprintf(ExecCloneSql, req.GetSourceCloneUser(), req.GetSourceHost(), req.GetSourcePort(), req.GetSourceClonePassword())
+	execSql := fmt.Sprintf(ExecCloneSql, req.GetSourceCloneUser(), req.GetSourceHost(), req.GetSourcePort(), req.GetSourceClonePassword())
 	if _, err = db.ExecContext(ctx, execSql); err != nil {
 		s.logger.Warnf("failed to execute clone instance: %v", err)
 	}
@@ -194,11 +175,17 @@ LOOP:
 				s.logger.Warnf("failed to create new database connection: %v", err)
 				continue LOOP
 			}
-			defer newDb.Close()
+			defer func() {
+				if err := newDb.Close(); err != nil {
+					s.logger.Errorf("failed to close database connection: %v", err)
+				}
+			}()
 
 			if err := newDb.QueryRowContext(ctx, getCloneStatusSql).Scan(&cloneStatus, &cloneErrMsg); err != nil {
 				s.logger.Warnf("query clone status failed: %v", err)
-				newDb.Close()
+				if closeErr := newDb.Close(); closeErr != nil {
+					s.logger.Errorf("failed to close database connection: %v", closeErr)
+				}
 				continue LOOP
 			}
 
@@ -207,18 +194,10 @@ LOOP:
 			case "Completed":
 				break LOOP
 			case "Failed":
-				errMsg := fmt.Sprintf("clone failed: %s", cloneErrMsg)
-				s.logger.Error(errMsg)
-				return &Response{
-					Message: errMsg,
-				}, fmt.Errorf(errMsg)
+				return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to clone", err)
 			}
 		case <-timeoutCh:
-			errMsg := "clone process timed out"
-			s.logger.Error(errMsg)
-			return &Response{
-				Message: errMsg,
-			}, fmt.Errorf(errMsg)
+			return common.LogAndReturnError(s.logger, newMysqlResponse, "clone process timed out", err)
 		}
 	}
 
@@ -253,11 +232,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 		if req.GetS3Storage() != nil {
 			path, err := exec.LookPath("xtrabackup")
 			if err != nil {
-				errMsg := "xtrabackup command is not installed or not in PATH"
-				s.logger.Error(errMsg)
-				return &Response{
-					Message: errMsg,
-				}, fmt.Errorf(errMsg)
+				return common.LogAndReturnError(s.logger, newMysqlResponse, "xtrabackup command is not installed or not in PATH", err)
 			}
 
 			cmd = exec.CommandContext(ctx,
@@ -274,11 +249,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 
 			path, err = exec.LookPath("xbcloud")
 			if err != nil {
-				errMsg := "xbcloud command is not installed or not in PATH"
-				s.logger.Error(errMsg)
-				return &Response{
-					Message: errMsg,
-				}, fmt.Errorf(errMsg)
+				return common.LogAndReturnError(s.logger, newMysqlResponse, "xbcloud command is not installed or not in PATH", err)
 			}
 
 			xbcloudCmd := exec.CommandContext(ctx,
@@ -303,36 +274,28 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			s.logger.Info(successMsg)
 			return &Response{Message: successMsg}, nil
 		} else {
-			errMsg := "storage type not supported: only 's3' is currently supported"
-			s.logger.Error(errMsg)
-			return &Response{
-				Message: errMsg,
-			}, fmt.Errorf(errMsg)
+			return common.LogAndReturnError(s.logger, newMysqlResponse, "storage type not supported: only 's3' is currently supported", errors.New("not supported"))
 		}
 	default:
-		errMsg := fmt.Sprintf("physical backup does not support tool: %s", req.GetPhysicalBackupTool())
-		s.logger.Error(errMsg)
-		return &Response{
-			Message: errMsg,
-		}, fmt.Errorf(errMsg)
+		return common.LogAndReturnError(s.logger, newMysqlResponse, fmt.Sprintf("physical backup tool %s", req.GetPhysicalBackupTool()), errors.New("not supported"))
 	}
 }
 
 func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) (*Response, error) {
 	common.LogRequestSafely(s.logger, "mysql logical backup", map[string]interface{}{
-		"username":             req.GetUsername(),
-		"password":             req.GetPassword(),
-		"table":                req.GetTable(),
-		"database":             req.GetDatabase(),
-		"logical_backup_mode":  req.GetLogicalBackupMode(),
-		"backup_file":          req.GetBackupFile(),
-		"conf_file":            req.GetConfFile(),
-		"storage_type":         req.GetStorageType(),
-		"socket_file":          req.GetSocketFile(),
-		"bucket":               req.GetS3Storage().GetBucket(),
-		"endpoint":             req.GetS3Storage().GetEndpoint(),
-		"access_key":           req.GetS3Storage().GetAccessKey(),
-		"secret_key":           req.GetS3Storage().GetSecretKey(),
+		"username":            req.GetUsername(),
+		"password":            req.GetPassword(),
+		"table":               req.GetTable(),
+		"database":            req.GetDatabase(),
+		"logical_backup_mode": req.GetLogicalBackupMode(),
+		"backup_file":         req.GetBackupFile(),
+		"conf_file":           req.GetConfFile(),
+		"storage_type":        req.GetStorageType(),
+		"socket_file":         req.GetSocketFile(),
+		"bucket":              req.GetS3Storage().GetBucket(),
+		"endpoint":            req.GetS3Storage().GetEndpoint(),
+		"access_key":          req.GetS3Storage().GetAccessKey(),
+		"secret_key":          req.GetS3Storage().GetSecretKey(),
 	})
 
 	// 1. Check service status
@@ -389,11 +352,10 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 	if req.GetS3Storage() != nil {
 		// 2. Create S3 client
-		awsS3Client, err := s.createS3ClientWithCustomResolver(req.GetS3Storage())
+		minioClient, err := s.createMinioClient(req.GetS3Storage())
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to create S3 client", err)
 		}
-		uploader := manager.NewUploader(awsS3Client)
 
 		// execute mysqldump command
 		stdout, err := cmd.StdoutPipe()
@@ -429,11 +391,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			result, err := uploader.Upload(ctx, &s3.PutObjectInput{
-				Bucket: aws.String(req.GetS3Storage().GetBucket()),
-				Key:    aws.String(req.GetBackupFile()),
-				Body:   bytes.NewReader(stdoutBytes),
-			})
+			result, err := minioClient.PutObject(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes), -1, minio.PutObjectOptions{})
 
 			errCh <- err
 
@@ -443,8 +401,12 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		}(ctx, cmd, errCh)
 
 		if err := <-errCh; err != nil {
-			cmd.Cancel()
-			cmd.Wait()
+			if err := cmd.Cancel(); err != nil {
+				s.logger.Errorf("failed to cancel command: %v", err)
+			}
+			if waitErr := cmd.Wait(); waitErr != nil {
+				s.logger.Errorf("command wait failed: %v", waitErr)
+			}
 			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to upload to s3", err)
 		}
 
@@ -464,7 +426,11 @@ func (s *service) removeContents(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func() {
+		if err := d.Close(); err != nil {
+			s.logger.Errorf("failed to close database connection: %v", err)
+		}
+	}()
 	names, err := d.Readdirnames(-1)
 	if err != nil {
 		return err
@@ -536,7 +502,11 @@ func (s *service) GtidPurge(ctx context.Context, req *GtidPurgeRequest) (*Respon
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			s.logger.Errorf("failed to close database connection: %v", err)
+		}
+	}()
 
 	// 5. Handle replication mode reset operations
 	if req.ArchMode == ArchMode_Replication {
@@ -577,23 +547,6 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
-	// 2. Create S3 client (with custom resolver)
-	awsS3Client, err := s.createS3ClientWithCustomResolver(req.GetS3Storage())
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to create S3 client", err)
-	}
-
-	// 3. Check if S3 object exists
-	params := &s3.ListObjectsV2Input{
-		Bucket: aws.String(req.GetS3Storage().GetBucket()),
-		Prefix: aws.String(req.GetBackupFile()),
-	}
-
-	if resp, err := awsS3Client.ListObjectsV2(ctx, params); err != nil {
-		return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to list objects from S3", err)
-	} else if len(resp.Contents) == 0 {
-		return common.LogAndReturnError(s.logger, newMysqlResponse, fmt.Sprintf("object '%s' not found in S3 bucket", req.GetBackupFile()), nil)
-	}
 	s.logger.Infof("S3 object '%s' found", req.GetBackupFile())
 
 	if req.GetS3Storage() != nil {
@@ -688,7 +641,11 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			s.logger.Errorf("failed to close database connection: %v", err)
+		}
+	}()
 
 	// 3. Execute set variable SQL
 	execSQL := fmt.Sprintf(setVariableSql, req.GetKey(), req.GetValue())

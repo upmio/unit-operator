@@ -100,13 +100,13 @@ func (r *UnitSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	retErr = r.reconcileUnitset(ctx, req, unitset)
 
 	defer func() {
-		// 如果 retErr 为空，则打印日志
-		// 如果 retErr 不为空，则打印日志并把报错更新到 unitset 的 event
+		// If retErr is empty, print log
+		// If retErr is not empty, print log and update error to unitset's event
 		if retErr == nil {
 			klog.Infof("finished reconciling Unitset [%s], duration [%v]", req.String(), time.Since(startTime))
 		} else {
 			klog.Errorf("failed to reconcile Unitset [%s], error: [%v]", req.String(), retErr)
-			// 更新 unitset 的 event
+			// Update unitset's event
 			r.Recorder.Eventf(unitset, v1.EventTypeWarning, "FailedReconcile", retErr.Error())
 		}
 	}()
@@ -120,7 +120,8 @@ func (r *UnitSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) (err error) {
 	klog.Infof("start reconciling Unitset [%s]", req.String())
 
-	if !unitset.ObjectMeta.DeletionTimestamp.IsZero() || unitset.ObjectMeta.DeletionTimestamp != nil {
+	// Handle deletion only when DeletionTimestamp is set and non-zero
+	if unitset.DeletionTimestamp != nil && !unitset.DeletionTimestamp.IsZero() {
 
 		errs := []error{}
 		var wg sync.WaitGroup
@@ -141,7 +142,6 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 					return
 				}
 
-				return
 			}(myFinalizerName)
 		}
 		wg.Wait()
@@ -186,6 +186,11 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
+	err = r.reconcileUnitCertificates(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
 	// the pod template is old version, when image update, it will be updated in updateImage func
 	podTemplate, err := r.getPodTemplate(ctx, req, unitset)
 	if err != nil {
@@ -219,6 +224,12 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 	}
 
 	err = r.reconcileResources(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	// Propagate UnitSet labels/annotations to managed Units
+	err = r.reconcileUnitLabelsAnnotations(ctx, req, unitset)
 	if err != nil {
 		return err
 	}

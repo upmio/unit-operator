@@ -5,11 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
@@ -24,6 +20,9 @@ import (
 	"sync"
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 const (
@@ -53,39 +52,17 @@ func newPostgresqlResponse(message string) *Response {
 	return &Response{Message: message}
 }
 
-// createS3Client creates an S3 client
-// createS3ClientWithCustomResolver creates an S3 client with custom resolver (for restore operations)
-func (s *service) createS3ClientWithCustomResolver(s3Config *S3Storage) (*s3.Client, error) {
+// createMinioClient creates an S3 client
+func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) {
 	if s3Config == nil {
 		return nil, fmt.Errorf("S3 storage configuration is required")
 	}
-	
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL:               s3Config.GetEndpoint(),
-			HostnameImmutable: true,
-		}, nil
-	})
-	
-	creds := credentials.NewStaticCredentialsProvider(
-		s3Config.GetAccessKey(), 
-		s3Config.GetSecretKey(), 
-		"",
-	)
-	
-	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
-		config.WithCredentialsProvider(creds),
-		config.WithEndpointResolverWithOptions(customResolver),
-		config.WithRegion("auto"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %v", err)
-	}
-	
-	return s3.NewFromConfig(cfg), nil
-}
 
+	return minio.New(s3Config.GetEndpoint(), &minio.Options{
+		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
+		Secure: false,
+	})
+}
 
 // getEnvVarOrError gets environment variable or returns error if not found
 func getEnvVarOrError(key string) (string, error) {
@@ -155,7 +132,6 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, fmt.Sprintf("backup directory '%s' already exists, please remove it before proceeding", backupDir), nil)
 		}
 
-		// PGPASSWORD="${repl_password}" pg_basebackup -D "${backup_dir}/${BACKUP_FILE}" -U "${REPL_USER}" -h "${SOURCE_HOST}" -P -Ft -v -X stream
 		cmd = exec.CommandContext(ctx,
 			path,
 			"-D",
@@ -186,35 +162,24 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, fmt.Sprintf("failed to write pg_basebackup log to file %s", pgBaseBackupLogPath), err)
 		}
 
-		// 5. Create S3 client
-		awsS3Client, err := s.createS3ClientWithCustomResolver(req.GetS3Storage())
+		// 5. Create Minio client
+		minioClient, err := s.createMinioClient(req.GetS3Storage())
 		if err != nil {
-			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create S3 client", err)
+			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create minio client", err)
 		}
-		uploader := manager.NewUploader(awsS3Client)
 
 		errGrp := new(errgroup.Group)
 
-		if err = filepath.Walk(backupDir, func(path string, info os.FileInfo, err error) error {
+		if err = filepath.Walk(backupDir, func(filePath string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
 			}
 
-			key := filepath.Join(req.GetBackupFile(), strings.TrimPrefix(path, backupDir))
+			key := filepath.Join(req.GetBackupFile(), strings.TrimPrefix(filePath, backupDir))
 
 			errGrp.Go(func() error {
 
-				file, err := os.Open(path)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				if _, err = uploader.Upload(ctx, &s3.PutObjectInput{
-					Bucket: aws.String(req.GetS3Storage().GetBucket()),
-					Body:   file,
-					Key:    aws.String(key),
-				}); err != nil {
+				if _, err := minioClient.FPutObject(ctx, req.GetS3Storage().GetBucket(), key, filePath, minio.PutObjectOptions{}); err != nil {
 					return err
 				}
 
@@ -245,17 +210,17 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 
 func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) (*Response, error) {
 	common.LogRequestSafely(s.logger, "postgresql logical backup", map[string]interface{}{
-		"database":             req.GetDatabase(),
-		"table":                req.GetTable(),
-		"logical_backup_mode":  req.GetLogicalBackupMode(),
-		"username":             req.GetUsername(),
-		"password":             req.GetPassword(),
-		"backup_file":          req.GetBackupFile(),
-		"storage_type":         req.GetStorageType(),
-		"bucket":               req.GetS3Storage().GetBucket(),
-		"endpoint":             req.GetS3Storage().GetEndpoint(),
-		"access_key":           req.GetS3Storage().GetAccessKey(),
-		"secret_key":           req.GetS3Storage().GetSecretKey(),
+		"database":            req.GetDatabase(),
+		"table":               req.GetTable(),
+		"logical_backup_mode": req.GetLogicalBackupMode(),
+		"username":            req.GetUsername(),
+		"password":            req.GetPassword(),
+		"backup_file":         req.GetBackupFile(),
+		"storage_type":        req.GetStorageType(),
+		"bucket":              req.GetS3Storage().GetBucket(),
+		"endpoint":            req.GetS3Storage().GetEndpoint(),
+		"access_key":          req.GetS3Storage().GetAccessKey(),
+		"secret_key":          req.GetS3Storage().GetSecretKey(),
 	})
 
 	// 1. Check service status
@@ -285,12 +250,11 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	}
 
 	if req.GetS3Storage() != nil {
-		// 2. Create S3 client
-		awsS3Client, err := s.createS3ClientWithCustomResolver(req.GetS3Storage())
+		// 5. Create Minio client
+		minioClient, err := s.createMinioClient(req.GetS3Storage())
 		if err != nil {
-			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create S3 client", err)
+			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create minio client", err)
 		}
-		uploader := manager.NewUploader(awsS3Client)
 
 		// execute pgdumpall command
 		stdout, err := cmd.StdoutPipe()
@@ -326,11 +290,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			result, err := uploader.Upload(ctx, &s3.PutObjectInput{
-				Bucket: aws.String(req.GetS3Storage().GetBucket()),
-				Key:    aws.String(req.GetBackupFile()),
-				Body:   bytes.NewReader(stdoutBytes),
-			})
+			result, err := minioClient.PutObject(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes), -1, minio.PutObjectOptions{})
 
 			errCh <- err
 
@@ -340,8 +300,12 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		}(ctx, cmd, errCh)
 
 		if err := <-errCh; err != nil {
-			cmd.Cancel()
-			cmd.Wait()
+			if err := cmd.Cancel(); err != nil {
+				s.logger.Errorf("failed to cancel command: %v", err)
+			}
+			if waitErr := cmd.Wait(); waitErr != nil {
+				s.logger.Errorf("command wait failed: %v", waitErr)
+			}
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to upload to s3", err)
 		}
 
@@ -361,7 +325,11 @@ func (s *service) removeContents(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func() {
+		if err := d.Close(); err != nil {
+			s.logger.Errorf("failed to close directory: %v", err)
+		}
+	}()
 	names, err := d.Readdirnames(-1)
 	if err != nil {
 		return err
@@ -397,8 +365,8 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get DATA_DIR environment variable", err)
 		}
 
-		// 3. Create S3 client with custom resolver
-		awsS3Client, err := s.createS3ClientWithCustomResolver(req.GetS3Storage())
+		// 3. Create minio client
+		minioClient, err := s.createMinioClient(req.GetS3Storage())
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create S3 client", err)
 		}
@@ -409,11 +377,11 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		}
 
 		// 5. Extract backup files from S3
-		if err = s.extractFileFromS3(awsS3Client, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "base.tar", dataDirValue); err != nil {
+		if err = s.extractFileFromS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "base.tar", dataDirValue); err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to unarchive base.tar", err)
 		}
 
-		if err = s.extractFileFromS3(awsS3Client, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "pg_wal.tar", filepath.Join(dataDirValue, "pg_wal")); err != nil {
+		if err = s.extractFileFromS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "pg_wal.tar", filepath.Join(dataDirValue, "pg_wal")); err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to unarchive pg_wal.tar", err)
 		}
 
@@ -441,30 +409,32 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 func (s *service) recursiveChown(rootPath string, uid, gid int) error {
 	return filepath.WalkDir(rootPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("access path %s failed, %v", path, err)
+			return fmt.Errorf("failed t o access path %s, %v", path, err)
 		}
 
 		if err := os.Chown(path, uid, gid); err != nil {
-			return fmt.Errorf("chown %s to 1001 failed: %v", path, err)
+			return fmt.Errorf("failed to chown %s to %d:%d, %v", path, uid, gid, err)
 		}
 
 		return nil
 	})
 }
 
-func (s *service) extractFileFromS3(client *s3.Client, bucket, key, filename, targetDir string) error {
+func (s *service) extractFileFromS3(ctx context.Context, client *minio.Client, bucket, key, filename, targetDir string) error {
 	fileKey := filepath.Join(key, filename)
 
-	output, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(fileKey),
-	})
+	output, err := client.GetObject(ctx, bucket, fileKey, minio.GetObjectOptions{})
+
 	if err != nil {
 		return fmt.Errorf("download %s failed: %v", fileKey, err)
 	}
-	defer output.Body.Close()
+	defer func() {
+		if err := output.Close(); err != nil {
+			s.logger.Errorf("failed to close response body: %v", err)
+		}
+	}()
 
-	tr := tar.NewReader(output.Body)
+	tr := tar.NewReader(output)
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -487,7 +457,11 @@ func (s *service) extractFileFromS3(client *s3.Client, bucket, key, filename, ta
 			if err != nil {
 				return err
 			}
-			defer outFile.Close()
+			defer func() {
+				if err := outFile.Close(); err != nil {
+					s.logger.Errorf("failed to close output file: %v", err)
+				}
+			}()
 
 			// copy file content
 			if _, err := io.Copy(outFile, tr); err != nil {

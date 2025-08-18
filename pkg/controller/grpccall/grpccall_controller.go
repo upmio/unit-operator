@@ -86,7 +86,7 @@ func (r *ReconcileGrpcCall) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		klog.Infof(
 			"grpc call instance [%s] is marked for automatic deletion: completed at [%s], TTL = %d seconds",
 			req.String(),
-			instance.Status.CompletionTime.Time.Format(time.RFC3339),
+			instance.Status.CompletionTime.Format(time.RFC3339),
 			*instance.Spec.TTLSecondsAfterFinished,
 		)
 		err := r.client.Delete(ctx, instance)
@@ -117,7 +117,9 @@ func (r *ReconcileGrpcCall) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err != nil {
 			return fmt.Errorf("failed to initialize grpc client: %v", err)
 		}
-		defer c.Close()
+		defer func() {
+			_ = c.Close()
+		}()
 
 		if err = r.handleGrpcCall(ctx, instance, c); err != nil {
 			return err

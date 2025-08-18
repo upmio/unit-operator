@@ -1,3 +1,21 @@
+/*
+Copyright 2025 The Compose Operator Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package e2e
 
 import (
@@ -8,10 +26,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/upmio/unit-operator/test/utils"
+	"github.com/upmio/compose-operator/test/utils"
 )
 
-const namespace = "unit-operator-system"
+const namespace = "upm-system"
 
 var _ = Describe("controller", Ordered, func() {
 	BeforeAll(func() {
@@ -57,7 +75,7 @@ var _ = Describe("controller", Ordered, func() {
 
 			By("installing CRDs")
 			cmd = exec.Command("make", "install")
-			_, err = utils.Run(cmd)
+			_, _ = utils.Run(cmd)
 
 			By("deploying the controller-manager")
 			cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectimage))
@@ -81,7 +99,7 @@ var _ = Describe("controller", Ordered, func() {
 				ExpectWithOffset(2, err).NotTo(HaveOccurred())
 				podNames := utils.GetNonEmptyLines(string(podOutput))
 				if len(podNames) != 1 {
-					return fmt.Errorf("expect 1 controller pods running, but got %d", len(podNames))
+					return fmt.Errorf("expected 1 controller pod running, but got %d", len(podNames))
 				}
 				controllerPodName = podNames[0]
 				ExpectWithOffset(2, controllerPodName).Should(ContainSubstring("controller-manager"))

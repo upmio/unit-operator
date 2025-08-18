@@ -45,24 +45,25 @@ func (s *service) createProxySQLDB(ctx context.Context, username, password strin
 	if port == "" {
 		return nil, fmt.Errorf("environment variable %s is not set", portKey)
 	}
-	
+
 	addr := net.JoinHostPort("127.0.0.1", port)
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/?timeout=5s&multiStatements=true&interpolateParams=true", 
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/?timeout=5s&multiStatements=true&interpolateParams=true",
 		username, password, addr)
-	
+
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open connection %s: %v", addr, err)
 	}
-	
+
 	if err = db.PingContext(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to ping %s: %v, and failed to close db: %v", addr, err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to ping %s: %v", addr, err)
 	}
-	
+
 	return db, nil
 }
-
 
 func (s *service) Config() error {
 	s.proxysqlOps = app.GetGrpcApp(appName).(ProxysqlOperationServer)
@@ -98,7 +99,11 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newProxysqlResponse, "database connection failed", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			s.logger.Errorf("failed to close database connection: %v", err)
+		}
+	}()
 
 	// 3. Set variable
 	execSql := fmt.Sprintf(setVariableSql, req.GetSection(), req.GetKey(), req.GetValue())
@@ -109,13 +114,11 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	// 4. Load variables to runtime based on section
 	switch req.GetSection() {
 	case "admin":
-		execSql = fmt.Sprintf(loadAdminVariableSql)
-		if _, err = db.ExecContext(ctx, execSql); err != nil {
+		if _, err = db.ExecContext(ctx, loadAdminVariableSql); err != nil {
 			return common.LogAndReturnError(s.logger, newProxysqlResponse, "failed to execute LOAD ADMIN VARIABLES TO RUNTIME", err)
 		}
 	case "mysql":
-		execSql = fmt.Sprintf(loadMysqlVariableSql)
-		if _, err = db.ExecContext(ctx, execSql); err != nil {
+		if _, err = db.ExecContext(ctx, loadMysqlVariableSql); err != nil {
 			return common.LogAndReturnError(s.logger, newProxysqlResponse, "failed to execute LOAD MYSQL VARIABLES TO RUNTIME", err)
 		}
 	}

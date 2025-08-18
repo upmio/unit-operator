@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SyncConfigServiceClient interface {
-	SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*SyncConfigResponse, error)
-	RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*RewriteConfigResponse, error)
+	SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*Response, error)
+	RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*Response, error)
 }
 
 type syncConfigServiceClient struct {
@@ -30,8 +30,8 @@ func NewSyncConfigServiceClient(cc grpc.ClientConnInterface) SyncConfigServiceCl
 	return &syncConfigServiceClient{cc}
 }
 
-func (c *syncConfigServiceClient) SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*SyncConfigResponse, error) {
-	out := new(SyncConfigResponse)
+func (c *syncConfigServiceClient) SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
 	err := c.cc.Invoke(ctx, "/config.SyncConfigService/SyncConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -39,8 +39,8 @@ func (c *syncConfigServiceClient) SyncConfig(ctx context.Context, in *SyncConfig
 	return out, nil
 }
 
-func (c *syncConfigServiceClient) RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*RewriteConfigResponse, error) {
-	out := new(RewriteConfigResponse)
+func (c *syncConfigServiceClient) RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
 	err := c.cc.Invoke(ctx, "/config.SyncConfigService/RewriteConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -52,8 +52,8 @@ func (c *syncConfigServiceClient) RewriteConfig(ctx context.Context, in *Rewrite
 // All implementations must embed UnimplementedSyncConfigServiceServer
 // for forward compatibility
 type SyncConfigServiceServer interface {
-	SyncConfig(context.Context, *SyncConfigRequest) (*SyncConfigResponse, error)
-	RewriteConfig(context.Context, *RewriteConfigRequest) (*RewriteConfigResponse, error)
+	SyncConfig(context.Context, *SyncConfigRequest) (*Response, error)
+	RewriteConfig(context.Context, *RewriteConfigRequest) (*Response, error)
 	mustEmbedUnimplementedSyncConfigServiceServer()
 }
 
@@ -61,10 +61,10 @@ type SyncConfigServiceServer interface {
 type UnimplementedSyncConfigServiceServer struct {
 }
 
-func (UnimplementedSyncConfigServiceServer) SyncConfig(context.Context, *SyncConfigRequest) (*SyncConfigResponse, error) {
+func (UnimplementedSyncConfigServiceServer) SyncConfig(context.Context, *SyncConfigRequest) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncConfig not implemented")
 }
-func (UnimplementedSyncConfigServiceServer) RewriteConfig(context.Context, *RewriteConfigRequest) (*RewriteConfigResponse, error) {
+func (UnimplementedSyncConfigServiceServer) RewriteConfig(context.Context, *RewriteConfigRequest) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RewriteConfig not implemented")
 }
 func (UnimplementedSyncConfigServiceServer) mustEmbedUnimplementedSyncConfigServiceServer() {}

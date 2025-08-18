@@ -1,7 +1,7 @@
 package content
 
 import (
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 	"path"
 	"strconv"
 )
@@ -41,25 +41,29 @@ func (k *Client) GetValues() (map[string]string, error) {
 
 // nodeWalk recursively descends nodes, updating vars.
 func nodeWalk(node interface{}, key string, vars map[string]string) error {
-	switch node.(type) {
+	switch node := node.(type) {
 	case []interface{}:
-		for i, j := range node.([]interface{}) {
+		for i, j := range node {
 			key := path.Join(key, strconv.Itoa(i))
-			nodeWalk(j, key, vars)
+			if err := nodeWalk(j, key, vars); err != nil {
+				return err
+			}
 		}
 	case map[interface{}]interface{}:
-		for k, v := range node.(map[interface{}]interface{}) {
+		for k, v := range node {
 			key := path.Join(key, k.(string))
-			nodeWalk(v, key, vars)
+			if err := nodeWalk(v, key, vars); err != nil {
+				return err
+			}
 		}
 	case string:
-		vars[key] = node.(string)
+		vars[key] = node
 	case int:
-		vars[key] = strconv.Itoa(node.(int))
+		vars[key] = strconv.Itoa(node)
 	case bool:
-		vars[key] = strconv.FormatBool(node.(bool))
+		vars[key] = strconv.FormatBool(node)
 	case float64:
-		vars[key] = strconv.FormatFloat(node.(float64), 'f', -1, 64)
+		vars[key] = strconv.FormatFloat(node, 'f', -1, 64)
 	}
 	return nil
 }

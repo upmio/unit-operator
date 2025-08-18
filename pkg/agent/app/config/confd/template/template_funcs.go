@@ -47,7 +47,7 @@ func newFuncMap() map[string]interface{} {
 	m["fileRead"] = ReadContentFromFile
 	m["base64Encode"] = Base64Encode
 	m["base64Decode"] = Base64Decode
-	m["AESCBCDecrypt"] = AESCBCDecrypt
+	m["AESCTRDecrypt"] = AESCTRDecrypt
 	m["parseBool"] = strconv.ParseBool
 	m["reverse"] = Reverse
 	m["sortByLength"] = SortByLength
@@ -122,14 +122,14 @@ func SortByLength(values []string) []string {
 // Reverse returns the array in reversed order
 // works with []string and []KVPair
 func Reverse(values interface{}) interface{} {
-	switch values.(type) {
+	switch values := values.(type) {
 	case []string:
-		v := values.([]string)
+		v := values
 		for left, right := 0, len(v)-1; left < right; left, right = left+1, right-1 {
 			v[left], v[right] = v[right], v[left]
 		}
 	case []memkv.KVPair:
-		v := values.([]memkv.KVPair)
+		v := values
 		for left, right := 0, len(v)-1; left < right; left, right = left+1, right-1 {
 			v[left], v[right] = v[right], v[left]
 		}
@@ -293,8 +293,8 @@ func Base64Decode(data string) (string, error) {
 	return string(s), err
 }
 
-func AESCBCDecrypt(data string) (string, error) {
-	s, err := util.AES_CTR_Decrypt(data)
+func AESCTRDecrypt(data string) (string, error) {
+	s, err := util.AES_CTR_Decrypt([]byte(data))
 	return string(s), err
 }
 
@@ -307,7 +307,7 @@ func ReadContentFromFile(fpath string) (string, error) {
 }
 
 func ReadContentFromSecret(name, namespace, key string) (string, error) {
-	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	clientSet, err := conf.GetConf().GetClientSet()
 	if err != nil {
 		return "", err
 	}

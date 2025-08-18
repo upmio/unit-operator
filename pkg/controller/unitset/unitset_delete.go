@@ -35,7 +35,7 @@ func (r *UnitSetReconciler) unitsBelongUnitset(ctx context.Context, unitset *upm
 		return nil, err
 	}
 
-	if kUnits.Items == nil || len(kUnits.Items) == 0 {
+	if len(kUnits.Items) == 0 {
 		return nil, nil
 	}
 
@@ -59,7 +59,7 @@ func (r *UnitSetReconciler) deleteUnitWithFinalizer(
 		return fmt.Errorf("[deleteUnitWithFinalizer] error getting units: [%s]", err.Error())
 	}
 
-	if kUnits == nil || len(kUnits) == 0 {
+	if len(kUnits) == 0 {
 		if controllerutil.ContainsFinalizer(unitset, finalizer) {
 			controllerutil.RemoveFinalizer(unitset, finalizer)
 
@@ -85,7 +85,7 @@ func (r *UnitSetReconciler) deleteUnitWithFinalizer(
 			return false, fmt.Errorf("[deleteUnitWithFinalizer] wait for units deleted: error getting units: [%s]", err.Error())
 		}
 
-		if kUnits == nil || len(kUnits) == 0 {
+		if len(kUnits) == 0 {
 			return true, nil
 		}
 

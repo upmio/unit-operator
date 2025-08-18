@@ -311,7 +311,7 @@ status:
 |-------|------|----------|-------------|
 | `resources` | ResourceRequirements | No | Resource limits and requests for containers |
 | `env` | []EnvVar | No | Environment variables for units |
-| `nodeNameMap` | map[string]string | No | Explicit node scheduling for units |
+| Annotation `upm.io/node-name-map` | map[string]string (JSON) | No | Explicit node scheduling per unit; stored in metadata.annotations |
 
 ### Storage Configuration
 

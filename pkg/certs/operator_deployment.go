@@ -3,7 +3,7 @@ package certs
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
+	klog "k8s.io/klog/v2"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

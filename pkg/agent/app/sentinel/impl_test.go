@@ -2,26 +2,223 @@ package sentinel
 
 import (
 	"context"
+	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"go.uber.org/zap/zaptest"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
 )
+
+// MockServiceLifecycle 模拟服务生命周期管理
+type MockServiceLifecycle struct {
+	mock.Mock
+}
+
+func (m *MockServiceLifecycle) CheckServiceStatus(ctx context.Context, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockServiceLifecycle) CheckServiceStopped(ctx context.Context, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockServiceLifecycle) StartService(ctx context.Context, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockServiceLifecycle) StopService(ctx context.Context, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockServiceLifecycle) RestartService(ctx context.Context, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0), args.Error(1)
+}
 
 // Mock dependencies
 type MockGrpcApp struct{}
 
-//type MockGauntletClient struct{}
-//type MockEventRecorder struct{}
-
 // Implement necessary interfaces for mocks
-func (m *MockGrpcApp) SomeMethod()        {}
-func (m *MockGauntletClient) SomeMethod() {}
-func (m *MockEventRecorder) SomeMethod()  {}
+func (m *MockGrpcApp) SomeMethod() {}
+
+// TestSentinelServiceImplementation 测试 Redis Sentinel 服务实现
+func TestSentinelServiceImplementation(t *testing.T) {
+	service := &service{
+		logger: zaptest.NewLogger(t).Sugar(),
+	}
+
+	// 测试服务基本接口
+	t.Run("service interface implementation", func(t *testing.T) {
+		assert.Equal(t, appName, service.Name())
+		assert.NotNil(t, service.logger)
+	})
+}
+
+// TestNewSentinelResponse 测试响应构造函数
+func TestNewSentinelResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		message  string
+		expected string
+	}{
+		{
+			name:     "success message",
+			message:  "Sentinel failover completed successfully",
+			expected: "Sentinel failover completed successfully",
+		},
+		{
+			name:     "error message",
+			message:  "Sentinel configuration failed: invalid master name",
+			expected: "Sentinel configuration failed: invalid master name",
+		},
+		{
+			name:     "empty message",
+			message:  "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := newSentinelResponse(tt.message)
+			assert.NotNil(t, response)
+			assert.Equal(t, tt.expected, response.Message)
+		})
+	}
+}
+
+// TestSentinelEnvironmentConfig 测试 Sentinel 环境配置
+func TestSentinelEnvironmentConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		setValue    string
+		expectError bool
+		expected    string
+	}{
+		{
+			name:        "existing environment variable",
+			key:         "SENTINEL_CONFIG_DIR",
+			setValue:    "/etc/redis-sentinel",
+			expectError: false,
+			expected:    "/etc/redis-sentinel",
+		},
+		{
+			name:        "non-existing environment variable",
+			key:         "SENTINEL_NON_EXISTING",
+			setValue:    "",
+			expectError: true,
+			expected:    "",
+		},
+		{
+			name:        "empty environment variable",
+			key:         "SENTINEL_EMPTY",
+			setValue:    "",
+			expectError: true,
+			expected:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 设置环境变量
+			if tt.setValue != "" {
+				t.Setenv(tt.key, tt.setValue)
+			}
+
+			result, err := getSentinelEnvVar(tt.key)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "environment variable")
+				assert.Contains(t, err.Error(), "is not set")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestErrorHandlingPatterns 测试错误处理模式
+func TestErrorHandlingPatterns(t *testing.T) {
+	service := &service{
+		logger: zaptest.NewLogger(t).Sugar(),
+	}
+
+	tests := []struct {
+		name         string
+		operation    string
+		err          error
+		expectedType string
+	}{
+		{
+			name:         "sentinel connection error",
+			operation:    "sentinel connect",
+			err:          errors.New("connection refused"),
+			expectedType: "connection error",
+		},
+		{
+			name:         "failover error",
+			operation:    "failover",
+			err:          errors.New("master not reachable"),
+			expectedType: "failover error",
+		},
+		{
+			name:         "timeout error",
+			operation:    "monitor",
+			err:          context.DeadlineExceeded,
+			expectedType: "timeout error",
+		},
+		{
+			name:         "configuration error",
+			operation:    "config",
+			err:          errors.New("invalid configuration parameter"),
+			expectedType: "config error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 测试错误处理和响应创建
+			response, err := common.LogAndReturnError(
+				service.logger,
+				newSentinelResponse,
+				"operation failed: "+tt.operation,
+				tt.err,
+			)
+
+			assert.Error(t, err)
+			assert.NotNil(t, response)
+			assert.Contains(t, response.Message, tt.operation)
+			assert.Contains(t, err.Error(), tt.operation)
+		})
+	}
+}
+
+// BenchmarkNewSentinelResponse 性能测试
+func BenchmarkNewSentinelResponse(b *testing.B) {
+	message := "Sentinel operation completed successfully"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = newSentinelResponse(message)
+	}
+}
 
 //func TestServiceConfig(t *testing.T) {
 //	// Test cases
 //	tests := []struct {
 //		name           string
 //		mockGrpcApp    interface{}
-//		mockGauntlet   func() (client.Client, error)
+//		mockCompose   func() (client.Client, error)
 //		mockRecorder   func() (event.IEventRecorder, error)
 //		expectedError  error
 //		expectedLogger string
@@ -29,8 +226,8 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //		//{
 //		//	name:        "Success Case",
 //		//	mockGrpcApp: &MockGrpcApp{},
-//		//	//mockGauntlet: func() (client.Client, error) {
-//		//	//	return &MockGauntletClient{}, nil
+//		//	//mockCompose: func() (client.Client, error) {
+//		//	//	return &MockComposeClient{}, nil
 //		//	//},
 //		//	//mockRecorder: func() (event.IEventRecorder, error) {
 //		//	//	return &MockEventRecorder{}, nil
@@ -39,21 +236,21 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //		//	expectedLogger: "[SENTINEL]",
 //		//},
 //		{
-//			name:        "Error in GetGauntletClient",
+//			name:        "Error in GetComposeClient",
 //			mockGrpcApp: &MockGrpcApp{},
-//			mockGauntlet: func() (client.Client, error) {
-//				return nil, errors.New("failed to get gauntlet client")
+//			mockCompose: func() (client.Client, error) {
+//				return nil, errors.New("failed to get Compose client")
 //			},
 //			//mockRecorder: func() (event.IEventRecorder, error) {
 //			//	return &MockEventRecorder{}, nil
 //			//},
-//			expectedError: errors.New("failed to get gauntlet client"),
+//			expectedError: errors.New("failed to get Compose client"),
 //		},
 //		{
 //			name:        "Error in Event Recorder",
 //			mockGrpcApp: &MockGrpcApp{},
-//			//mockGauntlet: func() (client.Client, error) {
-//			//	return &MockGauntletClient{}, nil
+//			//mockCompose: func() (client.Client, error) {
+//			//	return &MockComposeClient{}, nil
 //			//},
 //			mockRecorder: func() (event.IEventRecorder, error) {
 //				return nil, errors.New("failed to create event recorder")
@@ -63,8 +260,8 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //		{
 //			name:        "Nil gRPC App",
 //			mockGrpcApp: nil,
-//			//mockGauntlet: func() (client.Client, error) {
-//			//	return &MockGauntletClient{}, nil
+//			//mockCompose: func() (client.Client, error) {
+//			//	return &MockComposeClient{}, nil
 //			//},
 //			//mockRecorder: func() (event.IEventRecorder, error) {
 //			//	return &MockEventRecorder{}, nil
@@ -74,8 +271,8 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //		{
 //			name:        "Logger Initialization",
 //			mockGrpcApp: &MockGrpcApp{},
-//			//mockGauntlet: func() (client.Client, error) {
-//			//	return &MockGauntletClient{}, nil
+//			//mockCompose: func() (client.Client, error) {
+//			//	return &MockComposeClient{}, nil
 //			//},
 //			//mockRecorder: func() (event.IEventRecorder, error) {
 //			//	return &MockEventRecorder{}, nil
@@ -86,8 +283,8 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //		{
 //			name:        "Empty Event Recorder",
 //			mockGrpcApp: &MockGrpcApp{},
-//			//mockGauntlet: func() (client.Client, error) {
-//			//	return &MockGauntletClient{}, nil
+//			//mockCompose: func() (client.Client, error) {
+//			//	return &MockComposeClient{}, nil
 //			//},
 //			mockRecorder: func() (event.IEventRecorder, error) {
 //				return nil, nil
@@ -105,7 +302,7 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //			//confGetConf = func() ConfInterface {
 //			//	return &MockConf{
 //			//		kube: &MockKube{
-//			//			clientFunc: tt.mockGauntlet,
+//			//			clientFunc: tt.mockCompose,
 //			//		},
 //			//	}
 //			//}
@@ -135,16 +332,16 @@ func (m *MockEventRecorder) SomeMethod()  {}
 //	}
 //}
 
-type MockGauntletClient struct {
+type MockComposeClient struct {
 	GetFunc    func(ctx context.Context, key client.ObjectKey, obj client.Object) error
 	UpdateFunc func(ctx context.Context, obj client.Object) error
 }
 
-func (m *MockGauntletClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (m *MockComposeClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
 	return m.GetFunc(ctx, key, obj)
 }
 
-func (m *MockGauntletClient) Update(ctx context.Context, obj client.Object) error {
+func (m *MockComposeClient) Update(ctx context.Context, obj client.Object) error {
 	return m.UpdateFunc(ctx, obj)
 }
 
@@ -242,14 +439,14 @@ func (m *MockEventRecorder) SendWarningEventToUnit(unitName, namespace, event, m
 //
 //	for _, tt := range tests {
 //		t.Run(tt.name, func(t *testing.T) {
-//			//mockClient := &MockGauntletClient{
+//			//mockClient := &MockComposeClient{
 //			//	GetFunc: func(ctx context.Context, key client.ObjectKey, obj client.Object) error {
 //			//		if tt.getErr != nil {
 //			//			return tt.getErr
 //			//		}
-//			//		redis := obj.(*gauntletv1.RedisReplication)
+//			//		redis := obj.(*Composev1.RedisReplication)
 //			//		redis.Spec.Source.Host = "current-master"
-//			//		redis.Spec.Replica = gauntletv1.CommonNodes{
+//			//		redis.Spec.Replica = Composev1.CommonNodes{
 //			//			{Host: "replica1"},
 //			//			{Host: "new-master"},
 //			//		}
@@ -272,7 +469,7 @@ func (m *MockEventRecorder) SendWarningEventToUnit(unitName, namespace, event, m
 //			//}
 //
 //			svc := &service{
-//				//gauntletClient: mockClient,
+//				//ComposeClient: mockClient,
 //				//recorder:       mockRecorder,
 //				logger: zaptest.NewLogger(t).Sugar(),
 //			}
@@ -292,3 +489,12 @@ func (m *MockEventRecorder) SendWarningEventToUnit(unitName, namespace, event, m
 //		})
 //	}
 //}
+
+// getSentinelEnvVar 获取 Sentinel 环境变量
+func getSentinelEnvVar(key string) (string, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return "", errors.New("environment variable " + key + " is not set")
+	}
+	return value, nil
+}

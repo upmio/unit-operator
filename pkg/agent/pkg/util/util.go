@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,11 +12,6 @@ import (
 	"os"
 	"path"
 	"syscall"
-)
-
-const (
-	// Environment variable name for AES key
-	AESKeyEnvVar = "AES_SECRET_KEY"
 )
 
 // Nodes is a custom flag Var representing a list of etcd nodes.
@@ -75,12 +69,16 @@ func IsConfigChanged(src, dest string) (bool, error) {
 		return true, err
 	}
 	if d.Uid != s.Uid {
+		return true, nil
 	}
 	if d.Gid != s.Gid {
+		return true, nil
 	}
 	if d.Mode != s.Mode {
+		return true, nil
 	}
 	if d.Md5 != s.Md5 {
+		return true, nil
 	}
 	if d.Uid != s.Uid || d.Gid != s.Gid || d.Mode != s.Mode || d.Md5 != s.Md5 {
 		return true, nil
@@ -94,18 +92,29 @@ func FileStat(name string) (fi FileInfo, err error) {
 		if err != nil {
 			return fi, err
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Printf("failed to close file: %v\n", err)
+			}
+		}()
 		stats, _ := f.Stat()
 		fi.Uid = stats.Sys().(*syscall.Stat_t).Uid
 		fi.Gid = stats.Sys().(*syscall.Stat_t).Gid
 		fi.Mode = stats.Mode()
 		h := md5.New()
-		io.Copy(h, f)
+		if _, err := io.Copy(h, f); err != nil {
+			return fi, fmt.Errorf("failed to copy file data: %v", err)
+		}
 		fi.Md5 = fmt.Sprintf("%x", h.Sum(nil))
 		return fi, nil
 	}
-	return fi, errors.New("File not found")
+	return fi, errors.New("file not found")
 }
+
+const (
+	// Environment variable name for AES key
+	AESKeyEnvVar = "AES_SECRET_KEY"
+)
 
 var (
 	// Global AES key that should be set during application startup
@@ -137,31 +146,30 @@ func getAESKey() (string, error) {
 	return aesKey, nil
 }
 
-// AES_CTR_Encrypt encrypts plaintext using AES-256-CTR mode with custom key (for OpenSSL compatibility testing)
-func AES_CTR_Encrypt(plainText []byte) (string, error) {
-
+// AES_CTR_Encrypt encrypts plaintext and returns base64 encoded string (for backward compatibility)
+func AES_CTR_Encrypt(plainText []byte) ([]byte, error) {
 	keyStr, err := getAESKey()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Convert key to OpenSSL compatible format
 	opensslKey := hex.EncodeToString([]byte(keyStr))
 	key, err := hex.DecodeString(opensslKey)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Create AES cipher block
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Generate random IV
 	iv := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(iv); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Create CTR mode stream cipher
@@ -174,12 +182,11 @@ func AES_CTR_Encrypt(plainText []byte) (string, error) {
 	// Combine IV and ciphertext
 	encryptedData := append(iv, ciphertext...)
 
-	// Return Base64 encoded result
-	return base64.StdEncoding.EncodeToString(encryptedData), nil
+	return encryptedData, nil
 }
 
-// AES_CTR_Decrypt decrypts ciphertext using AES-256-CTR mode with custom key (for OpenSSL compatibility testing)
-func AES_CTR_Decrypt(encryptedBase64 string) ([]byte, error) {
+// AES_CTR_Decrypt decrypts base64 encoded string and returns plaintext (for backward compatibility)
+func AES_CTR_Decrypt(encryptedData []byte) ([]byte, error) {
 	keyStr, err := getAESKey()
 	if err != nil {
 		return nil, err
@@ -188,12 +195,6 @@ func AES_CTR_Decrypt(encryptedBase64 string) ([]byte, error) {
 	// Convert key to OpenSSL compatible format
 	opensslKey := hex.EncodeToString([]byte(keyStr))
 	key, err := hex.DecodeString(opensslKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Base64 decode
-	encryptedData, err := base64.StdEncoding.DecodeString(encryptedBase64)
 	if err != nil {
 		return nil, err
 	}

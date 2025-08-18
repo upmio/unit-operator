@@ -238,11 +238,14 @@ func getPodsLabelSet(unit *upmiov1alpha2.Unit) labels.Set {
 	return desiredLabels
 }
 
+// Commenting out unused function to fix lint errors
+/*
 func getPodsFinalizers(template *v1.PodTemplateSpec) []string {
 	desiredFinalizers := make([]string, len(template.Finalizers))
 	copy(desiredFinalizers, template.Finalizers)
 	return desiredFinalizers
 }
+*/
 
 func getPodsAnnotationSet(unit *upmiov1alpha2.Unit) labels.Set {
 	desiredAnnotations := make(labels.Set)
@@ -333,11 +336,7 @@ func LoopCompareEnv(unitEnvs, podEnvs []v1.EnvVar) bool {
 		}
 	}
 
-	if !findEnv {
-		return false
-	}
-
-	return true
+	return findEnv
 }
 
 func (r *UnitReconciler) waitUntilPodScheduled(ctx context.Context, podName, namespace string) (*v1.Pod, error) {

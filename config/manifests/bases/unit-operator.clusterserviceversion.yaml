@@ -1,0 +1,62 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: unit-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: GrpcCall is the Schema for the grpccalls API
+      displayName: Grpc Call
+      kind: GrpcCall
+      name: grpccalls.upm.syntropycloud.io
+      version: v1alpha1
+    - description: Unit is the Schema for the units API
+      displayName: Unit
+      kind: Unit
+      name: units.upm.syntropycloud.io
+      version: v1alpha2
+    - description: UnitSet is the Schema for the unitsets API
+      displayName: Unit Set
+      kind: UnitSet
+      name: unitsets.upm.syntropycloud.io
+      version: v1alpha2
+  description: Unit Operator - Database and Middleware Operator for Kubernetes
+  displayName: unit-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - MySQL
+  - Redis
+  - ElasticSearch
+  - PosrgreSQL
+  - Kafka
+  links:
+  - name: Unit Operator
+    url: https://unit-operator.domain
+  maintainers:
+  - email: chenxiinn@gmail.com
+    name: chenxiinn
+  maturity: alpha
+  provider:
+    name: upm
+    url: upm.io
+  version: 0.0.0

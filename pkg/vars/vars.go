@@ -10,7 +10,7 @@ var (
 	UnitAgentImage    string
 	UnitAgentHostType = "domain"
 
-	ManagerNamespace = "unknown"
+	ManagerNamespace = "upm-system"
 	ProjectName      = "unit-operator"
 	IpFamily         = "IPv4"
 )
@@ -38,9 +38,6 @@ func init() {
 }
 
 const (
-	CertmanagerIssuerSuffix         = "certmanager-issuer"
-	CertmanagerCertificateSuffix    = "certmanager-ca"
-	CertmanagerSecretNameSuffix     = "secret"
 	ServiceMonitorCrdName           = "servicemonitors.monitoring.coreos.com"
 	PodMonitorCrdName               = "podmonitors.monitoring.coreos.com"
 	MonitorServiceMonitorNameSuffix = "-exporter-svcmon"

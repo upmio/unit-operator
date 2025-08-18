@@ -301,6 +301,20 @@ _Appears in:_
 | `spec` _[UnitSetSpec](#unitsetspec)_ |  |  |  |
 
 
+##### Scheduling via Annotation
+Use `metadata.annotations.upm.io/node-name-map` on `UnitSet` to define per-Unit node bindings.
+Example:
+```
+metadata:
+  annotations:
+    upm.io/node-name-map: '{"mysql-cluster-0":"node-a","mysql-cluster-1":"noneSet"}'
+```
+Controller behavior:
+- Adds nodeAffinity targeting the specified node for that Unit
+- Writes `last.unit.belong.node` to the corresponding `Unit` annotation
+- `noneSet` disables binding for that Unit
+
+
 #### UnitSetList
 
 

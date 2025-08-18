@@ -59,11 +59,17 @@ func (e *CommandExecutor) ExecutePipedCommands(cmd1 *exec.Cmd, cmd2 *exec.Cmd, l
 
 	go e.handleStderr(&wg, stderr1, fmt.Sprintf("%s/%s-%s.log", logDir, cmd1.Args[0], logPrefix))
 	go e.handleStderr(&wg, stderr2, fmt.Sprintf("%s/%s-%s.log", logDir, cmd2.Args[0], logPrefix))
-	
+
 	go func() {
-		defer pw.Close()
+		defer func() {
+			if err := pw.Close(); err != nil {
+				e.logger.Errorf("failed to close pipe writer: %v", err)
+			}
+		}()
 		defer wg.Done()
-		cmd1.Wait()
+		if err := cmd1.Wait(); err != nil {
+			e.logger.Errorf("command %s failed: %v", cmd1.Args[0], err)
+		}
 	}()
 
 	// Wait for second command
@@ -79,13 +85,13 @@ func (e *CommandExecutor) ExecutePipedCommands(cmd1 *exec.Cmd, cmd2 *exec.Cmd, l
 // handleStderr handles stderr logging for commands
 func (e *CommandExecutor) handleStderr(wg *sync.WaitGroup, stderr io.ReadCloser, logPath string) {
 	defer wg.Done()
-	
+
 	stderrBytes, err := io.ReadAll(stderr)
 	if err != nil {
 		e.logger.Errorf("failed to read stderr: %v", err)
 		return
 	}
-	
+
 	if err := os.WriteFile(logPath, stderrBytes, 0644); err != nil {
 		e.logger.Errorf("failed to write stderr to file %s: %v", logPath, err)
 	}

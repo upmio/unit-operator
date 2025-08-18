@@ -43,7 +43,11 @@ func (r *UnitSetReconciler) reconcileHeadlessService(
 		}
 
 		for _, p := range ports {
-			intPort, _ := strconv.Atoi(p.ContainerPort)
+			intPort, convErr := strconv.Atoi(p.ContainerPort)
+			if convErr != nil || intPort <= 0 || intPort > 65535 {
+				// Skip invalid ports to avoid API validation errors
+				continue
+			}
 			service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
 				Name:     p.Name,
 				Port:     int32(intPort),
@@ -51,7 +55,13 @@ func (r *UnitSetReconciler) reconcileHeadlessService(
 			})
 		}
 
-		service.Labels = unitset.Labels
+		// Copy labels from UnitSet to avoid sharing the same map reference
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		for k, v := range unitset.Labels {
+			service.Labels[k] = v
+		}
 
 		service.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
 		service.Spec.Selector[upmiov1alpha2.UnitsetName] = unitset.Name
@@ -107,7 +117,10 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		}
 
 		for _, p := range ports {
-			intPort, _ := strconv.Atoi(p.ContainerPort)
+			intPort, convErr := strconv.Atoi(p.ContainerPort)
+			if convErr != nil || intPort <= 0 || intPort > 65535 {
+				continue
+			}
 			service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
 				Name:     p.Name,
 				Port:     int32(intPort),
@@ -115,7 +128,12 @@ func (r *UnitSetReconciler) reconcileExternalService(
 			})
 		}
 
-		service.Labels = unitset.Labels
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		for k, v := range unitset.Labels {
+			service.Labels[k] = v
+		}
 
 		service.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
 		service.Spec.Selector[upmiov1alpha2.UnitsetName] = unitset.Name
@@ -180,7 +198,10 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				}
 
 				for _, p := range ports {
-					intPort, _ := strconv.Atoi(p.ContainerPort)
+					intPort, convErr := strconv.Atoi(p.ContainerPort)
+					if convErr != nil || intPort <= 0 || intPort > 65535 {
+						continue
+					}
 					service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
 						Name:     p.Name,
 						Port:     int32(intPort),
@@ -188,7 +209,12 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					})
 				}
 
-				service.Labels = unitset.Labels
+				if service.Labels == nil {
+					service.Labels = make(map[string]string)
+				}
+				for k, v := range unitset.Labels {
+					service.Labels[k] = v
+				}
 
 				service.Labels[upmiov1alpha2.UnitName] = unitName
 				service.Spec.Selector[upmiov1alpha2.UnitName] = unitName

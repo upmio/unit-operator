@@ -20,7 +20,7 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 	ctx context.Context,
 	req ctrl.Request,
 	unitset *upmiov1alpha2.UnitSet) error {
-	//upm-system           mysql-community-8.0.41-config-template	每个 unitset 一个
+	//upm-system           mysql-community-8.0.41-config-template	One for each unitset
 	configTemplateName := unitset.ConfigTemplateName()
 	cm := v1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: configTemplateName, Namespace: req.Namespace}, &cm)
@@ -57,6 +57,10 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 	}
 
 	// when update image, compare cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]
+	// Initialize annotations map when nil to avoid panic
+	if cm.Annotations == nil {
+		cm.Annotations = make(map[string]string)
+	}
 	if cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] != unitset.Spec.Version {
 		klog.Infof("[reconcileConfigmap] unitset:[%s] version update [old:%s, new:%s], trigger update [template configmap]",
 			req.String(), cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion], unitset.Spec.Version)
@@ -69,6 +73,10 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 		}
 
 		cm.Data = templateCm.Data
+		// Ensure annotations map is initialized
+		if cm.Annotations == nil {
+			cm.Annotations = make(map[string]string)
+		}
 		cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
 
 		err = r.Update(ctx, &cm)
@@ -77,7 +85,7 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 		}
 	}
 
-	//upm-system           mysql-community-8.0.41-config-value		每个 unit 一个
+	//upm-system           mysql-community-8.0.41-config-value		One for each unit
 	unitNames, _ := unitset.UnitNames()
 	errs := []error{}
 	var wg sync.WaitGroup
@@ -113,9 +121,13 @@ func (r *UnitSetReconciler) reconcileConfigTemplateValue(
 	unitset *upmiov1alpha2.UnitSet,
 	unitName string) error {
 
+	// Ignore empty unit names to avoid invalid resource names
+	if unitName == "" {
+		return nil
+	}
 	klog.V(4).Infof("reconcileConfigTemplateValue unitset:[%s], unitName:[%s]", req.String(), unitName)
 
-	//upm-system           mysql-community-8.0.41-config-value		每个 unit 一个
+	//upm-system           mysql-community-8.0.41-config-value		One for each unit
 	configValueName := unitset.ConfigValueName(unitName)
 	cm := v1.ConfigMap{}
 	err := r.Get(ctx, client.ObjectKey{Name: configValueName, Namespace: req.Namespace}, &cm)
@@ -150,20 +162,14 @@ func (r *UnitSetReconciler) reconcileConfigTemplateValue(
 		return fmt.Errorf("[reconcileConfigTemplateValue] [CREATE] get config value cm:[%s] error:[%s]", configValueName, err.Error())
 	}
 
+	// Ensure annotations map is initialized before reading/updating
+	if cm.Annotations == nil {
+		cm.Annotations = make(map[string]string)
+	}
 	// when update image, compare cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]
 	if cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] != unitset.Spec.Version {
 		klog.Infof("[reconcileConfigTemplateValue] [UPDATE] unitset:[%s] version update [old:%s, new:%s], trigger update [value configmap]",
 			req.String(), cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion], unitset.Spec.Version)
-
-		originalValueContent, ok := cm.Data[unitset.Spec.Type]
-		if !ok {
-			return nil
-		}
-
-		originalValueConfiger, err := config.NewViper(originalValueContent, "yaml")
-		if err != nil {
-			return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], get new viper failed: [%s]", cm.Name, err.Error())
-		}
 
 		templateConfigValueName := unitset.TemplateConfigValueName()
 		templateConfigValueCm := v1.ConfigMap{}
@@ -177,21 +183,59 @@ func (r *UnitSetReconciler) reconcileConfigTemplateValue(
 			return nil
 		}
 
-		configTemplateValueConfiger, err := config.NewViper(configTemplateValueContent, "yaml")
-		if err != nil {
-			return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], get new viper failed: [%s]", templateConfigValueCm.Name, err.Error())
+		// Ensure data map is initialized
+		if cm.Data == nil {
+			cm.Data = make(map[string]string)
 		}
+		// If original key missing, seed with template directly
+		originalValueContent, hasOriginal := cm.Data[unitset.Spec.Type]
+		if !hasOriginal {
+			cm.Data[unitset.Spec.Type] = configTemplateValueContent
+		} else {
+			// Determine if the original equals the old template (i.e., not customized)
+			oldVersion := cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]
+			var oldTemplateValueName string
+			if unitset.Spec.Edition == "" {
+				oldTemplateValueName = fmt.Sprintf("%s-%s-config-value", unitset.Spec.Type, oldVersion)
+			} else {
+				oldTemplateValueName = fmt.Sprintf("%s-%s-%s-config-value", unitset.Spec.Type, unitset.Spec.Edition, oldVersion)
+			}
 
-		for _, one := range originalValueConfiger.AllKeys() {
-			configTemplateValueConfiger.Set(one, originalValueConfiger.Get(one))
+			oldTemplateValueCm := v1.ConfigMap{}
+			oldTemplateValueContent := ""
+			if getErr := r.Get(ctx, client.ObjectKey{Name: oldTemplateValueName, Namespace: vars.ManagerNamespace}, &oldTemplateValueCm); getErr == nil {
+				if v, ok := oldTemplateValueCm.Data[unitset.Spec.Type]; ok {
+					oldTemplateValueContent = v
+				}
+			}
+
+			if oldTemplateValueContent != "" && oldTemplateValueContent == originalValueContent {
+				// Not customized: adopt the new template as-is
+				cm.Data[unitset.Spec.Type] = configTemplateValueContent
+			} else {
+				// Customized: overlay original keys onto new template
+				originalValueConfiger, err := config.NewViper(originalValueContent, "yaml")
+				if err != nil {
+					return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], get new viper failed: [%s]", cm.Name, err.Error())
+				}
+
+				configTemplateValueConfiger, err := config.NewViper(configTemplateValueContent, "yaml")
+				if err != nil {
+					return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], get new viper failed: [%s]", templateConfigValueCm.Name, err.Error())
+				}
+
+				for _, one := range originalValueConfiger.AllKeys() {
+					configTemplateValueConfiger.Set(one, originalValueConfiger.Get(one))
+				}
+
+				newConfigStr, err := config.Viper2String(configTemplateValueConfiger)
+				if err != nil {
+					return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], configer to string failed: [%s]", cm.Name, err.Error())
+				}
+
+				cm.Data[unitset.Spec.Type] = newConfigStr
+			}
 		}
-
-		newConfigStr, err := config.Viper2String(configTemplateValueConfiger)
-		if err != nil {
-			return fmt.Errorf("[reconcileConfigTemplateValue] [UPDATE] configmap:[%s], configer to string failed: [%s]", cm.Name, err.Error())
-		}
-
-		cm.Data[unitset.Spec.Type] = newConfigStr
 		cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
 
 		err = r.Update(ctx, &cm)

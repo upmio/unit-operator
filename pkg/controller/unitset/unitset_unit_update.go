@@ -24,9 +24,9 @@ func (r *UnitSetReconciler) reconcileImageVersion(
 	podTemplate *v1.PodTemplate,
 	ports upmiov1alpha2.Ports) error {
 
-	// 两种更改途径
-	// 1.直接更新 unitset
-	// 2.更新 podtemplate // 暂时不考虑
+	// Two ways to change
+	// 1. Update unitset directly
+	// 2. Update podtemplate // Not considered for now
 
 	// new version template
 	templatePodTemplate := v1.PodTemplate{}
@@ -176,20 +176,55 @@ func mergePodTemplate(
 	fillPodAffinity(unit, unitset)
 	fillPortToDefaultContainer(unit, unitset, ports)
 
-	// if NodeNameMap not empty, fill node name to unit.spec and unit.annotation
-	if unitset.Spec.NodeNameMap != nil && len(unitset.Spec.NodeNameMap) != 0 {
-		nodeName, ok := unitset.Spec.NodeNameMap[unit.Name]
+	// if NodeNameMap (from annotations) not empty, fill node name to unit.spec and unit.annotation
+	nodeNameMap := getNodeNameMapFromAnnotations(unitset)
+	if len(nodeNameMap) != 0 {
+		nodeName, ok := nodeNameMap[unit.Name]
 		if ok && nodeName != upmiov1alpha2.NoneSetFlag {
-			unit.Spec.Template.Spec.NodeName = nodeName
 			unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
+
+			if unit.Spec.Template.Spec.Affinity == nil {
+				unit.Spec.Template.Spec.Affinity = &v1.Affinity{}
+			}
+
+			matchExpressions := v1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: v1.NodeSelectorOpIn,
+				Values:   []string{nodeName},
+			}
+
+			// append matchExpressions
+			if unit.Spec.Template.Spec.Affinity.NodeAffinity == nil {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity = &v1.NodeAffinity{}
+			}
+
+			if unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								matchExpressions,
+							},
+						},
+					},
+				}
+			} else {
+				unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+					unit.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+					v1.NodeSelectorTerm{
+						MatchExpressions: []v1.NodeSelectorRequirement{
+							matchExpressions,
+						},
+					})
+			}
 		}
 	}
 
-	// emptyDir 不需要 pvc
-	if unitset.Spec.Storages != nil && len(unitset.Spec.Storages) != 0 {
-		if unit.Spec.Template.Spec.Volumes != nil && len(unit.Spec.Template.Spec.Volumes) != 0 {
+	// emptyDir doesn't need pvc
+	if len(unitset.Spec.Storages) != 0 {
+		if len(unit.Spec.Template.Spec.Volumes) != 0 {
 			for i := range unit.Spec.Template.Spec.Volumes {
-				// 非 secret
+				// Non-secret
 				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
@@ -213,7 +248,7 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 		return fmt.Errorf("[reconcileResources] error getting units: [%s]", err.Error())
 	}
 
-	if kUnits == nil || len(kUnits) == 0 {
+	if len(kUnits) == 0 {
 		return nil
 	}
 
@@ -294,7 +329,7 @@ func (r *UnitSetReconciler) reconcileStorage(ctx context.Context, req ctrl.Reque
 		return fmt.Errorf("[reconcileStorage] error getting units: [%s]", err.Error())
 	}
 
-	if kUnits == nil || len(kUnits) == 0 {
+	if len(kUnits) == 0 {
 		return nil
 	}
 
@@ -364,4 +399,94 @@ func mergeStorage(kUnit upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) upmi
 	}
 
 	return *unit
+}
+
+// reconcileUnitLabelsAnnotations ensures that UnitSet metadata (labels/annotations)
+// are propagated to all Units it manages. It merges keys from UnitSet into each Unit
+// without removing pre-existing Unit-specific keys.
+func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+) error {
+	kUnits, err := r.unitsBelongUnitset(ctx, unitset)
+	if err != nil {
+		return fmt.Errorf("[reconcileUnitLabelsAnnotations] error getting units: [%s]", err.Error())
+	}
+
+	if len(kUnits) == 0 {
+		return nil
+	}
+
+	errs := []error{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, unit := range kUnits {
+		wg.Add(1)
+		go func(unit upmiov1alpha2.Unit) {
+			defer wg.Done()
+
+			updateErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				// Get latest
+				latest := &upmiov1alpha2.Unit{}
+				if err := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}, latest); err != nil {
+					return err
+				}
+
+				needUpdate := false
+
+				if latest.Labels == nil {
+					latest.Labels = map[string]string{}
+					needUpdate = true
+				}
+				if latest.Annotations == nil {
+					latest.Annotations = map[string]string{}
+					needUpdate = true
+				}
+
+				// Always ensure Unit is labeled with UnitSet name
+				if latest.Labels[upmiov1alpha2.UnitsetName] != unitset.Name {
+					latest.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
+					needUpdate = true
+				}
+
+				// Merge labels from UnitSet
+				for k, v := range unitset.Labels {
+					if cur, ok := latest.Labels[k]; !ok || cur != v {
+						latest.Labels[k] = v
+						needUpdate = true
+					}
+				}
+
+				// Merge annotations from UnitSet
+				for k, v := range unitset.Annotations {
+					if cur, ok := latest.Annotations[k]; !ok || cur != v {
+						latest.Annotations[k] = v
+						needUpdate = true
+					}
+				}
+
+				if !needUpdate {
+					return nil
+				}
+
+				return r.Update(ctx, latest)
+			})
+
+			if updateErr != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("[reconcileUnitLabelsAnnotations] update unit [%s/%s] err: [%s]", unit.Namespace, unit.Name, updateErr.Error()))
+				mu.Unlock()
+			}
+		}(*unit)
+	}
+
+	wg.Wait()
+
+	if agg := utilerrors.NewAggregate(errs); agg != nil {
+		return fmt.Errorf("[reconcileUnitLabelsAnnotations] error: [%s]", agg.Error())
+	}
+
+	return nil
 }

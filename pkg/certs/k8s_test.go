@@ -74,6 +74,12 @@ func createFakeOperatorDeployment(ctx context.Context, kubeClient client.Client)
 
 func generateFakeClient() client.Client {
 	scheme := runtime.NewScheme()
+
+	// Register core Kubernetes types
+	_ = corev1.AddToScheme(scheme)
+	_ = appsv1.AddToScheme(scheme)
+	_ = admissionregistrationv1.AddToScheme(scheme)
+
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		Build()
