@@ -8,10 +8,10 @@ func (u *Unit) MainContainerName() string {
 }
 
 func PersistentVolumeClaimName(unit *Unit, volume string) string {
-	return fmt.Sprintf("%s-%s", unit.GetName(), volume)
+	return fmt.Sprintf("%s-%s", unit.Name, volume)
 }
 func GetPersistentVolumeName(unit *Unit, volume string) string {
-	return fmt.Sprintf("%s-%s", unit.GetName(), volume)
+	return fmt.Sprintf("%s-%s", unit.Name, volume)
 }
 
 func UnitsetHeadlessSvcName(unit *Unit) string {

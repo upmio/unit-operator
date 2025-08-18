@@ -12,11 +12,18 @@ const (
 	AnnotationMainContainerVersion = "kubectl.kubernetes.io/default-container-version"
 	AnnotationForceDelete          = "upm.io/force-delete"
 	AnnotationLastUnitBelongNode   = "last.unit.belong.node"
+	// AnnotationUnitsetNodeNameMap stores a JSON object mapping unit name -> node name (or "noneSet")
+	// Example: {"mysql-cluster-0":"node-a","mysql-cluster-1":"noneSet"}
+	AnnotationUnitsetNodeNameMap = "upm.io/node-name-map"
 
 	FinalizerUnitDelete      = "upm.io/unit-delete"
 	FinalizerConfigMapDelete = "upm.io/configmap-delete"
 	FinalizerPodDelete       = "upm.io/pod-delete"
 	FinalizerPvcDelete       = "upm.io/pvc-delete"
+
+	CertmanagerIssuerSuffix      = "certmanager-issuer"
+	CertmanagerCertificateSuffix = "certmanager-ca"
+	CertmanagerSecretNameSuffix  = "secret"
 )
 
 // UnitPhase is a label for the condition of a pod at the current time.

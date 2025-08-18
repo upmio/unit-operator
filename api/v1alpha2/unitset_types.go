@@ -90,15 +90,21 @@ type UnitSetSpec struct {
 	// +optional
 	Secret *SecretInfo `json:"secret,omitempty"`
 
-	// NodeNameMap indicates in which node this pod is scheduled.
-	// The key is the index of the unit, the value is the name of the node, e.g.：{"testunit-0":"k8s-node1","testunit-1":"noneSet"}
-	// If it is not set, unitset backfills the field when the pod is created
-	// If so, this field is used during the unit generation process
-	// If the value is [noneSet], the unit is ignored to set the nodeName.
+	// CertificateProfile defines the configuration for certificate profile
 	// +optional
-	NodeNameMap map[string]string `json:"nodeNameMap,omitempty"`
+	CertificateProfile CertificateProfile `json:"certificateProfile,omitempty"`
 }
 
+type CertificateProfile struct {
+
+	// Organizations List of organization names
+	// +optional
+	Organizations []string `json:"organizations"`
+
+	// RootSecret Root secret name
+	// +optional
+	RootSecret string `json:"root_secret"`
+}
 type SecretInfo struct {
 
 	// Name of the secret
