@@ -58,7 +58,14 @@ func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) 
 		return nil, fmt.Errorf("S3 storage configuration is required")
 	}
 
-	return minio.New(s3Config.GetEndpoint(), &minio.Options{
+	var endpoint string
+	if strings.Contains(s3Config.GetEndpoint(), "http://") {
+		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "http://")
+	} else if strings.Contains(s3Config.GetEndpoint(), "https://") {
+		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "https://")
+	}
+
+	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
 		Secure: false,
 	})
@@ -108,7 +115,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 	var cmd *exec.Cmd
 
 	if req.GetS3Storage() != nil {
-		path, err := exec.LookPath("pg_basebackup")
+		_, err := exec.LookPath("pg_basebackup")
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "pg_basebackup command is not installed or not in PATH", nil)
 		}
@@ -133,7 +140,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 		}
 
 		cmd = exec.CommandContext(ctx,
-			path,
+			"pg_basebackup",
 			"-D",
 			backupDir,
 			"-U",
@@ -228,7 +235,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "service status check failed", err)
 	}
 
-	path, err := exec.LookPath("pg_dumpall")
+	_, err := exec.LookPath("pg_dumpall")
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "pg_dumpall command is not installed or not in PATH", nil)
 	}
@@ -238,7 +245,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	switch req.GetLogicalBackupMode() {
 	case LogicalBackupMode_Full:
 		cmd = exec.CommandContext(ctx,
-			path,
+			"pg_dumpall",
 			"-U",
 			req.GetUsername(),
 			"-h",

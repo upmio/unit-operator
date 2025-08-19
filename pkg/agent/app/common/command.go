@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 )
 
@@ -57,8 +58,8 @@ func (e *CommandExecutor) ExecutePipedCommands(cmd1 *exec.Cmd, cmd2 *exec.Cmd, l
 	logDir := os.Getenv("LOG_MOUNT")
 	wg.Add(3)
 
-	go e.handleStderr(&wg, stderr1, fmt.Sprintf("%s/%s-%s.log", logDir, cmd1.Args[0], logPrefix))
-	go e.handleStderr(&wg, stderr2, fmt.Sprintf("%s/%s-%s.log", logDir, cmd2.Args[0], logPrefix))
+	go e.handleStderr(&wg, stderr1, filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd1.Args[0], logPrefix)))
+	go e.handleStderr(&wg, stderr2, filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd2.Args[0], logPrefix)))
 
 	go func() {
 		defer func() {
@@ -116,7 +117,7 @@ func (e *CommandExecutor) ExecuteCommand(cmd *exec.Cmd, logPrefix string) error 
 	}
 
 	logDir := os.Getenv("LOG_MOUNT")
-	logPath := fmt.Sprintf("%s/%s-%s.log", logDir, cmd.Args[0], logPrefix)
+	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd.Args[0], logPrefix))
 	if err := os.WriteFile(logPath, stderrBytes, 0644); err != nil {
 		e.logger.Errorf("failed to write %s stderr to file %s: %v", cmd.Args[0], logPath, err)
 	}

@@ -81,7 +81,14 @@ func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) 
 		return nil, fmt.Errorf("S3 storage configuration is required")
 	}
 
-	return minio.New(s3Config.GetEndpoint(), &minio.Options{
+	var endpoint string
+	if strings.Contains(s3Config.GetEndpoint(), "http://") {
+		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "http://")
+	} else if strings.Contains(s3Config.GetEndpoint(), "https://") {
+		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "https://")
+	}
+
+	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
 		Secure: false,
 	})
@@ -230,13 +237,13 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 	switch req.GetPhysicalBackupTool() {
 	case PhysicalBackupTool_Xtrabackup:
 		if req.GetS3Storage() != nil {
-			path, err := exec.LookPath("xtrabackup")
+			_, err := exec.LookPath("xtrabackup")
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newMysqlResponse, "xtrabackup command is not installed or not in PATH", err)
 			}
 
 			cmd = exec.CommandContext(ctx,
-				path,
+				"xtrabackup",
 				fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 				fmt.Sprintf("--socket=%s", req.GetSocketFile()),
 				fmt.Sprintf("--user=%s", req.GetUsername()),
@@ -247,13 +254,13 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 				"--stream=xbstream",
 			)
 
-			path, err = exec.LookPath("xbcloud")
+			_, err = exec.LookPath("xbcloud")
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newMysqlResponse, "xbcloud command is not installed or not in PATH", err)
 			}
 
 			xbcloudCmd := exec.CommandContext(ctx,
-				path,
+				"xbcloud",
 				"put",
 				"--storage=s3",
 				fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
@@ -303,7 +310,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
-	path, err := exec.LookPath("mysqldump")
+	_, err := exec.LookPath("mysqldump")
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "mysqldump command is not installed or not in PATH", nil)
 	}
@@ -313,7 +320,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	switch req.GetLogicalBackupMode() {
 	case LogicalBackupMode_Full:
 		cmd = exec.CommandContext(ctx,
-			path,
+			"mysqldump",
 			fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 			fmt.Sprintf("--user=%s", req.GetUsername()),
 			fmt.Sprintf("--password=%s", req.GetPassword()),
@@ -325,7 +332,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 	case LogicalBackupMode_Database:
 		cmd = exec.CommandContext(ctx,
-			path,
+			"mysqldump",
 			fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 			fmt.Sprintf("--user=%s", req.GetUsername()),
 			fmt.Sprintf("--password=%s", req.GetPassword()),
