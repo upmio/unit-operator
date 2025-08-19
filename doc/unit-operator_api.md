@@ -2,6 +2,7 @@
 
 ## Packages
 - [upm.syntropycloud.io/v1alpha2](#upmsyntropycloudiov1alpha2)
+- [upm.syntropycloud.io/v1alpha1](#upmsyntropycloudiov1alpha1)
 
 
 ## upm.syntropycloud.io/v1alpha2
@@ -13,6 +14,107 @@ Package v1alpha2 contains API Schema definitions for the  v1alpha2 API group
 - [UnitList](#unitlist)
 - [UnitSet](#unitset)
 - [UnitSetList](#unitsetlist)
+
+> Webhooks: `UnitSet`/`Unit` admission webhooks are enabled by default (can be disabled via `ENABLE_WEBHOOKS=false`). `UnitSet` attaches finalizers (`upm.io/unit-delete`, `upm.io/configmap-delete`) during defaulting.
+
+## upm.syntropycloud.io/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the v1alpha1 API group
+
+### Resource Types
+- [GrpcCall](#grpccall)
+- [GrpcCallList](#grpccallist)
+
+> Note: Replication/topology CRDs (e.g., `MysqlReplication`, `PostgresReplication`) are provided by the Compose Operator project, not this repository. See: `https://github.com/upmio/compose-operator`.
+
+
+#### Action
+
+Underlying type: _string_
+
+Action defines the specific operation to be sent to the unit-agent. Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone`.
+
+_Appears in:_
+- [GrpcCallSpec](#grpccallspec)
+
+
+#### GrpcCall
+
+GrpcCall is the Schema for the grpccalls API
+
+_Appears in:_
+- [GrpcCallList](#grpccallist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha1` | | |
+| `kind` _string_ | `GrpcCall` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[GrpcCallSpec](#grpccallspec)_ |  |  |  |
+| `status` _[GrpcCallStatus](#grpccallstatus)_ |  |  |  |
+
+
+#### GrpcCallList
+
+GrpcCallList contains a list of GrpcCall
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha1` | | |
+| `kind` _string_ | `GrpcCallList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[GrpcCall](#grpccall) array_ |  |  |  |
+
+
+#### GrpcCallSpec
+
+GrpcCallSpec defines the desired behavior of a GrpcCall custom resource.
+
+_Appears in:_
+- [GrpcCall](#grpccall)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `targetUnit` _string_ | Name of the target Unit custom resource |  |  |
+| `type` _[UnitType](#unittype)_ | Type of target unit |  | Enum: `mysql`, `postgresql`, `proxysql` |
+| `action` _[Action](#action)_ | Operation to perform |  | Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone` |
+| `ttlSecondsAfterFinished` _integer_ | TTL after completion (seconds). If set, the resource is eligible for auto-deletion after TTL. |  |  |
+| `parameters` _object_ | Action-specific parameters (map[string]JSON) |  | Schemaless: {} <br /> |
+
+
+#### GrpcCallStatus
+
+GrpcCallStatus defines the observed state of a GrpcCall.
+
+_Appears in:_
+- [GrpcCall](#grpccall)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `result` _[Result](#result)_ | Final outcome of the operation |  | Enum: `Success`, `Failed` |
+| `message` _string_ | Detailed message or error context |  |  |
+| `completionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Completion time |  |  |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Start time |  |  |
+
+
+#### Result
+
+Underlying type: _string_
+
+Result defines the outcome status of a GrpcCall execution. Enum: `Success`, `Failed`.
+
+_Appears in:_
+- [GrpcCallStatus](#grpccallstatus)
+
+
+#### UnitType
+
+Underlying type: _string_
+
+UnitType defines the type of unit the GrpcCall will interact with. Enum: `mysql`, `postgresql`, `proxysql`.
+
+_Appears in:_
+- [GrpcCallSpec](#grpccallspec)
 
 
 
@@ -31,6 +133,18 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `organization` _string_ | Organization name for the certificate |  |  |
 | `name` _string_ | Name of the certificate secret |  |  |
+
+#### CertificateProfile
+
+CertificateProfile contains certificate profile information.
+
+_Appears in:_
+- [UnitSetSpec](#unitsetspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `organizations` _string array_ | List of organization names |  |  |
+| `root_secret` _string_ | Root secret name (CA) |  |  |
 
 
 #### ConfigSyncStatus
@@ -226,6 +340,7 @@ _Appears in:_
 | `kind` _string_ | `Unit` | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[UnitSpec](#unitspec)_ |  |  |  |
+| `status` _[UnitStatus](#unitstatus)_ |  |  |  |
 
 
 #### UnitList
@@ -265,6 +380,24 @@ _Appears in:_
 | `Failed` | UnitFailed means that all containers in the pod have terminated, and at least one container has<br />terminated in a failure (exited with a non-zero exit code or was stopped by the system).<br /> |
 | `Unknown` | UnitUnknown means that for some reason the state of the pod could not be obtained, typically due<br />to an error in communicating with the host of the pod.<br />Deprecated: It isn't being set since 2015 (74da3b14b0c0f658b3bb8d2def5094686d0e9095)<br /> |
 
+#### UnitStatus
+
+_Appears in:_
+- [Unit](#unit)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#condition-v1-meta) array_ | Conditions is an array of conditions. |  |  |
+| `phase` _[UnitPhase](#unitphase)_ | Current lifecycle phase |  |  |
+| `nodeReady` _string_ | Node readiness state |  |  |
+| `nodeName` _string_ | Node name of the unit |  |  |
+| `task` _string_ | Current task |  |  |
+| `processState` _string_ | Current process state |  |  |
+| `hostIP` _string_ | Host IP |  |  |
+| `podIPs` _[PodIP](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#podip-v1-core) array_ | Pod IPs |  |  |
+| `configSynced` _[ConfigSyncStatus](#configsyncstatus)_ | Config sync status |  |  |
+| `persistentVolumeClaim` _[PvcInfo](#pvcinfo) array_ | PVC status info |  |  |
+
 
 #### UnitServiceSpec
 
@@ -299,6 +432,7 @@ _Appears in:_
 | `kind` _string_ | `UnitSet` | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[UnitSetSpec](#unitsetspec)_ |  |  |  |
+| `status` _[UnitSetStatus](#unitsetstatus)_ |  |  |  |
 
 
 ##### Scheduling via Annotation
@@ -355,6 +489,7 @@ _Appears in:_
 | `externalService` _[ExternalServiceSpec](#externalservicespec)_ | ExternalService Configuration for external services |  |  |
 | `unitService` _[UnitServiceSpec](#unitservicespec)_ | UnitService Configuration for unit services |  |  |
 | `certificateSecret` _[CertificateSecretSpec](#certificatesecretspec)_ | CertificateSecret Secret configuration for certificates |  |  |
+| `certificateProfile` _[CertificateProfile](#certificateprofile)_ | Additional CA and org settings |  |  |
 | `sharedConfigName` _string_ | SharedConfigName Name of the shared configuration |  |  |
 | `updateStrategy` _[UpdateStrategySpec](#updatestrategyspec)_ | UpdateStrategy Strategy for updating the unit set |  |  |
 | `nodeAffinityPreset` _[NodeAffinityPresetSpec](#nodeaffinitypresetspec) array_ | NodeAffinityPreset  Node affinity rules |  |  |
@@ -366,6 +501,43 @@ _Appears in:_
 
 
 
+#### UnitSetStatus
+
+UnitSetStatus defines the observed state of UnitSet
+
+_Appears in:_
+- [UnitSet](#unitset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#condition-v1-meta) array_ | Conditions |  |  |
+| `units` _integer_ | Current number of units |  |  |
+| `readyUnits` _integer_ | Number of ready units |  |  |
+| `unitPVCSynced` _[PvcSyncStatus](#pvcsyncstatus)_ | PVC synchronization status |  |  |
+| `unitImageSynced` _[ImageSyncStatus](#imagesyncstatus)_ | Image synchronization status |  |  |
+| `unitResourceSynced` _[ResourceSyncStatus](#resourcesyncstatus)_ | Resource synchronization status |  |  |
+| `inUpdate` _string_ | Whether an update is in progress |  |  |
+
+#### PvcSyncStatus
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastTransitionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Last transition time |  |  |
+| `status` _string_ | True/False |  |  |
+
+#### ImageSyncStatus
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastTransitionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Last transition time |  |  |
+| `status` _string_ | True/False |  |  |
+
+#### ResourceSyncStatus
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastTransitionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Last transition time |  |  |
+| `status` _string_ | True/False |  |  |
 #### UnitSpec
 
 

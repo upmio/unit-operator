@@ -12,13 +12,18 @@ The Unit Operator provides a comprehensive API for managing database and middlew
 ├─────────────────────────────────────────────────────────────┤
 │  v1alpha1 (upm.syntropycloud.io)                           │
 │  ├── GrpcCall - Execute operations on unit agents          │
-│  └── MysqlReplication - MySQL replication management       │
+│  ├── MysqlReplication - MySQL replication management       │ (from compose-operator)
+│  └── PostgresReplication - PostgreSQL replication          │ (from compose-operator)
 │                                                             │
 │  v1alpha2 (upm.syntropycloud.io)                           │
 │  ├── UnitSet - Manage database clusters                    │
 │  └── Unit - Individual database instances                  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> Webhooks: `UnitSet`/`Unit` admission webhooks are enabled by default (can be disabled via `ENABLE_WEBHOOKS=false`).
+> - Defaulting: `UnitSet` creation/update automatically attaches finalizers (`upm.io/unit-delete`, `upm.io/configmap-delete`).
+> - Validation: Validation hooks are placeholders and can be extended as needed.
 
 ## 📚 API Versions
 
@@ -27,9 +32,19 @@ The Unit Operator provides a comprehensive API for managing database and middlew
 - **MysqlReplication**: Manage MySQL replication (from compose-operator)
 - **PostgresReplication**: Manage PostgreSQL replication (from compose-operator)
 
+> Note: `MysqlReplication`/`PostgresReplication` come from the Compose Operator project and are not CRDs in this repository. For replication/topology capabilities, see: `https://github.com/upmio/compose-operator`.
+
 ### v1alpha2 (upm.syntropycloud.io)
 - **Unit**: Individual database instance
 - **UnitSet**: Collection of database units with shared configuration
+
+### 🧩 Compose Operator integration (optional)
+
+This project can work with Compose Operator to provide database replication/topology capabilities (MySQL, PostgreSQL, etc.). Compose-related CRDs are provided and maintained by Compose Operator; install only if replication/topology is needed.
+
+- Repository: `https://github.com/upmio/compose-operator`
+- Capabilities: MySQL async/semi-sync/Group Replication, PostgreSQL streaming replication, Redis/ProxySQL
+- Note: Compose Operator does not perform automatic failover; administrators initiate switchover/failover based on observed status.
 
 ---
 
@@ -72,10 +87,15 @@ status:
 | `targetUnit` | string | Name of the target Unit resource |
 | `type` | UnitType | Type of the target unit (mysql, postgresql, proxysql) |
 | `action` | Action | Operation to perform on the unit |
-| `ttlSecondsAfterFinished` | int32 | Time-to-live in seconds after completion |
-| `parameters` | map[string]JSON | Action-specific parameters |
 
-### UnitType Enum
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ttlSecondsAfterFinished` | int32 | TTL after completion; if set, resource is eligible for auto-deletion after TTL |
+| `parameters` | map[string]JSON | Action-specific parameters (defaults to empty if omitted) |
+
+### UnitType Enum (matches code)
 
 | Value | Description |
 |-------|-------------|
@@ -83,7 +103,7 @@ status:
 | `postgresql` | PostgreSQL database instance |
 | `proxysql` | ProxySQL proxy instance |
 
-### Action Enum
+### Action Enum (matches code)
 
 | Action | Description | Supported Unit Types |
 |--------|-------------|---------------------|
@@ -233,6 +253,7 @@ spec:
 - **Error Handling**: Monitor status field for operation results
 - **Resource Cleanup**: Use finalizers for cleanup operations
 - **Security**: Ensure sensitive parameters are stored in secrets
+  - When using Compose Operator, follow its AES-256-CTR encryption and Secret layout (`https://github.com/upmio/compose-operator`).
 
 ---
 
@@ -343,6 +364,7 @@ status:
 |-------|------|----------|-------------|
 | `secret` | SecretInfo | No | Secret mounting configuration |
 | `certificateSecret` | CertificateSecretSpec | No | TLS certificate configuration |
+| `certificateProfile` | CertificateProfile | No | Additional CA and org settings |
 
 #### SecretInfo
 
@@ -355,8 +377,15 @@ status:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Name of the certificate secret |
+| `name` | string | No | Name of the certificate secret |
 | `organization` | string | No | Organization name for certificate |
+
+#### CertificateProfile
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `organizations` | []string | No | List of organization names for CA/cert |
+| `root_secret` | string | No | Root CA secret name |
 
 ### Networking and Services
 
@@ -607,7 +636,7 @@ spec:
 - **Monitoring**: Set up comprehensive monitoring
 
 ### Security
-- **Secrets Management**: Use Kubernetes secrets for credentials
+- **Secrets Management**: Use Kubernetes Secrets for credentials (when using Compose Operator, follow its AES-256-CTR requirements)
 - **Network Policies**: Implement network policies for security
 - **TLS Configuration**: Enable TLS for communication
 
@@ -714,10 +743,13 @@ status:
 | `nodeName` | string | Node where the unit is scheduled |
 | `hostIP` | string | Host IP address |
 | `podIPs` | []PodIP | Pod IP addresses |
-| `configSyncStatus` | ConfigSyncStatus | Configuration synchronization status |
+| `nodeReady` | string | Node readiness state |
+| `task` | string | Current task handled by operator |
+| `processState` | string | Current process state inside operator |
+| `configSynced` | ConfigSyncStatus | Configuration synchronization status |
 | `persistentVolumeClaim` | []PvcInfo | PVC status information |
 
-### UnitPhase Enum
+### UnitPhase Enum (matches code)
 
 | Phase | Description |
 |-------|-------------|
@@ -726,7 +758,8 @@ status:
 | `Ready` | Unit is ready to serve traffic |
 | `Succeeded` | Unit completed successfully |
 | `Failed` | Unit failed to start or crashed |
-| `Unknown` | Unit state cannot be determined |
+| `Unknown` | Unit state cannot be determined |  
+> Note: `Unknown` is marked as deprecated in comments (kept in code for compatibility).
 
 ### PvcInfo
 
@@ -1569,6 +1602,10 @@ kubectl exec -it mysql-cluster-0 -- nslookup mysql-cluster-1
 
 # Check secret configuration
 kubectl get secret mysql-cluster-secret -o yaml
+
+# If using Compose Operator (replication CRDs provided by it)
+kubectl logs -n upm-system deployment/compose-operator-controller-manager | tail -n 200
+kubectl describe mysqlreplication <name>
 ```
 
 ### GrpcCall Operations Failing

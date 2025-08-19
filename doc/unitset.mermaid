@@ -1,6 +1,7 @@
 sequenceDiagram
     participant User
     participant API Server
+    participant Webhook Server
     participant Unitset Controller
     participant Unit Controller
     participant Servicemonitor Controller
@@ -10,10 +11,14 @@ sequenceDiagram
     User->>API Server: Create Unitset
     API Server-->>User: Confirm creation
 
+    API Server->>Webhook Server: Mutate/Validate UnitSet
+    Note over Webhook Server,API Server: Defaulting attaches finalizers (unit-delete, configmap-delete)
+    Webhook Server-->>API Server: Admission allowed
+
     Unitset Controller->>API Server: Listen to Unitset changes
     API Server-->>Unitset Controller: Notify new Unitset creation
 
-    Unitset Controller->>Unitset Controller: Check finalizers
+    Unitset Controller->>Unitset Controller: Ensure finalizers present
 
     Unitset Controller->>API Server: Create configmap
     API Server->>Configmap Controller: Notify new configmap creation
@@ -24,13 +29,13 @@ sequenceDiagram
     Unit Controller ->> API Server: Update unit creation status
     API Server-->>Unitset Controller: Confirm creation
 
-    alt Servicemonitor crd exists
-        Unitset Controller->>API Server: Create ServiceMonitor
+    alt Prometheus monitoring enabled
+        User->>API Server: Apply ServiceMonitor (optional)
         API Server->>Servicemonitor Controller: Notify new servicemonitor creation
     end
 
     Unitset Controller->>API Server: Listen to Unit status
-    Unitset Controller->>Unitset Controller: Update unitset status
+    Unitset Controller->>Unitset Controller: Update unitset status (units/readyUnits/inUpdate)
 
     Unitset Controller->>API Server: Create service
     API Server->>Service Controller: Notify new service creation

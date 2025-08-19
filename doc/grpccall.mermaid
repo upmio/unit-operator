@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant User
+    participant API Server
+    participant GrpcCall Controller
+    participant Unit Controller
+    participant Unit Agent
+
+    User->>API Server: Create GrpcCall (targetUnit, type, action, ttlSecondsAfterFinished)
+    API Server-->>User: Confirm creation
+
+    GrpcCall Controller->>API Server: Watch GrpcCall
+    API Server-->>GrpcCall Controller: Notify GrpcCall creation
+
+    GrpcCall Controller->>API Server: Get target Unit
+    API Server-->>GrpcCall Controller: Return Unit info
+
+    GrpcCall Controller->>Unit Agent: Invoke action via gRPC
+    Unit Agent-->>GrpcCall Controller: Return result/status
+
+    GrpcCall Controller->>API Server: Update GrpcCall status (result, message, startTime, completionTime)
+
+    Note over GrpcCall Controller,API Server: Controller periodically checks TTL after completion
+    alt TTL exceeded
+        GrpcCall Controller->>API Server: Delete GrpcCall
+    else TTL not exceeded
+        GrpcCall Controller->>GrpcCall Controller: Wait until TTL
+    end
+
+

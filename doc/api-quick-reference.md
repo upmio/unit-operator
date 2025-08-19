@@ -1,5 +1,7 @@
 # Unit Operator API Quick Reference
 
+> Webhooks: `UnitSet`/`Unit` admission webhooks are enabled by default (disable via `ENABLE_WEBHOOKS=false`). `UnitSet` attaches finalizers during defaulting.
+
 ## 📋 API Resources Overview
 
 | Resource | Version | Purpose | Key Features |
@@ -7,8 +9,10 @@
 | **UnitSet** | v1alpha2 | Database cluster management | Scaling, updates, shared config |
 | **Unit** | v1alpha2 | Individual database instance | Pod management, storage, configuration |
 | **GrpcCall** | v1alpha1 | Database operations | Backup, restore, configuration changes |
-| **MysqlReplication** | v1alpha1 | MySQL replication | Async, semi-sync, group replication |
-| **PostgresReplication** | v1alpha1 | PostgreSQL replication | Streaming replication |
+| **MysqlReplication** | v1alpha1 | MySQL replication | Async, semi-sync, group replication (from compose-operator) |
+| **PostgresReplication** | v1alpha1 | PostgreSQL replication | Streaming replication (from compose-operator) |
+
+> Note: `MysqlReplication` and `PostgresReplication` are provided by Compose Operator, not this repo. For database replication/topology, see `https://github.com/upmio/compose-operator`.
 
 ---
 
@@ -63,6 +67,14 @@ spec:
   secret: {}
   env: []
   updateStrategy: {}
+  # optional fields
+  externalService: {}
+  unitService: {}
+  nodeAffinityPreset: []
+  podAntiAffinityPreset: ""
+  emptyDir: []
+  certificateSecret: {}
+  certificateProfile: {}
 ```
 
 ## Key Configuration
@@ -124,6 +136,8 @@ spec:
 ---
 
 # 🔄 Replication Resources
+
+> Note: The following replication CRDs are provided by Compose Operator (not this project). See `https://github.com/upmio/compose-operator` for details and installation.
 
 ## MysqlReplication (v1alpha1)
 
@@ -351,6 +365,9 @@ status:
   hostIP: 192.168.1.100  # Host IP
   podIPs:             # Pod IPs
     - ip: 10.244.0.5
+  configSynced:
+    status: "True"
+    lastTransitionTime: "2024-01-01T10:00:00Z"
   persistentVolumeClaim:  # PVC information
     - name: data
       phase: Bound

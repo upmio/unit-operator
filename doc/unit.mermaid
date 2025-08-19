@@ -1,6 +1,7 @@
 sequenceDiagram
     participant User
     participant API Server
+    participant Webhook Server
     participant Unit Controller
     participant Servicemonitor Controller
     participant Certmanager Controller
@@ -16,33 +17,20 @@ sequenceDiagram
     User->>API Server: Create Unit
     API Server-->>User: Confirm creation
 
+    API Server->>Webhook Server: Mutate/Validate Unit
+    Note over Webhook Server,API Server: Admission only; no defaulting changes currently
+    Webhook Server-->>API Server: Admission allowed
+
     Unit Controller->>API Server: Listen to Unit changes
     API Server-->>Unit Controller: Notify new Unit creation
 
-    Unit Controller->>Unit Controller: Check finalizers
+    Note over Unit Controller: No Unit-level finalizers
 
-    Unit Controller->>API Server: Create the configmap
-    API Server->>Configmap Controller: Notify new configmap creation
-
-    Unit Controller->>Unit Controller: Inject envs
-
-    Unit Controller->>Unit Controller: Inject labels
-
-    Unit Controller->>Unit Controller: Inject unit agent
-
-    Unit Controller->>API Server: Create the service
-    API Server->>Service Controller: Notify new service creation
-
-    alt If there is cert manager information in the unit annotation
-        Unit Controller->>API Server: Create Issuer
-        API Server ->>Certmanager Controller: Notify new issuer creation
-
-        Unit Controller->> API Server: Create Certificate
-        API Server->>Certmanager Controller: Notify new certificate creation
-    end
+    Note over Unit Controller: Unit does not manage shared ConfigMap/Service
+    Note over Unit Controller: Shared ConfigMap/Service are created by UnitSet
 
     Unit Controller->>API Server: Create the pvc
-    API Server->>Service Controller: Notify new pvc creation
+    API Server->>PVC Controller: Notify new pvc creation
 
     Unit Controller->>API Server: Create Pod
 
@@ -61,16 +49,16 @@ sequenceDiagram
 
     Unit Controller->Unit Agent: Load unit config
 
-    alt Servicemonitor crd exists
-        Unit Controller->>API Server: Create ServiceMonitor
+    alt Prometheus monitoring enabled
+        User->>API Server: Apply ServiceMonitor (optional)
         API Server->>Servicemonitor Controller: Notify new servicemonitor creation
     end
 
     Unit Controller->Unit Agent: Start the process
 
-    alt Metric information is exist
+    alt Metrics endpoint available
         Unit Controller->>Metric Server: Get monitoring information
         Metric Server->>Unit Controller: Return monitoring information
     end
 
-    Unit Controller->>Unit Controller: Update unitset status
+    Unit Controller->>Unit Controller: Update unit status
