@@ -14,7 +14,10 @@ const (
 	AnnotationLastUnitBelongNode   = "last.unit.belong.node"
 	// AnnotationUnitsetNodeNameMap stores a JSON object mapping unit name -> node name (or "noneSet")
 	// Example: {"mysql-cluster-0":"node-a","mysql-cluster-1":"noneSet"}
-	AnnotationUnitsetNodeNameMap = "upm.io/node-name-map"
+	AnnotationUnitsetNodeNameMap = "unit-operator.unit.node-name.map"
+	// AnnotationUnitServiceType is the type of the unit service
+	// Example: "ClusterIP"
+	AnnotationUnitServiceType = "unit-operator.unit-service.type"
 
 	FinalizerUnitDelete      = "upm.io/unit-delete"
 	FinalizerConfigMapDelete = "upm.io/configmap-delete"
