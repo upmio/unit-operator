@@ -185,6 +185,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	errs := []error{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	createdAny := false
 	changedPortNames := map[string]bool{}
 	for _, unitName := range unitNames {
 		wg.Add(1)
@@ -248,6 +249,10 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					return
 				}
 
+				mu.Lock()
+				createdAny = true
+				mu.Unlock()
+
 				// For NodePort: fetch assigned nodePort and record into map
 				if service.Spec.Type == v1.ServiceTypeNodePort {
 					created := &v1.Service{}
@@ -279,6 +284,20 @@ func (r *UnitSetReconciler) reconcileUnitService(
 		}(unitName)
 	}
 	wg.Wait()
+
+	// If any unit service was created in this reconcile, annotate unitset with service type
+	if createdAny {
+		original := unitset.DeepCopy()
+		if unitset.Annotations == nil {
+			unitset.Annotations = map[string]string{}
+		}
+		unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceType] = unitset.Spec.UnitService.Type
+		if _, pErr := r.patchUnitset(ctx, original, unitset); pErr != nil {
+			mu.Lock()
+			errs = append(errs, fmt.Errorf("annotate unitset with unit service type error:[%s]", pErr.Error()))
+			mu.Unlock()
+		}
+	}
 
 	// Patch back annotation maps if changed
 	if len(changedPortNames) > 0 {
