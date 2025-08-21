@@ -3,6 +3,9 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"sync"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,8 +14,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"sync"
 )
 
 func (r *UnitSetReconciler) reconcileHeadlessService(
@@ -172,6 +173,8 @@ func (r *UnitSetReconciler) reconcileUnitService(
 
 	errs := []error{}
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	createdAny := false
 	for _, unitName := range unitNames {
 		wg.Add(1)
 		go func(unitName string) {
@@ -225,6 +228,10 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					return
 				}
 
+				mu.Lock()
+				createdAny = true
+				mu.Unlock()
+
 			} else if err != nil {
 				errs = append(errs, fmt.Errorf("get unit service:[%s] error:[%s]", unitServiceName, err.Error()))
 				return
@@ -233,6 +240,20 @@ func (r *UnitSetReconciler) reconcileUnitService(
 		}(unitName)
 	}
 	wg.Wait()
+
+	// If any unit service was created in this reconcile, annotate unitset with service type
+	if createdAny {
+		original := unitset.DeepCopy()
+		if unitset.Annotations == nil {
+			unitset.Annotations = map[string]string{}
+		}
+		unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceType] = unitset.Spec.UnitService.Type
+		if _, pErr := r.patchUnitset(ctx, original, unitset); pErr != nil {
+			mu.Lock()
+			errs = append(errs, fmt.Errorf("annotate unitset with unit service type error:[%s]", pErr.Error()))
+			mu.Unlock()
+		}
+	}
 
 	err := utilerrors.NewAggregate(errs)
 	if err != nil {

@@ -522,6 +522,12 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 				Expect(createdService.Labels[upmiov1alpha2.UnitName]).To(Equal(unitName))
 				Expect(createdService.Spec.Selector[upmiov1alpha2.UnitName]).To(Equal(unitName))
 			}
+
+			By("Verifying unitset annotated with unit service type on creation")
+			fetched := &upmiov1alpha2.UnitSet{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}, fetched)).To(Succeed())
+			Expect(fetched.Annotations).NotTo(BeNil())
+			Expect(fetched.Annotations[upmiov1alpha2.AnnotationUnitServiceType]).To(Equal("ClusterIP"))
 		})
 
 		It("Should skip unit services when type is not configured", func() {
@@ -617,6 +623,11 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 				Expect(service.Labels[upmiov1alpha2.UnitName]).NotTo(BeEmpty())
 				Expect(service.Spec.Selector[upmiov1alpha2.UnitName]).NotTo(BeEmpty())
 			}
+
+			By("Verifying only created path annotates unitset once")
+			fetched := &upmiov1alpha2.UnitSet{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}, fetched)).To(Succeed())
+			Expect(fetched.Annotations[upmiov1alpha2.AnnotationUnitServiceType]).To(Equal("ClusterIP"))
 		})
 
 		It("Should handle partial unit service creation with existing service gracefully", func() {
