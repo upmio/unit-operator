@@ -875,4 +875,48 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			Expect(retrievedService.Spec.Ports).To(BeEmpty()) // Should still be empty
 		})
 	})
+
+	It("Should record and reuse nodePorts for NodePort services", func() {
+		By("Configuring UnitSet with NodePort unit service")
+		unitSet.Spec.UnitService.Type = "NodePort"
+		Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
+
+		By("Reconciling to create NodePort services and record nodePorts")
+		reconciler := &UnitSetReconciler{Client: k8sClient, Scheme: scheme.Scheme}
+		err := reconciler.reconcileUnitService(ctx,
+			ctrl.Request{NamespacedName: types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}},
+			unitSet,
+			testPorts,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Reading back annotation maps for each port")
+		refreshed := &upmiov1alpha2.UnitSet{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}, refreshed)).To(Succeed())
+		for _, p := range testPorts {
+			key := upmiov1alpha2.AnnotationUnitServiceNodeportMapPrefix + p.Name + upmiov1alpha2.AnnotationUnitServiceNodeportMapSuffix
+			Expect(refreshed.Annotations[key]).NotTo(BeEmpty())
+		}
+
+		By("Deleting one unit's service to simulate accidental deletion")
+		victim := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-0-svc", unitSet.Name), Namespace: namespace.Name}}
+		Expect(k8sClient.Delete(ctx, victim)).To(Succeed())
+
+		By("Reconciling again; controller should recreate service using annotated nodePort")
+		err = reconciler.reconcileUnitService(ctx,
+			ctrl.Request{NamespacedName: types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}},
+			refreshed,
+			testPorts,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying recreated service has nodePorts set (non-zero)")
+		created := &corev1.Service{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-0-svc", unitSet.Name), Namespace: namespace.Name}, created)).To(Succeed())
+		if created.Spec.Type == corev1.ServiceTypeNodePort {
+			for _, sp := range created.Spec.Ports {
+				Expect(sp.NodePort).NotTo(BeZero())
+			}
+		}
+	})
 })

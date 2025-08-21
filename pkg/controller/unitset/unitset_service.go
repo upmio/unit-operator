@@ -2,6 +2,7 @@ package unitset
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -171,10 +172,20 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	unitNames, _ := unitset.UnitNames()
 	ref := metav1.NewControllerRef(unitset, controllerKind)
 
+	// Build existing nodePort maps from annotations per port name
+	portNameToNodePortMap := map[string]map[string]int{}
+	for _, p := range ports {
+		m := getUnitServiceNodePortMapFromAnnotations(unitset, p.Name)
+		if m == nil {
+			m = map[string]int{}
+		}
+		portNameToNodePortMap[p.Name] = m
+	}
+
 	errs := []error{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	createdAny := false
+	changedPortNames := map[string]bool{}
 	for _, unitName := range unitNames {
 		wg.Add(1)
 		go func(unitName string) {
@@ -200,16 +211,25 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					},
 				}
 
+				// Fill ports; for NodePort type, if annotation has existing nodePort for this unit and port, set it
 				for _, p := range ports {
 					intPort, convErr := strconv.Atoi(p.ContainerPort)
 					if convErr != nil || intPort <= 0 || intPort > 65535 {
 						continue
 					}
-					service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
+					sp := v1.ServicePort{
 						Name:     p.Name,
 						Port:     int32(intPort),
 						Protocol: v1.Protocol(p.Protocol),
-					})
+					}
+					if service.Spec.Type == v1.ServiceTypeNodePort {
+						if m := portNameToNodePortMap[p.Name]; m != nil {
+							if nodePort, ok := m[unitName]; ok && nodePort > 0 {
+								sp.NodePort = int32(nodePort)
+							}
+						}
+					}
+					service.Spec.Ports = append(service.Spec.Ports, sp)
 				}
 
 				if service.Labels == nil {
@@ -228,9 +248,28 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					return
 				}
 
-				mu.Lock()
-				createdAny = true
-				mu.Unlock()
+				// For NodePort: fetch assigned nodePort and record into map
+				if service.Spec.Type == v1.ServiceTypeNodePort {
+					created := &v1.Service{}
+					if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
+						// merge observed nodePorts into maps
+						mu.Lock()
+						for _, sp := range created.Spec.Ports {
+							if sp.NodePort > 0 {
+								m := portNameToNodePortMap[sp.Name]
+								if m == nil {
+									m = map[string]int{}
+									portNameToNodePortMap[sp.Name] = m
+								}
+								if prev, ok := m[unitName]; !ok || prev != int(sp.NodePort) {
+									m[unitName] = int(sp.NodePort)
+									changedPortNames[sp.Name] = true
+								}
+							}
+						}
+						mu.Unlock()
+					}
+				}
 
 			} else if err != nil {
 				errs = append(errs, fmt.Errorf("get unit service:[%s] error:[%s]", unitServiceName, err.Error()))
@@ -241,17 +280,19 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	}
 	wg.Wait()
 
-	// If any unit service was created in this reconcile, annotate unitset with service type
-	if createdAny {
-		original := unitset.DeepCopy()
+	// Patch back annotation maps if changed
+	if len(changedPortNames) > 0 {
+		orig := unitset.DeepCopy()
 		if unitset.Annotations == nil {
 			unitset.Annotations = map[string]string{}
 		}
-		unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceType] = unitset.Spec.UnitService.Type
-		if _, pErr := r.patchUnitset(ctx, original, unitset); pErr != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Errorf("annotate unitset with unit service type error:[%s]", pErr.Error()))
-			mu.Unlock()
+		for portName := range changedPortNames {
+			b, _ := json.Marshal(portNameToNodePortMap[portName])
+			key := upmiov1alpha2.AnnotationUnitServiceNodeportMapPrefix + portName + upmiov1alpha2.AnnotationUnitServiceNodeportMapSuffix
+			unitset.Annotations[key] = string(b)
+		}
+		if _, pErr := r.patchUnitset(ctx, orig, unitset); pErr != nil {
+			errs = append(errs, fmt.Errorf("patch unitset nodePort maps error:[%s]", pErr.Error()))
 		}
 	}
 
@@ -261,4 +302,19 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	}
 
 	return nil
+}
+
+// getUnitServiceNodePortMapFromAnnotations reads port-specific nodePort map from annotations
+func getUnitServiceNodePortMapFromAnnotations(unitset *upmiov1alpha2.UnitSet, portName string) map[string]int {
+	if unitset == nil || unitset.Annotations == nil || portName == "" {
+		return nil
+	}
+	key := upmiov1alpha2.AnnotationUnitServiceNodeportMapPrefix + portName + upmiov1alpha2.AnnotationUnitServiceNodeportMapSuffix
+	val, ok := unitset.Annotations[key]
+	if !ok || val == "" {
+		return nil
+	}
+	out := map[string]int{}
+	_ = json.Unmarshal([]byte(val), &out)
+	return out
 }
