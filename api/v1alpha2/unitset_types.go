@@ -58,11 +58,7 @@ type UnitSetSpec struct {
 	// UnitService Configuration for unit services
 	// +optional
 	UnitService UnitServiceSpec `json:"unitService,omitempty"`
-
-	// CertificateSecret Secret configuration for certificates
-	// +optional
-	CertificateSecret CertificateSecretSpec `json:"certificateSecret,omitempty"`
-
+	
 	// SharedConfigName Name of the shared configuration
 	SharedConfigName string `json:"sharedConfigName,omitempty"`
 
@@ -99,11 +95,11 @@ type CertificateProfile struct {
 
 	// Organizations List of organization names
 	// +optional
-	Organizations []string `json:"organizations"`
+	Organizations []string `json:"organizations,omitempty"`
 
 	// RootSecret Root secret name
 	// +optional
-	RootSecret string `json:"root_secret"`
+	RootSecret string `json:"root_secret,omitempty"`
 }
 type SecretInfo struct {
 

@@ -75,16 +75,6 @@ spec:
                     description: RootSecret Root secret name
                     type: string
                 type: object
-              certificateSecret:
-                description: CertificateSecret Secret configuration for certificates
-                properties:
-                  name:
-                    description: Name of the certificate secret
-                    type: string
-                  organization:
-                    description: Organization name for the certificate
-                    type: string
-                type: object
               edition:
                 description: Edition of the unit set
                 type: string

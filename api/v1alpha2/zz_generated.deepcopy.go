@@ -434,7 +434,6 @@ func (in *UnitSetSpec) DeepCopyInto(out *UnitSetSpec) {
 	}
 	out.ExternalService = in.ExternalService
 	out.UnitService = in.UnitService
-	out.CertificateSecret = in.CertificateSecret
 	out.UpdateStrategy = in.UpdateStrategy
 	if in.NodeAffinityPreset != nil {
 		in, out := &in.NodeAffinityPreset, &out.NodeAffinityPreset
