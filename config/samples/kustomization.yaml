@@ -1,6 +1,4 @@
 ## Append samples of your project ##
 resources:
-- upm_v1alpha1_unit.yaml
-- upm_v1alpha1_unitset.yaml
 - upm_v1alpha1_grpccall.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
