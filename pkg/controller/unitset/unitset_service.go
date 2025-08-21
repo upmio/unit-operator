@@ -173,11 +173,11 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	ref := metav1.NewControllerRef(unitset, controllerKind)
 
 	// Build existing nodePort maps from annotations per port name
-	portNameToNodePortMap := map[string]map[string]int{}
+	portNameToNodePortMap := map[string]map[string]string{}
 	for _, p := range ports {
 		m := getUnitServiceNodePortMapFromAnnotations(unitset, p.Name)
 		if m == nil {
-			m = map[string]int{}
+			m = map[string]string{}
 		}
 		portNameToNodePortMap[p.Name] = m
 	}
@@ -216,7 +216,8 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				for _, p := range ports {
 					intPort, convErr := strconv.Atoi(p.ContainerPort)
 					if convErr != nil || intPort <= 0 || intPort > 65535 {
-						continue
+						errs = append(errs, fmt.Errorf("invalid container port: %s", p.ContainerPort))
+						return
 					}
 					sp := v1.ServicePort{
 						Name:     p.Name,
@@ -225,8 +226,14 @@ func (r *UnitSetReconciler) reconcileUnitService(
 					}
 					if service.Spec.Type == v1.ServiceTypeNodePort {
 						if m := portNameToNodePortMap[p.Name]; m != nil {
-							if nodePort, ok := m[unitName]; ok && nodePort > 0 {
-								sp.NodePort = int32(nodePort)
+							if nodePort, ok := m[unitName]; ok {
+								intPort, convErr := strconv.Atoi(nodePort)
+								if convErr != nil || intPort <= 0 || intPort > 65535 {
+									errs = append(errs, fmt.Errorf("invalid node port: %s", nodePort))
+									return
+								}
+
+								sp.NodePort = int32(intPort)
 							}
 						}
 					}
@@ -252,30 +259,6 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				mu.Lock()
 				createdAny = true
 				mu.Unlock()
-
-				// For NodePort: fetch assigned nodePort and record into map
-				if service.Spec.Type == v1.ServiceTypeNodePort {
-					created := &v1.Service{}
-					if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
-						// merge observed nodePorts into maps
-						mu.Lock()
-						for _, sp := range created.Spec.Ports {
-							if sp.NodePort > 0 {
-								m := portNameToNodePortMap[sp.Name]
-								if m == nil {
-									m = map[string]int{}
-									portNameToNodePortMap[sp.Name] = m
-								}
-								if prev, ok := m[unitName]; !ok || prev != int(sp.NodePort) {
-									m[unitName] = int(sp.NodePort)
-									changedPortNames[sp.Name] = true
-								}
-							}
-						}
-						mu.Unlock()
-					}
-				}
-
 			} else if err != nil {
 				errs = append(errs, fmt.Errorf("get unit service:[%s] error:[%s]", unitServiceName, err.Error()))
 				return
@@ -296,6 +279,36 @@ func (r *UnitSetReconciler) reconcileUnitService(
 			mu.Lock()
 			errs = append(errs, fmt.Errorf("annotate unitset with unit service type error:[%s]", pErr.Error()))
 			mu.Unlock()
+		}
+	}
+
+	// For NodePort: fetch assigned nodePort and record into map
+	if unitset.Spec.UnitService.Type == string(v1.ServiceTypeNodePort) {
+
+		for _, unitName := range unitNames {
+			unitServiceName := fmt.Sprintf("%s-svc", unitName)
+			unitServiceNamespacedName := client.ObjectKey{Name: unitServiceName, Namespace: unitset.Namespace}
+			created := &v1.Service{}
+
+			if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
+				// merge observed nodePorts into maps
+				mu.Lock()
+				for _, sp := range created.Spec.Ports {
+					if sp.NodePort > 0 {
+						m := portNameToNodePortMap[sp.Name]
+						if m == nil {
+							m = map[string]string{}
+							portNameToNodePortMap[sp.Name] = m
+						}
+
+						if prev, ok := m[unitName]; !ok || prev != strconv.Itoa(int(sp.NodePort)) {
+							m[unitName] = strconv.Itoa(int(sp.NodePort))
+							changedPortNames[sp.Name] = true
+						}
+					}
+				}
+				mu.Unlock()
+			}
 		}
 	}
 
@@ -324,7 +337,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 }
 
 // getUnitServiceNodePortMapFromAnnotations reads port-specific nodePort map from annotations
-func getUnitServiceNodePortMapFromAnnotations(unitset *upmiov1alpha2.UnitSet, portName string) map[string]int {
+func getUnitServiceNodePortMapFromAnnotations(unitset *upmiov1alpha2.UnitSet, portName string) map[string]string {
 	if unitset == nil || unitset.Annotations == nil || portName == "" {
 		return nil
 	}
@@ -333,7 +346,7 @@ func getUnitServiceNodePortMapFromAnnotations(unitset *upmiov1alpha2.UnitSet, po
 	if !ok || val == "" {
 		return nil
 	}
-	out := map[string]int{}
+	out := map[string]string{}
 	_ = json.Unmarshal([]byte(val), &out)
 	return out
 }
