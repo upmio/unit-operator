@@ -6,9 +6,11 @@
 [![Stars](https://img.shields.io/github/stars/upmio/unit-operator)](https://github.com/upmio/unit-operator)
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png" alt="Kubernetes Operator" width="120" height="120">
-  <h3>Unit Operator - Distributed Workload Operator for Kubernetes</h3>
-  <p>Manage UnitSet, Unit, and GrpcCall resources with built-in high availability, scaling, and lifecycle management capabilities</p>
+  <img src="./doc/unit-operator.svg" alt="Uni-Operator" width="120" height="120">
+  <h3>Unit Operator </h3>
+  <p>A Kubernetes-based extension
+suite focused on extending pod management capabilities
+such as deployment, publishing, operations, and availability protection.</p>
 </div>
 
 ## ✨ Features
@@ -26,28 +28,22 @@
 
 ## 🏗️ Architecture
 
-<div align="center">
-  <img src="https://img.icons8.com/color/96/kubernetes.png" alt="Kubernetes" width="48" height="48">
-  <img src="https://img.icons8.com/color/96/database.png" alt="Database" width="48" height="48">
-  <img src="https://img.icons8.com/color/96/infinity.png" alt="Loop" width="48" height="48">
-</div>
-
 The Unit Operator follows a two-layer architecture:
 
 ```
 ┌─────────────────────────────────────┐
-│           UnitSet                  │
-│      (Cluster Manager)             │
+│           UnitSet                   │
+│      (Cluster Manager)              │
 ├─────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  │
-│  │   Unit-0    │  │   Unit-1    │  │
-│  │ (Pod+Agent) │  │ (Pod+Agent) │  │
-│  └─────────────┘  └─────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐   │
+│  │   Unit-0    │  │   Unit-1    │   │
+│  │ (Pod+Agent) │  │ (Pod+Agent) │   │
+│  └─────────────┘  └─────────────┘   │
 │                                     │
-│  ┌─────────────┐  ┌─────────────┐  │
-│  │   Unit-2    │  │    ...      │  │
-│  │ (Pod+Agent) │  │             │  │
-│  └─────────────┘  └─────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐   │
+│  │   Unit-2    │  │    ...      │   │
+│  │ (Pod+Agent) │  │             │   │
+│  └─────────────┘  └─────────────┘   │
 └─────────────────────────────────────┘
 ```
 
@@ -56,116 +52,31 @@ The Unit Operator follows a two-layer architecture:
 - 📞 **GrpcCall**: Manages gRPC-based operations between units
 - 🤖 **Agent**: Sidecar container providing unit-specific operations and configuration management
 
-## 📋 Prerequisites
+![image](./doc/unitset-unit.png)
 
-- ☸️ **Kubernetes**: v1.27+ or OpenShift v4.6+
-- 🐹 **Go**: 1.24+ (for development)
-- ⚓ **Helm**: 3.0+ (for deployment)
+## 🚀 Install
 
-## 🚀 Quick Start
+### Prerequisites
 
-### 📦 Installation
+- Kubernetes ≥ 1.27 or OpenShift ≥ 4.6
+- `helm` v3 installed and available
+- Permissions to create CRDs, RBAC, and ServiceAccounts in the target namespace
 
-1. **Install using Helm**:
+### Overview
 
-```bash
-# Add the Helm repository
-helm repo add upm-charts https://upmio.github.io/helm-charts
+By default, the Unit Operator is installed into the `upm-system` namespace.
 
-# Install the operator
-helm install unit-operator --namespace upm-system --create-namespace \
-  --set crd.enabled=true \
-  upm-charts/unit-operator
-```
+For Custom Resource Definitions (CRDs), you can install them manually (recommended for production) or enable installation via this chart:
 
-2. (Optional) **Install Compose Operator** (for database replication/topologies):
+- Install CRDs manually: uninstalling the chart will not affect the CRDs and their CR instances
+- Install CRDs via this chart (`crds.enabled=true`): uninstalling the chart will also remove the CRDs and thus delete all related CRs; use with care
 
-   - Repository and docs: `https://github.com/upmio/compose-operator`
-   - Unit Operator runs independently; install Compose Operator only if you need MySQL/Redis/PostgreSQL/ProxySQL replication/cluster topologies.
 
-3. **Install CRDs manually** (recommended for production):
 
-```bash
-kubectl apply -f config/crd/bases/
-```
+> To find more details, click on the following document:
+> 
+> [Unit Operator Helm Chart](./charts/unit-operator/README.md)
 
-### 🐳 Example: Deploy UnitSet with gRPC Communication
-
-```yaml
-# Create shared configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: unitset-config
-  namespace: default
-data:
-  service_group_uid: "6fa3ca2a-0ffd-4ca7-8615-e2589f7dd413"
-  mysql_ports: '[{"name": "grpc", "containerPort": "50051","protocol": "TCP"}]'
-
-# Deploy UnitSet
-apiVersion: upm.syntropycloud.io/v1alpha2
-kind: UnitSet
-metadata:
-  name: example-unitset
-  namespace: default
-spec:
-  type: mysql
-  version: "1.0.0"
-  units: 3
-  sharedConfigName: unitset-config
-  resources:
-    limits:
-      cpu: "1"
-      memory: 2Gi
-    requests:
-      cpu: "500m"
-      memory: 1Gi
-  storages:
-    - name: data
-      mountPath: /DATA_MOUNT
-      size: 10Gi
-      storageClassName: standard
-  env:
-    - name: POD_NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
-    - name: POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
-```
-
-### 📞 Example: Create gRPC Call
-
-```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: GrpcCall
-metadata:
-  name: example-grpc-call
-  namespace: default
-spec:
-  targetUnit: "example-unitset-0"
-  type: mysql
-  action: set-variable
-  ttlSecondsAfterFinished: 600
-  parameters:
-    variables:
-      ping: "true"
-```
-
-### ✅ Verify Deployment
-
-```bash
-# Check UnitSet status
-kubectl get unitset example-unitset
-
-# Check individual units
-kubectl get units
-
-# Check pod status
-kubectl get pods -l app=example-unitset
-```
 
 ## ⚙️ Configuration
 
@@ -181,36 +92,9 @@ kubectl get pods -l app=example-unitset
 
 The operator supports gRPC communication between units:
 - Service discovery and registration
-- Health checks and monitoring
 - Configuration synchronization
 - Cross-unit communication
 
-### 💾 Storage Configuration
-
-```yaml
-# Persistent storage
-storages:
-  - name: data
-    mountPath: /DATA_MOUNT
-    size: 10Gi
-    storageClassName: standard
-
-# Temporary storage
-emptyDir:
-  - name: temp
-    mountPath: /TEMP_MOUNT
-    size: 1Gi
-```
-
-### 🔄 Update Strategy
-
-```yaml
-updateStrategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxUnavailable: 1
-    partition: 0
-```
 
 ## 💻 Development
 
@@ -321,20 +205,6 @@ kubectl create secret generic proxysql-credentials \
 
 > Note: The capabilities and tooling above come from the Compose Operator project. Refer to its latest documentation: `https://github.com/upmio/compose-operator`.
 
-## 📊 Monitoring
-
-The operator exposes metrics on port `20154` by default:
-
-```bash
-# Access metrics
-kubectl port-forward -n upm-system svc/unit-operator-metrics 20154:20154
-curl http://localhost:20154/metrics
-```
-
-<div align="center">
-  <img src="https://img.icons8.com/color/96/000000/analytics.png" alt="Monitoring" width="48" height="48">
-  <p>Monitor your database clusters with built-in metrics</p>
-</div>
 
 ## 🚨 Troubleshooting
 
@@ -412,8 +282,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 - 🏗️ [Kubebuilder](https://book.kubebuilder.io/) - Kubernetes API development framework
 - 🎛️ [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) - Kubernetes controller framework
-- 🐘 [Zalando Postgres Operator](https://github.com/zalando/postgres-operator) - Inspiration for PostgreSQL management
-- 🐬 [Presslabs MySQL Operator](https://github.com/presslabs/mysql-operator) - Inspiration for MySQL management
 
 ---
 
