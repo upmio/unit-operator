@@ -3,6 +3,7 @@ package unitset
 import (
 	"context"
 	"fmt"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"

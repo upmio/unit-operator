@@ -19,6 +19,9 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	rbacV1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,8 +30,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sync"
-	"time"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,6 +158,11 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 	}
 
 	err = r.reconcileServiceAccount(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileSecret(ctx, req, unitset)
 	if err != nil {
 		return err
 	}

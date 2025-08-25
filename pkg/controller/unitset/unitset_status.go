@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
 	coreV1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ func (r *UnitSetReconciler) reconcilePatchUnitset(ctx context.Context, req ctrl.
 		if current == nil {
 			current = map[string]string{}
 		}
+
 		for _, one := range units {
 			if one.Status.NodeName == "" {
 				continue
@@ -37,6 +39,7 @@ func (r *UnitSetReconciler) reconcilePatchUnitset(ctx context.Context, req ctrl.
 			}
 			current[one.Name] = one.Status.NodeName
 		}
+
 		_ = setNodeNameMapToAnnotations(unitset, current)
 		if originalUnitset.Annotations == nil || originalUnitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] != unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] {
 			_, _ = r.patchUnitset(ctx, originalUnitset, unitset)
@@ -228,10 +231,12 @@ func setNodeNameMapToAnnotations(unitset *upmiov1alpha2.UnitSet, m map[string]st
 	if unitset.Annotations == nil {
 		unitset.Annotations = map[string]string{}
 	}
+
 	b, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
+
 	unitset.Annotations[upmiov1alpha2.AnnotationUnitsetNodeNameMap] = string(b)
 	return nil
 }

@@ -9,7 +9,10 @@ import (
 	certmanagerV1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certmanagerApiV1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	"github.com/upmio/unit-operator/pkg/vars"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -147,6 +150,49 @@ func (r *UnitSetReconciler) reconcileUnitCertificates(
 
 	if agg := utilerrors.NewAggregate(errs); agg != nil {
 		return fmt.Errorf("[reconcileUnitCertificates] error: [%s]", agg.Error())
+	}
+
+	return nil
+}
+
+func (r *UnitSetReconciler) reconcileSecret(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
+	secretName := "aes-secret-key"
+	needSecret := v1.Secret{}
+
+	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: req.Namespace}, &needSecret)
+	if apierrors.IsNotFound(err) {
+		managerSecret := v1.Secret{}
+		getManagerSecretErr := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: vars.ManagerNamespace}, &managerSecret)
+		if getManagerSecretErr != nil {
+			return fmt.Errorf("[reconcileSecret] get manager secret error: [%v]", getManagerSecretErr.Error())
+		}
+
+		needSecret = v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        secretName,
+				Namespace:   req.Namespace,
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
+			},
+		}
+
+		if managerSecret.Annotations != nil {
+			needSecret.Annotations = managerSecret.Annotations
+		}
+
+		if managerSecret.Labels != nil {
+			needSecret.Labels = managerSecret.Labels
+		}
+
+		needSecret.Data = managerSecret.Data
+
+		err = r.Create(ctx, &needSecret)
+		if err != nil {
+			return fmt.Errorf("[reconcileSecret] create secret:[%s/%s] error: [%v]", req.Namespace, secretName, err.Error())
+		}
+
+	} else if err != nil {
+		return fmt.Errorf("[reconcileSecret] get secret:[%s/%s] error: [%v]", req.Namespace, secretName, err.Error())
 	}
 
 	return nil
