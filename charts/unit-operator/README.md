@@ -12,8 +12,7 @@ helm repo update
 # Install the operator (install CRDs together as an example)
 helm install unit-operator unit-operator/unit-operator \
   --namespace upm-system \
-  --create-namespace \
-  --set crds.enabled=true
+  --create-namespace
 ```
 
 ### Prerequisites
@@ -29,7 +28,7 @@ By default, the Unit Operator is installed into the `upm-system` namespace.
 For Custom Resource Definitions (CRDs), you can install them manually (recommended for production) or enable installation via this chart:
 
 - Install CRDs manually: uninstalling the chart will not affect the CRDs and their CR instances
-- Install CRDs via this chart (`crds.enabled=true`): uninstalling the chart will also remove the CRDs and thus delete all related CRs; use with care
+- Install CRDs via this chart (`crds.enabled=true`): uninstalling the chart will **not** automatically remove the CRDs; you need to manually delete them if required
 
 CRDs and documentation:
 
@@ -45,11 +44,6 @@ helm install unit-operator unit-operator/unit-operator \
   --namespace upm-system \
   --create-namespace
 ```
-
-Common options:
-
-- **Install CRDs together**: `--set crds.enabled=true`
-- **Customize image**: `--set image.registry=...,image.repository=...,image.tag=...`
 
 ### Upgrade
 
@@ -80,7 +74,7 @@ helm uninstall unit-operator --namespace upm-system --wait
 helm repo remove unit-operator
 ```
 
-Important: If CRDs were installed via this chart (`crds.enabled=true`), uninstalling will remove the CRDs as well, which deletes all related CRs.
+Important: Even if CRDs were installed via this chart (`crds.enabled=true`), uninstalling will **not** automatically remove the CRDs. You need to manually delete them if required.
 
 If you installed CRDs manually in production and need to remove them (dangerous; will delete all related CRs):
 
@@ -97,56 +91,56 @@ There are two primary ways to customize the deployment:
 
 #### Parameters (Values)
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `global.imageRegistry` | string | `""` | Global image registry prefix override |
-| `global.imagePullSecrets` | list | `[]` | Global image pull secrets |
-| `nameOverride` | string | `""` | Name override (part of chart name) |
-| `fullnameOverride` | string | `""` | Full name override |
-| `image.registry` | string | `"quay.io"` | Image registry |
+| Key | Type | Default                 | Description |
+| --- | --- |-------------------------| --- |
+| `global.imageRegistry` | string | `""`                    | Global image registry prefix override |
+| `global.imagePullSecrets` | list | `[]`                    | Global image pull secrets |
+| `nameOverride` | string | `""`                    | Name override (part of chart name) |
+| `fullnameOverride` | string | `""`                    | Full name override |
+| `image.registry` | string | `"quay.io"`             | Image registry |
 | `image.repository` | string | `"upmio/unit-operator"` | Image repository |
-| `image.tag` | string | `"v1.0.0"` | Image tag |
-| `image.digest` | string | `""` | Image digest (takes precedence over tag) |
-| `image.pullPolicy` | string | `"IfNotPresent"` | Image pull policy |
-| `image.pullSecrets` | list | `[]` | Image pull secrets |
-| `replicaCount` | int | `1` | Number of replicas |
-| `healthCheckPort` | int | `20152` | Health check port |
-| `crds.enabled` | bool | `false` | Whether to install CRDs with the chart |
-| `rbac.create` | bool | `true` | Whether to create RBAC resources |
-| `serviceAccount.create` | bool | `true` | Whether to create a ServiceAccount |
-| `serviceAccount.name` | string | `""` | Name of the ServiceAccount to create/use |
-| `serviceAccount.automountServiceAccountToken` | bool | `true` | Auto-mount the SA token |
-| `serviceAccount.annotations` | object | `{}` | Additional annotations for the ServiceAccount |
-| `serviceAccount.labels` | object | `{}` | Additional labels for the ServiceAccount |
-| `resources` | object | `{}` | Pod resource requests/limits |
-| `service.type` | string | `"ClusterIP"` | Service type |
-| `service.port` | int | `443` | Service port |
-| `service.ipFamilyPolicy` | string | `""` | IP family policy |
-| `service.ipFamilies` | list | `[]` | IP families (IPv4/IPv6) |
-| `podAntiAffinityPreset` | string | `"soft"` | Pod anti-affinity preset (soft/hard) |
-| `nodeAffinityPreset.type` | string | `""` | Node affinity type (soft/hard) |
-| `nodeAffinityPreset.key` | string | `""` | Node label key |
-| `nodeAffinityPreset.values` | list | `[]` | Node label values |
-| `affinity` | object | `{}` | Custom affinity settings (overrides presets above) |
-| `livenessProbe.enabled` | bool | `true` | Enable liveness probe |
-| `livenessProbe.initialDelaySeconds` | int | `5` | Liveness probe initial delay |
-| `livenessProbe.periodSeconds` | int | `10` | Liveness probe period |
-| `livenessProbe.timeoutSeconds` | int | `1` | Liveness probe timeout |
-| `livenessProbe.failureThreshold` | int | `3` | Liveness probe failure threshold |
-| `livenessProbe.successThreshold` | int | `1` | Liveness probe success threshold |
-| `readinessProbe.enabled` | bool | `true` | Enable readiness probe |
-| `readinessProbe.initialDelaySeconds` | int | `5` | Readiness probe initial delay |
-| `readinessProbe.periodSeconds` | int | `10` | Readiness probe period |
-| `readinessProbe.timeoutSeconds` | int | `1` | Readiness probe timeout |
-| `readinessProbe.failureThreshold` | int | `3` | Readiness probe failure threshold |
-| `readinessProbe.successThreshold` | int | `1` | Readiness probe success threshold |
-| `startupProbe.enabled` | bool | `true` | Enable startup probe |
-| `startupProbe.initialDelaySeconds` | int | `15` | Startup probe initial delay |
-| `startupProbe.periodSeconds` | int | `10` | Startup probe period |
-| `startupProbe.timeoutSeconds` | int | `1` | Startup probe timeout |
-| `startupProbe.failureThreshold` | int | `15` | Startup probe failure threshold |
-| `startupProbe.successThreshold` | int | `1` | Startup probe success threshold |
-| `tolerations` | list | `[]` | Taints tolerations |
+| `image.tag` | string | `"v1.0.0"`              | Image tag |
+| `image.digest` | string | `""`                    | Image digest (takes precedence over tag) |
+| `image.pullPolicy` | string | `"IfNotPresent"`        | Image pull policy |
+| `image.pullSecrets` | list | `[]`                    | Image pull secrets |
+| `replicaCount` | int | `1`                     | Number of replicas |
+| `healthCheckPort` | int | `20152`                 | Health check port |
+| `crds.enabled` | bool | `true`                  | Whether to install CRDs with the chart |
+| `rbac.create` | bool | `true`                  | Whether to create RBAC resources |
+| `serviceAccount.create` | bool | `true`                  | Whether to create a ServiceAccount |
+| `serviceAccount.name` | string | `""`                    | Name of the ServiceAccount to create/use |
+| `serviceAccount.automountServiceAccountToken` | bool | `true`                  | Auto-mount the SA token |
+| `serviceAccount.annotations` | object | `{}`                    | Additional annotations for the ServiceAccount |
+| `serviceAccount.labels` | object | `{}`                    | Additional labels for the ServiceAccount |
+| `resources` | object | `{}`                    | Pod resource requests/limits |
+| `service.type` | string | `"ClusterIP"`           | Service type |
+| `service.port` | int | `443`                   | Service port |
+| `service.ipFamilyPolicy` | string | `""`                    | IP family policy |
+| `service.ipFamilies` | list | `[]`                    | IP families (IPv4/IPv6) |
+| `podAntiAffinityPreset` | string | `"soft"`                | Pod anti-affinity preset (soft/hard) |
+| `nodeAffinityPreset.type` | string | `""`                    | Node affinity type (soft/hard) |
+| `nodeAffinityPreset.key` | string | `""`                    | Node label key |
+| `nodeAffinityPreset.values` | list | `[]`                    | Node label values |
+| `affinity` | object | `{}`                    | Custom affinity settings (overrides presets above) |
+| `livenessProbe.enabled` | bool | `true`                  | Enable liveness probe |
+| `livenessProbe.initialDelaySeconds` | int | `5`                     | Liveness probe initial delay |
+| `livenessProbe.periodSeconds` | int | `10`                    | Liveness probe period |
+| `livenessProbe.timeoutSeconds` | int | `1`                     | Liveness probe timeout |
+| `livenessProbe.failureThreshold` | int | `3`                     | Liveness probe failure threshold |
+| `livenessProbe.successThreshold` | int | `1`                     | Liveness probe success threshold |
+| `readinessProbe.enabled` | bool | `true`                  | Enable readiness probe |
+| `readinessProbe.initialDelaySeconds` | int | `5`                     | Readiness probe initial delay |
+| `readinessProbe.periodSeconds` | int | `10`                    | Readiness probe period |
+| `readinessProbe.timeoutSeconds` | int | `1`                     | Readiness probe timeout |
+| `readinessProbe.failureThreshold` | int | `3`                     | Readiness probe failure threshold |
+| `readinessProbe.successThreshold` | int | `1`                     | Readiness probe success threshold |
+| `startupProbe.enabled` | bool | `true`                  | Enable startup probe |
+| `startupProbe.initialDelaySeconds` | int | `15`                    | Startup probe initial delay |
+| `startupProbe.periodSeconds` | int | `10`                    | Startup probe period |
+| `startupProbe.timeoutSeconds` | int | `1`                     | Startup probe timeout |
+| `startupProbe.failureThreshold` | int | `15`                    | Startup probe failure threshold |
+| `startupProbe.successThreshold` | int | `1`                     | Startup probe success threshold |
+| `tolerations` | list | `[]`                    | Taints tolerations |
 
 ### Documentation
 
@@ -155,5 +149,5 @@ There are two primary ways to customize the deployment:
 
 ### Compatibility
 
-- Kubernetes: v1.27+
+- Kubernetes: v1.29+
 - OpenShift: v4.6+

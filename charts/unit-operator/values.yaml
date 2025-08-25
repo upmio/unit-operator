@@ -38,7 +38,7 @@ healthCheckPort: 20152
 ## Install Unit Operator CRDs
 ##
 crds:
-  enabled: false
+  enabled: true
 
 rbac:
   # Specifies whether rbac should be created
