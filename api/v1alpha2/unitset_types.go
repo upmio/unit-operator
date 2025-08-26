@@ -260,7 +260,7 @@ type UnitSetStatus struct {
 
 	// UnitService the information of unit service
 	// +optional
-	UnitService UnitServiceStatus `json:"UnitService,omitempty"`
+	UnitService UnitServiceStatus `json:"unitService,omitempty"`
 }
 
 type ExternalServiceStatus struct {
