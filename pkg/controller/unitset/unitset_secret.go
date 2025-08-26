@@ -3,6 +3,7 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -157,6 +158,11 @@ func (r *UnitSetReconciler) reconcileUnitCertificates(
 
 func (r *UnitSetReconciler) reconcileSecret(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
 	secretName := "aes-secret-key"
+	envPathSecretName := os.Getenv("AES_SECRET_KEY")
+	if envPathSecretName != "" {
+		secretName = envPathSecretName
+	}
+	
 	needSecret := v1.Secret{}
 
 	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: req.Namespace}, &needSecret)
