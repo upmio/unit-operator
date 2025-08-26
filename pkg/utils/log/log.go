@@ -3,6 +3,7 @@ package log
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -128,19 +129,23 @@ func InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize string) logr.Log
 //
 //	logr.Logger compatible logger (zapr wrapper of zap)
 func InitLogger(logpath, loglevel, maxSize string) logr.Logger {
-	// Default log file path
-	filename := "/tmp/unit-operator.log"
-	if logpath != "" {
-		filename = filepath.Join(logpath, "unit-operator.log")
-	}
 
 	// Lumberjack handles log file rotation
 	hook := &lumberjack.Logger{
-		Filename:   filename,
+		Filename:   "/tmp/unit-operator.log",
 		MaxSize:    10,   // default 10 MB per file
 		MaxBackups: 30,   // keep last 30 backups
 		MaxAge:     7,    // keep logs for 7 days
 		Compress:   true, // compress rotated files
+	}
+
+	if logpath != "" {
+		hook.Filename = filepath.Join(logpath, "unit-operator.log")
+	}
+	if maxSize != "" {
+		if size, err := strconv.Atoi(maxSize); err == nil {
+			hook.MaxSize = size
+		}
 	}
 
 	// Set log level
@@ -176,7 +181,7 @@ func InitLogger(logpath, loglevel, maxSize string) logr.Logger {
 		EncodeLevel:    zapcore.LowercaseLevelEncoder, // e.g. "info", "error"
 		EncodeTime:     zapcore.ISO8601TimeEncoder,    // human readable ISO8601
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.FullCallerEncoder, // include full file path
+		EncodeCaller:   zapcore.ShortCallerEncoder, // include full file path
 		EncodeName:     zapcore.FullNameEncoder,
 	}
 

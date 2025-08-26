@@ -8,7 +8,6 @@ import (
 	"time"
 
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
-	"github.com/upmio/unit-operator/pkg/utils/log"
 	klog "k8s.io/klog/v2"
 
 	"github.com/upmio/unit-operator/pkg/certs"
@@ -150,7 +149,8 @@ func main() {
 	}
 
 	//ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
-	ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
+	//ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	klog.SetLogger(ctrl.Log)
 
 	cfg := ctrl.GetConfigOrDie()
