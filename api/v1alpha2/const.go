@@ -38,6 +38,9 @@ const (
 	CertmanagerIssuerSuffix      = "certmanager-issuer"
 	CertmanagerCertificateSuffix = "certmanager-ca"
 	CertmanagerSecretNameSuffix  = "secret"
+
+	MonitorPodMonitorCrdName    = "podmonitors.monitoring.coreos.com"
+	MonitorPodMonitorNameSuffix = "-exporter-podmon"
 )
 
 // UnitPhase is a label for the condition of a pod at the current time.

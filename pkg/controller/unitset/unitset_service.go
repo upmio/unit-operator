@@ -243,16 +243,6 @@ func (r *UnitSetReconciler) reconcileUnitService(
 
 				// Fill ports; for NodePort type, if annotation has existing nodePort for this unit and port, set it
 				for _, p := range ports {
-					//intPort, convErr := strconv.Atoi(p.ContainerPort)
-					//if convErr != nil || intPort <= 0 || intPort > 65535 {
-					//	errs = append(errs, fmt.Errorf("invalid container port: %s", p.ContainerPort))
-					//	return
-					//}
-					//sp := v1.ServicePort{
-					//	Name:     p.Name,
-					//	Port:     int32(intPort),
-					//	Protocol: v1.Protocol(p.Protocol),
-					//}
 					if p.ContainerPort <= 0 || p.ContainerPort > 65535 {
 						errs = append(errs, fmt.Errorf("invalid container port: %s", p.ContainerPort))
 						return

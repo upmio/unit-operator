@@ -3,6 +3,9 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,8 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sync"
-	"time"
 )
 
 func (r *UnitSetReconciler) deleteResources(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet, finalizer string) error {

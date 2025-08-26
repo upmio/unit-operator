@@ -1,8 +1,9 @@
 package vars
 
 import (
-	"k8s.io/klog/v2"
 	"os"
+
+	"k8s.io/klog/v2"
 )
 
 var (

@@ -69,6 +69,7 @@ type UnitSetReconciler struct {
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=redisreplications,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -179,11 +180,9 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 	}
 
 	ports := getPortsFromPodtemplate(ctx, req, unitset, podTemplate)
-
-	//ports, err := r.getPortsFromSharedConfig(ctx, req, unitset)
-	//if err != nil {
-	//	return fmt.Errorf("get ports in sharedconfig:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
-	//}
+	if len(ports) == 0 {
+		return fmt.Errorf("get ports in pod template error: [ not found ports in pod template, ports: Required value ]")
+	}
 
 	err = r.reconcileHeadlessService(ctx, req, unitset, ports)
 	if err != nil {
@@ -224,6 +223,11 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		klog.Errorf("failed to reconcile PatchUnitset [%s], err: [%v]", req.String(), err.Error())
 		return fmt.Errorf("failed to reconcile PatchUnitset, err: [%v]", err.Error())
+	}
+
+	err = r.reconcilePodMonitor(ctx, req, unitset)
+	if err != nil {
+		return err
 	}
 
 	err = r.reconcileImageVersion(ctx, req, unitset, &podTemplate, ports)

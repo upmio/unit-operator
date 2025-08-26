@@ -121,6 +121,14 @@ spec:
               podAntiAffinityPreset:
                 description: PodAntiAffinityPreset Pod anti-affinity policy
                 type: string
+              podMonitor:
+                properties:
+                  enable:
+                    description: |-
+                      Enable define if need create pod monitor
+                      default: false
+                    type: boolean
+                type: object
               resources:
                 description: Resources Resource requirements for the units
                 x-kubernetes-preserve-unknown-fields: true

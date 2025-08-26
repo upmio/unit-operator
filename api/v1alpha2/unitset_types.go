@@ -59,9 +59,6 @@ type UnitSetSpec struct {
 	// +optional
 	UnitService UnitServiceSpec `json:"unitService,omitempty"`
 
-	//// SharedConfigName Name of the shared configuration
-	//SharedConfigName string `json:"sharedConfigName,omitempty"`
-
 	// UpdateStrategy Strategy for updating the unit set
 	// +optional
 	UpdateStrategy UpdateStrategySpec `json:"updateStrategy,omitempty"`
@@ -89,6 +86,16 @@ type UnitSetSpec struct {
 	// CertificateProfile defines the configuration for certificate profile
 	// +optional
 	CertificateProfile CertificateProfile `json:"certificateProfile,omitempty"`
+
+	PodMonitor PodMonitorInfo `json:"podMonitor,omitempty"`
+}
+
+type PodMonitorInfo struct {
+
+	// Enable define if need create pod monitor
+	// default: false
+	// +optional
+	Enable bool `json:"enable,omitempty"`
 }
 
 type CertificateProfile struct {
