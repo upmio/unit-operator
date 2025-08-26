@@ -4,13 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
-	klog "k8s.io/klog/v2"
 	"os"
 	"time"
 
-	"github.com/upmio/unit-operator/pkg/certs"
+	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	"github.com/upmio/unit-operator/pkg/utils/log"
+	klog "k8s.io/klog/v2"
+
+	"github.com/upmio/unit-operator/pkg/certs"
 	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
 
 	"github.com/upmio/unit-operator/pkg/controller/unit"
@@ -67,8 +68,8 @@ var (
 	//secureMetrics bool
 	//enableHTTP2   bool
 
-	logFileMaxSize string
-	logDir         string
+	//logFileMaxSize string
+	//logDir         string
 )
 
 func init() {
@@ -86,11 +87,11 @@ func init() {
 		"show the version ")
 	flag.StringVar(&agentHostType, "unit-agent-host-type", "",
 		"The host type of unit-agent.")
-	flag.StringVar(&logFileMaxSize, "log-file-max-size", "100",
-		"Defines the maximum size a log file can grow to (no effect when -logtostderr=true). "+
-			"Unit is megabytes. If the value is 0, the maximum file size is unlimited.")
-	flag.StringVar(&logDir, "log-dir", "/tmp",
-		"If non-empty, write log files in this directory (no effect when -logtostderr=true)")
+	//flag.StringVar(&logFileMaxSize, "log-file-max-size", "100",
+	//	"Defines the maximum size a log file can grow to (no effect when -logtostderr=true). "+
+	//		"Unit is megabytes. If the value is 0, the maximum file size is unlimited.")
+	//flag.StringVar(&logDir, "log-dir", "/tmp",
+	//	"If non-empty, write log files in this directory (no effect when -logtostderr=true)")
 
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook server port")
@@ -144,7 +145,9 @@ func main() {
 		vars.UnitAgentHostType = agentHostType
 	}
 
-	ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
+	//ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
+	ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv())
+	klog.SetLogger(ctrl.Log)
 
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = "unit-operator-manager"
