@@ -8,6 +8,7 @@ import (
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
 	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// reconcilePatchUnitset patch unitset: backfill NodeNameMap into annotation upm.io/node-name-map
 func (r *UnitSetReconciler) reconcilePatchUnitset(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
 	units, err := r.unitsBelongUnitset(ctx, unitset)
 	if err != nil {
@@ -89,10 +91,6 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 
 	if len(units) != 0 {
 		for _, one := range units {
-			//if one.Status.Phase == upmiov1alpha2.UnitReady {
-			//	unitset.Status.ReadyUnits++
-			//}
-
 			if one.Status.Task != "" {
 				if inTaskUnit == "" {
 					inTaskUnit = one.Name
@@ -180,11 +178,59 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	//	return nil
 	//}
 
+	serviceList, err := r.listServiceBelongUnitset(ctx, unitset)
+	if err != nil {
+		klog.Errorf("[reconcileUnitsetStatus]failed to list service for unitset [%s], error: [%v]", req.String(), err.Error())
+		unitset.Status = upmiov1alpha2.UnitSetStatus{
+			Units:      0,
+			ReadyUnits: 0,
+			ImageSyncStatus: upmiov1alpha2.ImageSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+			ResourceSyncStatus: upmiov1alpha2.ResourceSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+			PvcSyncStatus: upmiov1alpha2.PvcSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+		}
+	}
+
+	// external service
+	if unitset.Spec.ExternalService.Type != "" {
+		for _, one := range serviceList {
+			if _, ok := one.Labels[upmiov1alpha2.AnnotationExternalServiceType]; ok {
+				unitset.Status.ExternalService.Name = one.Name
+				break
+			}
+		}
+	}
+
+	// unit service
+	if unitset.Spec.UnitService.Type != "" {
+		unitServiceMap := make(map[string]string)
+
+		for _, unit := range units {
+			for _, service := range serviceList {
+				if unit.Name == service.Labels[upmiov1alpha2.UnitName] {
+					unitServiceMap[unit.Name] = service.Name
+				}
+			}
+		}
+
+		unitset.Status.UnitService.Name = unitServiceMap
+	}
+
 	if unitset.Status.Units != orig.Status.Units ||
 		unitset.Status.ReadyUnits != orig.Status.ReadyUnits ||
 		unitset.Status.ImageSyncStatus.Status != orig.Status.ImageSyncStatus.Status ||
 		unitset.Status.ResourceSyncStatus.Status != orig.Status.ResourceSyncStatus.Status ||
-		unitset.Status.PvcSyncStatus.Status != orig.Status.PvcSyncStatus.Status {
+		unitset.Status.PvcSyncStatus.Status != orig.Status.PvcSyncStatus.Status ||
+		unitset.Status.ExternalService.Name != orig.Status.ExternalService.Name ||
+		equality.Semantic.DeepEqual(unitset.Status.UnitService.Name, orig.Status.UnitService.Name) {
 
 		return r.Status().Update(ctx, unitset)
 	}

@@ -252,7 +252,29 @@ type UnitSetStatus struct {
 
 	// InUpdate used to mark if a mirror upgrade or resource change is in progress
 	// +optional
-	InUpdate string `json:"inUpdate"`
+	InUpdate string `json:"inUpdate,omitempty"`
+
+	// ExternalService the information of unitset external service
+	// +optional
+	ExternalService ExternalServiceStatus `json:"externalService,omitempty"`
+
+	// UnitService the information of unit service
+	// +optional
+	UnitService UnitServiceStatus `json:"UnitService,omitempty"`
+}
+
+type ExternalServiceStatus struct {
+
+	// Name the name of unitset external service
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+type UnitServiceStatus struct {
+
+	// Name which is a map, the key is unit name, the value is unit service name
+	// +optional
+	Name map[string]string `json:"name,omitempty"`
 }
 
 // ResourceSyncStatus defines the observed state of ResourceSync

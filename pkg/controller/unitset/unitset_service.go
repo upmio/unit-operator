@@ -123,15 +123,6 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		}
 
 		for _, p := range ports {
-			//intPort, convErr := strconv.Atoi(p.ContainerPort)
-			//if convErr != nil || intPort <= 0 || intPort > 65535 {
-			//	continue
-			//}
-			//service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
-			//	Name:     p.Name,
-			//	Port:     int32(intPort),
-			//	Protocol: v1.Protocol(p.Protocol),
-			//})
 			if p.ContainerPort <= 0 || p.ContainerPort > 65535 {
 				continue
 			}
@@ -150,6 +141,7 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		}
 
 		service.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
+		service.Labels[upmiov1alpha2.AnnotationExternalServiceType] = unitset.Spec.ExternalService.Type
 		service.Spec.Selector[upmiov1alpha2.UnitsetName] = unitset.Name
 
 		err = r.Create(ctx, service)
@@ -189,11 +181,6 @@ func (r *UnitSetReconciler) reconcileUnitService(
 			"no need generate unit service", req.String())
 		return nil
 	}
-
-	//if unitset.Spec.SharedConfigName == "" {
-	//	klog.V(4).Infof("reconcileUnitService: unitset name: [%s], not found shared config!!!", unitset.Name)
-	//	return nil
-	//}
 
 	unitNames, _ := unitset.UnitNames()
 	ref := metav1.NewControllerRef(unitset, controllerKind)
@@ -277,6 +264,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				}
 
 				service.Labels[upmiov1alpha2.UnitName] = unitName
+				service.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
 				service.Spec.Selector[upmiov1alpha2.UnitName] = unitName
 
 				err = r.Create(ctx, service)
@@ -379,4 +367,24 @@ func getUnitServiceNodePortMapFromAnnotations(unitset *upmiov1alpha2.UnitSet, po
 	out := map[string]string{}
 	_ = json.Unmarshal([]byte(val), &out)
 	return out
+}
+
+func (r *UnitSetReconciler) listServiceBelongUnitset(ctx context.Context, unitset *upmiov1alpha2.UnitSet) ([]v1.Service, error) {
+
+	serviceList := &v1.ServiceList{}
+	err := r.List(ctx, serviceList, client.InNamespace(unitset.Namespace), client.MatchingLabels{upmiov1alpha2.UnitsetName: unitset.Name})
+	if err != nil {
+		return nil, err
+	}
+
+	if serviceList.Items == nil || len(serviceList.Items) == 0 {
+		return nil, nil
+	}
+
+	out := []v1.Service{}
+	for i := range serviceList.Items {
+		out = append(out, serviceList.Items[i])
+	}
+
+	return out, nil
 }
