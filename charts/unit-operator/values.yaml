@@ -43,6 +43,10 @@ crds:
 rbac:
   # Specifies whether rbac should be created
   create: true
+  # Enable OpenShift Security Context Constraints (SCC) permissions
+  # Only needed when deploying on OpenShift
+  openshift:
+    enabled: false
 
 serviceAccount:
   ## @param serviceAccount.create Enable/disable service account creation

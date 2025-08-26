@@ -110,6 +110,7 @@ rules:
   - apiGroups:
       - monitoring.coreos.com
     resources:
+      - podmonitors
       - servicemonitors
     verbs:
       - create
@@ -165,4 +166,14 @@ rules:
       - get
       - patch
       - update
+{{- if .Values.rbac.openshift.enabled }}
+  - apiGroups:
+      - security.openshift.io
+    resourceNames:
+      - privileged
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - use
+{{- end }}
 {{- end }}
