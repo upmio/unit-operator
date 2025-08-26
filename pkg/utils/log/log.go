@@ -1,7 +1,6 @@
 package log
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 
@@ -89,22 +88,7 @@ import (
 //	return zapr.NewLogger(zap0.New(core, caller, development, filed))
 //}
 
-var (
-	logDir         string
-	logFileMaxSize string
-	logLevel       string
-)
-
-func InitLoggerFromFlagsAndEnv() logr.Logger {
-	// Register flags
-	flag.StringVar(&logFileMaxSize, "log-file-max-size", "",
-		"Maximum log file size in MB before rotation (overrides LOG_MAX_SIZE).")
-	flag.StringVar(&logDir, "log-dir", "",
-		"Directory to write log files (overrides LOG_PATH).")
-	flag.StringVar(&logLevel, "log-level", "",
-		"Log level: debug | info | error (overrides LOG_LEVEL).")
-
-	flag.Parse()
+func InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize string) logr.Logger {
 
 	// Apply precedence: flag > env > default
 	if logDir == "" {

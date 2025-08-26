@@ -68,8 +68,9 @@ var (
 	//secureMetrics bool
 	//enableHTTP2   bool
 
-	//logFileMaxSize string
-	//logDir         string
+	logDir         string
+	logFileMaxSize string
+	logLevel       string
 )
 
 func init() {
@@ -87,11 +88,6 @@ func init() {
 		"show the version ")
 	flag.StringVar(&agentHostType, "unit-agent-host-type", "",
 		"The host type of unit-agent.")
-	//flag.StringVar(&logFileMaxSize, "log-file-max-size", "100",
-	//	"Defines the maximum size a log file can grow to (no effect when -logtostderr=true). "+
-	//		"Unit is megabytes. If the value is 0, the maximum file size is unlimited.")
-	//flag.StringVar(&logDir, "log-dir", "/tmp",
-	//	"If non-empty, write log files in this directory (no effect when -logtostderr=true)")
 
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook server port")
@@ -125,6 +121,14 @@ func init() {
 		LeaderElection.ResourceLock, ""+
 			"The type of resource object that is used for locking during "+
 			"leader election. Supported options are `endpoints` (default) and `configmaps`.")
+
+	// Register log flags
+	flag.StringVar(&logFileMaxSize, "log-file-max-size", "",
+		"Maximum log file size in MB before rotation (overrides LOG_MAX_SIZE).")
+	flag.StringVar(&logDir, "log-dir", "",
+		"Directory to write log files (overrides LOG_PATH).")
+	flag.StringVar(&logLevel, "log-level", "",
+		"Log level: debug | info | error (overrides LOG_LEVEL).")
 }
 
 func main() {
@@ -146,7 +150,7 @@ func main() {
 	}
 
 	//ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
-	ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv())
+	ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
 	klog.SetLogger(ctrl.Log)
 
 	cfg := ctrl.GetConfigOrDie()
