@@ -59,6 +59,39 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		unitset.Status = upmiov1alpha2.UnitSetStatus{
 			Units:      0,
 			ReadyUnits: 0,
+			ExternalService: upmiov1alpha2.ExternalServiceStatus{
+				Name: "",
+			},
+			UnitService: upmiov1alpha2.UnitServiceStatus{
+				Name: make(map[string]string),
+			},
+			ImageSyncStatus: upmiov1alpha2.ImageSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+			ResourceSyncStatus: upmiov1alpha2.ResourceSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+			PvcSyncStatus: upmiov1alpha2.PvcSyncStatus{
+				LastTransitionTime: v1.Now(),
+				Status:             "False",
+			},
+		}
+	}
+
+	serviceList, err := r.listServiceBelongUnitset(ctx, unitset)
+	if err != nil {
+		klog.Errorf("[reconcileUnitsetStatus]failed to list service for unitset [%s], error: [%v]", req.String(), err.Error())
+		unitset.Status = upmiov1alpha2.UnitSetStatus{
+			Units:      0,
+			ReadyUnits: 0,
+			ExternalService: upmiov1alpha2.ExternalServiceStatus{
+				Name: "",
+			},
+			UnitService: upmiov1alpha2.UnitServiceStatus{
+				Name: make(map[string]string),
+			},
 			ImageSyncStatus: upmiov1alpha2.ImageSyncStatus{
 				LastTransitionTime: v1.Now(),
 				Status:             "False",
@@ -178,27 +211,6 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	//	return nil
 	//}
 
-	serviceList, err := r.listServiceBelongUnitset(ctx, unitset)
-	if err != nil {
-		klog.Errorf("[reconcileUnitsetStatus]failed to list service for unitset [%s], error: [%v]", req.String(), err.Error())
-		unitset.Status = upmiov1alpha2.UnitSetStatus{
-			Units:      0,
-			ReadyUnits: 0,
-			ImageSyncStatus: upmiov1alpha2.ImageSyncStatus{
-				LastTransitionTime: v1.Now(),
-				Status:             "False",
-			},
-			ResourceSyncStatus: upmiov1alpha2.ResourceSyncStatus{
-				LastTransitionTime: v1.Now(),
-				Status:             "False",
-			},
-			PvcSyncStatus: upmiov1alpha2.PvcSyncStatus{
-				LastTransitionTime: v1.Now(),
-				Status:             "False",
-			},
-		}
-	}
-
 	// external service
 	if unitset.Spec.ExternalService.Type != "" {
 		for _, one := range serviceList {
@@ -217,6 +229,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 			for _, service := range serviceList {
 				if unit.Name == service.Labels[upmiov1alpha2.UnitName] {
 					unitServiceMap[unit.Name] = service.Name
+					break
 				}
 			}
 		}
@@ -230,7 +243,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		unitset.Status.ResourceSyncStatus.Status != orig.Status.ResourceSyncStatus.Status ||
 		unitset.Status.PvcSyncStatus.Status != orig.Status.PvcSyncStatus.Status ||
 		unitset.Status.ExternalService.Name != orig.Status.ExternalService.Name ||
-		equality.Semantic.DeepEqual(unitset.Status.UnitService.Name, orig.Status.UnitService.Name) {
+		!equality.Semantic.DeepEqual(unitset.Status.UnitService.Name, orig.Status.UnitService.Name) {
 
 		return r.Status().Update(ctx, unitset)
 	}
