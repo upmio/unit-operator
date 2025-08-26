@@ -17,7 +17,8 @@ const (
 	AnnotationUnitsetNodeNameMap = "unit-operator.unit.node-name.map"
 	// AnnotationUnitServiceType is the type of the unit service
 	// Example: "ClusterIP"
-	AnnotationUnitServiceType = "unit-operator.unit-service.type"
+	AnnotationUnitServiceType     = "unit-operator.unit-service.type"
+	AnnotationExternalServiceType = "unit-operator.external-service.type"
 
 	// AnnotationUnitServiceNodeportMapPrefix
 	// AnnotationUnitServiceNodeportMapSuffix

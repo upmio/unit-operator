@@ -97,6 +97,7 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		return nil
 	}
 
+	createdAny := false
 	externalService := v1.Service{}
 	exceptedServiceNamespacedName := client.ObjectKey{Name: unitset.ExternalServiceName(), Namespace: unitset.Namespace}
 	err := r.Get(ctx, exceptedServiceNamespacedName, &externalService)
@@ -144,9 +145,23 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		if err != nil {
 			return fmt.Errorf("create external service:[%s] error:[%s]", unitset.ExternalServiceName(), err.Error())
 		}
+		createdAny = true
 
 	} else if err != nil {
 		return fmt.Errorf("get external service:[%s] error:[%s]", unitset.ExternalServiceName(), err.Error())
+	}
+
+	// If any unit service was created in this reconcile, annotate unitset with service type
+	if createdAny {
+		original := unitset.DeepCopy()
+		if unitset.Annotations == nil {
+			unitset.Annotations = map[string]string{}
+		}
+
+		unitset.Annotations[upmiov1alpha2.AnnotationExternalServiceType] = unitset.Spec.ExternalService.Type
+		if _, pErr := r.patchUnitset(ctx, original, unitset); pErr != nil {
+			return fmt.Errorf("annotate unitset with external service type error:[%s]", pErr.Error())
+		}
 	}
 
 	return nil
@@ -173,12 +188,15 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	ref := metav1.NewControllerRef(unitset, controllerKind)
 
 	// Build existing nodePort maps from annotations per port name
+	// ["kafka"]"["unit-operator.unit-service.kafka.nodeport.map]"{"yrwtjlqq-kafka-p8k-0":"30139","yrwtjlqq-kafka-p8k-1":"32543"}""
 	portNameToNodePortMap := map[string]map[string]string{}
 	for _, p := range ports {
 		m := getUnitServiceNodePortMapFromAnnotations(unitset, p.Name)
 		if m == nil {
+			// m: ["unit-operator.unit-service.kafka.nodeport.map]"{"yrwtjlqq-kafka-p8k-0":"30139","yrwtjlqq-kafka-p8k-1":"32543"}"
 			m = map[string]string{}
 		}
+		// ["kafka"]"["unit-operator.unit-service.kafka.nodeport.map]"{"yrwtjlqq-kafka-p8k-0":"30139","yrwtjlqq-kafka-p8k-1":"32543"}""
 		portNameToNodePortMap[p.Name] = m
 	}
 
@@ -274,6 +292,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 		if unitset.Annotations == nil {
 			unitset.Annotations = map[string]string{}
 		}
+
 		unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceType] = unitset.Spec.UnitService.Type
 		if _, pErr := r.patchUnitset(ctx, original, unitset); pErr != nil {
 			mu.Lock()
