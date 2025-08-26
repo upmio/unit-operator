@@ -71,13 +71,13 @@ var _ = Describe("UnitSet Controller", func() {
 			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
 			// Shared config with ports
-			sharedCfg := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: sharedConfigName, Namespace: namespace.Name},
-				Data: map[string]string{
-					unitType + "_ports": `[{"name":"` + unitType + `","containerPort":"3306","protocol":"TCP"}]`,
-				},
-			}
-			_ = k8sClient.Create(ctx, sharedCfg)
+			//sharedCfg := &corev1.ConfigMap{
+			//	ObjectMeta: metav1.ObjectMeta{Name: sharedConfigName, Namespace: namespace.Name},
+			//	Data: map[string]string{
+			//		unitType + "_ports": `[{"name":"` + unitType + `","containerPort":"3306","protocol":"TCP"}]`,
+			//	},
+			//}
+			//_ = k8sClient.Create(ctx, sharedCfg)
 
 			req = ctrl.Request{
 				NamespacedName: types.NamespacedName{
@@ -92,11 +92,11 @@ var _ = Describe("UnitSet Controller", func() {
 					Namespace: namespace.Name,
 				},
 				Spec: upmiov1alpha2.UnitSetSpec{
-					Type:             unitType,
-					Edition:          unitEdition,
-					Version:          unitVersion,
-					SharedConfigName: sharedConfigName,
-					Units:            3,
+					Type:    unitType,
+					Edition: unitEdition,
+					Version: unitVersion,
+					//SharedConfigName: sharedConfigName,
+					Units: 3,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("100m"),

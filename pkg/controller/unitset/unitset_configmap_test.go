@@ -19,9 +19,10 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

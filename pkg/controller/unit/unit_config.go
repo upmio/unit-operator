@@ -3,6 +3,7 @@ package unit
 import (
 	"context"
 	"fmt"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	internalAgent "github.com/upmio/unit-operator/pkg/client/unit-agent"
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
@@ -58,7 +59,7 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, unit *upmiov1a
 	}
 
 	extendConfigName := []string{}
-	extendConfigName = append(extendConfigName, unit.Spec.SharedConfigName) //}
+	//extendConfigName = append(extendConfigName, unit.Spec.SharedConfigName) //}
 
 	message, err := internalAgent.SyncConfig(
 		vars.UnitAgentHostType,

@@ -134,9 +134,6 @@ spec:
                     description: Name of the secret
                     type: string
                 type: object
-              sharedConfigName:
-                description: SharedConfigName Name of the shared configuration
-                type: string
               storages:
                 description: Storages defines the configuration for storage
                 items:

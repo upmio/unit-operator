@@ -172,10 +172,18 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
-	ports, err := r.getPortsFromSharedConfig(ctx, req, unitset)
+	// the pod template is old version, when image update, it will be updated in updateImage func
+	podTemplate, err := r.getPodTemplate(ctx, req, unitset)
 	if err != nil {
-		return fmt.Errorf("get ports in sharedconfig:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
+		return fmt.Errorf("get pod template error:[%s]", err.Error())
 	}
+
+	ports := getPortsFromPodtemplate(ctx, req, unitset, podTemplate)
+
+	//ports, err := r.getPortsFromSharedConfig(ctx, req, unitset)
+	//if err != nil {
+	//	return fmt.Errorf("get ports in sharedconfig:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
+	//}
 
 	err = r.reconcileHeadlessService(ctx, req, unitset, ports)
 	if err != nil {
@@ -195,12 +203,6 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 	err = r.reconcileUnitCertificates(ctx, req, unitset)
 	if err != nil {
 		return err
-	}
-
-	// the pod template is old version, when image update, it will be updated in updateImage func
-	podTemplate, err := r.getPodTemplate(ctx, req, unitset)
-	if err != nil {
-		return fmt.Errorf("get pod template error:[%s]", err.Error())
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {

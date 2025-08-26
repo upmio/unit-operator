@@ -19,10 +19,11 @@ package unit
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

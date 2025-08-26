@@ -19,6 +19,9 @@ package unit
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
 	v1 "k8s.io/api/core/v1"
@@ -32,8 +35,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sync"
-	"time"
 )
 
 // UnitReconciler reconciles a Unit object

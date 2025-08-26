@@ -36,15 +36,15 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 		ctx       context.Context
 		unitSet   *upmiov1alpha2.UnitSet
 		namespace *corev1.Namespace
-		testPorts = upmiov1alpha2.Ports{
+		testPorts = []corev1.ContainerPort{
 			{
 				Name:          "mysql",
-				ContainerPort: "3306",
+				ContainerPort: 3306,
 				Protocol:      "TCP",
 			},
 			{
 				Name:          "metrics",
-				ContainerPort: "9104",
+				ContainerPort: 9104,
 				Protocol:      "TCP",
 			},
 		}
@@ -71,11 +71,11 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 				},
 			},
 			Spec: upmiov1alpha2.UnitSetSpec{
-				Type:             "mysql",
-				Edition:          "community",
-				Version:          "8.0.40",
-				Units:            3,
-				SharedConfigName: "test-shared-config",
+				Type:    "mysql",
+				Edition: "community",
+				Version: "8.0.40",
+				Units:   3,
+				//SharedConfigName: "test-shared-config",
 			},
 		}
 	})
@@ -202,7 +202,7 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 					},
 				},
 				unitSet,
-				upmiov1alpha2.Ports{},
+				[]corev1.ContainerPort{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -224,10 +224,10 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			}
 
 			By("Reconciling headless service with invalid port")
-			invalidPorts := upmiov1alpha2.Ports{
+			invalidPorts := []corev1.ContainerPort{
 				{
 					Name:          "invalid",
-					ContainerPort: "not-a-number",
+					ContainerPort: 99999,
 					Protocol:      "TCP",
 				},
 			}
@@ -350,7 +350,7 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 		It("Should skip external service when shared config is not configured", func() {
 			By("Updating UnitSet without shared config")
 			unitSet.Spec.ExternalService.Type = "NodePort"
-			unitSet.Spec.SharedConfigName = ""
+			//unitSet.Spec.SharedConfigName = ""
 			Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
 
 			By("Creating reconciler")
@@ -559,7 +559,7 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 		It("Should skip unit services when shared config is not configured", func() {
 			By("Updating UnitSet without shared config")
 			unitSet.Spec.UnitService.Type = "ClusterIP"
-			unitSet.Spec.SharedConfigName = ""
+			//unitSet.Spec.SharedConfigName = ""
 			Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
 
 			By("Creating reconciler")
@@ -800,10 +800,10 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			}
 
 			By("Reconciling headless service with UDP protocol")
-			udpPorts := upmiov1alpha2.Ports{
+			udpPorts := []corev1.ContainerPort{
 				{
 					Name:          "dns",
-					ContainerPort: "53",
+					ContainerPort: 53,
 					Protocol:      "UDP",
 				},
 			}

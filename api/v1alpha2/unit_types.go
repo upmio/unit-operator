@@ -46,11 +46,11 @@ type UnitSpec struct {
 	// +optional
 	Startup bool `json:"startup,omitempty"`
 
-	// SharedConfigName defines the shared config name
-	// derived from the same name field in unitset.
-	// unit has no logic and is only used as a parameter when calling unit agent
-	// +optional
-	SharedConfigName string `json:"sharedConfigName,omitempty"`
+	//// SharedConfigName defines the shared config name
+	//// derived from the same name field in unitset.
+	//// unit has no logic and is only used as a parameter when calling unit agent
+	//// +optional
+	//SharedConfigName string `json:"sharedConfigName,omitempty"`
 
 	// ConfigTemplateName defines the config template name.
 	// A unitset is instantiated as a config template for the unitset

@@ -3,6 +3,9 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
@@ -13,8 +16,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-	"time"
 )
 
 func (r *UnitSetReconciler) reconcileImageVersion(
@@ -22,7 +23,7 @@ func (r *UnitSetReconciler) reconcileImageVersion(
 	req ctrl.Request,
 	unitset *upmiov1alpha2.UnitSet,
 	podTemplate *v1.PodTemplate,
-	ports upmiov1alpha2.Ports) error {
+	ports []v1.ContainerPort) error {
 
 	// Two ways to change
 	// 1. Update unitset directly
@@ -151,7 +152,7 @@ func mergePodTemplate(
 	kUnit upmiov1alpha2.Unit,
 	unitset *upmiov1alpha2.UnitSet,
 	podTemplate *v1.PodTemplate,
-	ports upmiov1alpha2.Ports,
+	ports []v1.ContainerPort,
 	volumeMounts []v1.VolumeMount,
 	volumes []v1.Volume,
 	envVars []v1.EnvVar,
@@ -174,7 +175,7 @@ func mergePodTemplate(
 	fillResourcesToDefaultContainer(unit, unitset)
 	fillNodeAffinity(unit, unitset)
 	fillPodAffinity(unit, unitset)
-	fillPortToDefaultContainer(unit, unitset, ports)
+	//fillPortToDefaultContainer(unit, unitset, ports)
 
 	// if NodeNameMap (from annotations) not empty, fill node name to unit.spec and unit.annotation
 	nodeNameMap := getNodeNameMapFromAnnotations(unitset)

@@ -19,13 +19,14 @@ package unitset
 import (
 	"context"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/vars"
-	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	"runtime"
+	"testing"
+
+	"github.com/upmio/unit-operator/pkg/vars"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

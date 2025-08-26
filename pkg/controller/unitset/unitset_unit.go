@@ -2,8 +2,11 @@ package unitset
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
@@ -14,9 +17,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 func (r *UnitSetReconciler) reconcileUnit(
@@ -24,7 +24,7 @@ func (r *UnitSetReconciler) reconcileUnit(
 	req ctrl.Request,
 	unitset *upmiov1alpha2.UnitSet,
 	podTemplate *v1.PodTemplate,
-	ports upmiov1alpha2.Ports) error {
+	ports []v1.ContainerPort) error {
 
 	unitNames, unitNamesWithIndex := unitset.UnitNames()
 	klog.V(4).Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
@@ -233,7 +233,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	unitName string,
 	unitset *upmiov1alpha2.UnitSet,
 	podTemplate *v1.PodTemplate,
-	ports upmiov1alpha2.Ports,
+	ports []v1.ContainerPort,
 	volumeMounts []v1.VolumeMount,
 	volumes []v1.Volume,
 	envVars []v1.EnvVar,
@@ -263,9 +263,9 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 			},
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			UnbindNode:         true,
-			Startup:            true,
-			SharedConfigName:   unitset.Spec.SharedConfigName,
+			UnbindNode: true,
+			Startup:    true,
+			//SharedConfigName:   unitset.Spec.SharedConfigName,
 			ConfigTemplateName: unitset.ConfigTemplateName(),
 			Template:           v1.PodTemplateSpec{},
 		},
@@ -303,7 +303,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	fillResourcesToDefaultContainer(&unit, unitset)
 	fillNodeAffinity(&unit, unitset)
 	fillPodAffinity(&unit, unitset)
-	fillPortToDefaultContainer(&unit, unitset, ports)
+	//fillPortToDefaultContainer(&unit, unitset, ports)
 
 	return unit, nil
 }
@@ -462,7 +462,7 @@ func fillEnvs(
 	unit *upmiov1alpha2.Unit,
 	unitset *upmiov1alpha2.UnitSet,
 	mountEnvs []v1.EnvVar,
-	ports upmiov1alpha2.Ports) {
+	ports []v1.ContainerPort) {
 
 	klog.V(4).Infof("---------------------------------------")
 
@@ -569,19 +569,19 @@ func getFirstEnvs(unitset *upmiov1alpha2.UnitSet) []v1.EnvVar {
 	return firstEnvs
 }
 
-func getSecondEnvs(mountEnvs []v1.EnvVar, ports upmiov1alpha2.Ports) []v1.EnvVar {
+func getSecondEnvs(mountEnvs []v1.EnvVar, ports []v1.ContainerPort) []v1.EnvVar {
 
 	secondEnvs := make([]v1.EnvVar, 0)
 	if len(mountEnvs) != 0 {
 		secondEnvs = append(secondEnvs, mountEnvs...)
 	}
 
-	for i := range ports {
-		secondEnvs = append(secondEnvs, v1.EnvVar{
-			Name:  strings.ToUpper(ports[i].Name) + "_PORT",
-			Value: ports[i].ContainerPort,
-		})
-	}
+	//for i := range ports {
+	//	secondEnvs = append(secondEnvs, v1.EnvVar{
+	//		Name:  strings.ToUpper(ports[i].Name) + "_PORT",
+	//		Value: ports[i].ContainerPort,
+	//	})
+	//}
 
 	return secondEnvs
 }
@@ -803,27 +803,53 @@ func (r *UnitSetReconciler) getPodTemplate(
 	return podTemplate, nil
 }
 
-func (r *UnitSetReconciler) getPortsFromSharedConfig(
+//func (r *UnitSetReconciler) getPortsFromSharedConfig(
+//	ctx context.Context,
+//	req ctrl.Request,
+//	unitset *upmiov1alpha2.UnitSet) (upmiov1alpha2.Ports, error) {
+//	sharedConfigmap := v1.ConfigMap{}
+//	err := r.Get(ctx, client.ObjectKey{Name: unitset.Spec.SharedConfigName, Namespace: req.Namespace}, &sharedConfigmap)
+//	if err != nil {
+//		return nil, fmt.Errorf("get shared config:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
+//	}
+//
+//	ports := upmiov1alpha2.Ports{}
+//	portsKey := unitset.Spec.Type + "_ports"
+//	p, ok := sharedConfigmap.Data[portsKey]
+//	if !ok {
+//		return nil, fmt.Errorf("not found key:[%s] in shared config:[%s]", portsKey, unitset.Spec.SharedConfigName)
+//	}
+//
+//	err = json.Unmarshal([]byte(p), &ports)
+//	if err != nil {
+//		return nil, fmt.Errorf("unmarshal ports info:[%s] error:[%s]", p, err.Error())
+//	}
+//
+//	return ports, nil
+//}
+
+func getPortsFromPodtemplate(
 	ctx context.Context,
 	req ctrl.Request,
-	unitset *upmiov1alpha2.UnitSet) (upmiov1alpha2.Ports, error) {
-	sharedConfigmap := v1.ConfigMap{}
-	err := r.Get(ctx, client.ObjectKey{Name: unitset.Spec.SharedConfigName, Namespace: req.Namespace}, &sharedConfigmap)
-	if err != nil {
-		return nil, fmt.Errorf("get shared config:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
+	unitset *upmiov1alpha2.UnitSet,
+	template v1.PodTemplate) []v1.ContainerPort {
+
+	out := []v1.ContainerPort{}
+
+	if template.Template.Spec.Containers == nil {
+		return out
 	}
 
-	ports := upmiov1alpha2.Ports{}
-	portsKey := unitset.Spec.Type + "_ports"
-	p, ok := sharedConfigmap.Data[portsKey]
-	if !ok {
-		return nil, fmt.Errorf("not found key:[%s] in shared config:[%s]", portsKey, unitset.Spec.SharedConfigName)
+	if len(template.Template.Spec.Containers) == 0 {
+		return out
 	}
 
-	err = json.Unmarshal([]byte(p), &ports)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal ports info:[%s] error:[%s]", p, err.Error())
+	for _, one := range template.Template.Spec.Containers {
+		if one.Name == unitset.Spec.Type {
+			out = one.Ports
+			break
+		}
 	}
 
-	return ports, nil
+	return out
 }

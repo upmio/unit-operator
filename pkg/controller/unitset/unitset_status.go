@@ -198,10 +198,11 @@ func (r *UnitSetReconciler) patchUnitset(ctx context.Context, old, _new *upmiov1
 		return old, err
 	}
 
-	r.Recorder.Eventf(old, coreV1.EventTypeNormal, "ResourceCheck", "patch unitset ok~ (data: %s)", patchData)
+	//r.Recorder.Eventf(old, coreV1.EventTypeNormal, "ResourceCheck", "patch unitset ok~ (data: %s)", patchData)
 
 	err = r.Patch(ctx, old, client.RawPatch(types.MergePatchType, patchData), &client.PatchOptions{})
 	if err != nil {
+		r.Recorder.Eventf(old, coreV1.EventTypeWarning, "PatchFailed", "patch unitset error: (data: %s), [ERROR:%s]", patchData, err.Error())
 		return nil, err
 	}
 

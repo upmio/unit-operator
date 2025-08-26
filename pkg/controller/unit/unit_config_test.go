@@ -54,7 +54,7 @@ var _ = Describe("UnitConfig Reconciler", func() {
 		reconciler = &UnitReconciler{Client: k8sClient, Scheme: scheme.Scheme, Recorder: recorder}
 
 		// Create test unit
-		unit = &upmiov1alpha2.Unit{ObjectMeta: metav1.ObjectMeta{Name: unitName, Namespace: "default"}, Spec: upmiov1alpha2.UnitSpec{Startup: true, ConfigTemplateName: "test-config-template", ConfigValueName: "test-config-value", SharedConfigName: "test-shared-config", Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "main-container", Image: "nginx:latest"}, {Name: "unit-agent", Image: "unit-agent:latest"}}}}}}
+		unit = &upmiov1alpha2.Unit{ObjectMeta: metav1.ObjectMeta{Name: unitName, Namespace: "default"}, Spec: upmiov1alpha2.UnitSpec{Startup: true, ConfigTemplateName: "test-config-template", ConfigValueName: "test-config-value", Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "main-container", Image: "nginx:latest"}, {Name: "unit-agent", Image: "unit-agent:latest"}}}}}}
 
 		// Create test pod
 		pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: unitName, Namespace: "default"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "main-container", Image: "nginx:latest"}, {Name: "unit-agent", Image: "unit-agent:latest"}}}, Status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "192.168.1.100"}}, Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Name: "main-container", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}, Ready: false}, {Name: "unit-agent", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}, Ready: true}}, Conditions: []corev1.PodCondition{{Type: corev1.PodInitialized, Status: corev1.ConditionTrue}}}}

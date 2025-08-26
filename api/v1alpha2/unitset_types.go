@@ -58,9 +58,9 @@ type UnitSetSpec struct {
 	// UnitService Configuration for unit services
 	// +optional
 	UnitService UnitServiceSpec `json:"unitService,omitempty"`
-	
-	// SharedConfigName Name of the shared configuration
-	SharedConfigName string `json:"sharedConfigName,omitempty"`
+
+	//// SharedConfigName Name of the shared configuration
+	//SharedConfigName string `json:"sharedConfigName,omitempty"`
 
 	// UpdateStrategy Strategy for updating the unit set
 	// +optional

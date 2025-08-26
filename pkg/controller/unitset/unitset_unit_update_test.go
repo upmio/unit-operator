@@ -673,7 +673,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 			// Note: This test would need to mock the wait.PollUntilContextTimeout function
 			// in a real scenario to avoid the 12-second sleep and 90-second wait
-			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, upmiov1alpha2.Ports{})
+			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, []corev1.ContainerPort{})
 			Expect(err).To(HaveOccurred()) // Expected to fail due to timeout in unit tests
 		})
 
@@ -701,7 +701,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 				},
 			}
 
-			err := reconciler.reconcileImageVersion(ctx, req, unitSet, identicalTemplate, upmiov1alpha2.Ports{})
+			err := reconciler.reconcileImageVersion(ctx, req, unitSet, identicalTemplate, []corev1.ContainerPort{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -719,7 +719,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 				},
 			}
 
-			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, upmiov1alpha2.Ports{})
+			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, []corev1.ContainerPort{})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -738,7 +738,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			}
 
 			// Note: This would need mocking in a real scenario
-			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, upmiov1alpha2.Ports{})
+			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, []corev1.ContainerPort{})
 			Expect(err).To(HaveOccurred())
 		})
 	})

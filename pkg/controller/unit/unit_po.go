@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"time"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
 	v1 "k8s.io/api/core/v1"
@@ -15,10 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {

@@ -2,10 +2,11 @@ package unitset
 
 import (
 	"encoding/json"
+	"testing"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestFillEnvs(t *testing.T) {
@@ -48,8 +49,8 @@ func TestFillEnvs(t *testing.T) {
 		{Name: "MOUNT_ENV", Value: "mount-env-value"},
 	}
 
-	ports := upmiov1alpha2.Ports{
-		{Name: "http", ContainerPort: "80"},
+	ports := []v1.ContainerPort{
+		{Name: "http", ContainerPort: 80},
 	}
 
 	// Call the function to test

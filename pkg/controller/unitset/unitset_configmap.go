@@ -3,6 +3,8 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/config"
 	"github.com/upmio/unit-operator/pkg/vars"
@@ -13,7 +15,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
 )
 
 func (r *UnitSetReconciler) reconcileConfigmap(
