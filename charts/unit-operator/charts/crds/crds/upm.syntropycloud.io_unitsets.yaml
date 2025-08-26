@@ -201,7 +201,7 @@ spec:
           status:
             description: UnitSetStatus defines the observed state of UnitSet
             properties:
-              UnitService:
+              unitService:
                 description: UnitService the information of unit service
                 properties:
                   name:
