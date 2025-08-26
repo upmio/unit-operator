@@ -46,10 +46,14 @@ RUN set -eux; \
     procps-ng \
     net-tools \
     telnet \
-    epel-release
+    epel-release; \
+  groupadd --system --gid 1001 "unit-agent"; \
+  useradd --system --uid 1002 --gid 1001 -m -c "Default Application User" "unit-agent";
 
 WORKDIR /
 COPY --from=builder /workspace/dist/unit-agent /usr/local/bin/unit-agent
-COPY --from=builder /workspace/pkg/agent/etc/config.toml /etc/unit-agent/config.toml
+COPY --from=builder /workspace/pkg/agent/etc/config.toml /opt/unit-agent/config.toml
+
+USER unit-agent
 
 CMD ["unit-agent","daemon","-f","/etc/unit-agent/config.toml"]

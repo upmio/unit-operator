@@ -1,87 +1,227 @@
 ---
-# Generic gRPC call sample for health check
+#mysql logical backup sample
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
   labels:
     app.kubernetes.io/name: unit-operator
     app.kubernetes.io/managed-by: kustomize
-  name: grpccall-health-check
+  name: grpccall-sample
 spec:
-  targetUnit: example-unitset-0
-  type: generic
-  action: health-check
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: logical-backup
   parameters:
-    endpoint: "localhost:50051"
-    service: "health.Health"
-    method: "Check"
-    timeout: "30s"
+    backupFile: mysql-backup-20250516
+    confFile: "/DATA_MOUNT/conf/mysqld.cnf"
+    socketFile: "/DATA_MOUNT/mysqld.sock"
+    username: root
+    password: password
+    database: test
+    table: table1
+    logicalBackupMode: 0
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
 
 ---
-# Generic gRPC call sample for service discovery
+#mysql physical backup sample
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
   labels:
     app.kubernetes.io/name: unit-operator
     app.kubernetes.io/managed-by: kustomize
-  name: grpccall-service-discovery
+  name: grpccall-sample
 spec:
-  targetUnit: example-unitset-0
-  type: generic
-  action: service-discovery
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: physical-backup
   parameters:
-    endpoint: "localhost:50051"
-    service: "discovery.Discovery"
-    method: "Register"
-    timeout: "30s"
+    backupFile: mysql-backup-20250516
+    confFile: "/DATA_MOUNT/conf/mysqld.cnf"
+    socketFile: "/DATA_MOUNT/mysqld.sock"
+    username: root
+    password: password
+    parallel: 6
+    physicalBackupTool: 0
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
 
 ---
-# Generic gRPC call sample for configuration sync
+#mysql restore sample
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
   labels:
     app.kubernetes.io/name: unit-operator
     app.kubernetes.io/managed-by: kustomize
-  name: grpccall-config-sync
+  name: grpccall-sample
 spec:
-  targetUnit: example-unitset-0
-  type: generic
-  action: config-sync
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: restore
   parameters:
-    endpoint: "localhost:50051"
-    service: "config.Config"
-    method: "Sync"
-    timeout: "60s"
+    backupFile: mysql-backup-20250516
+    parallel: 2
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
 
 ---
-# Legacy database-specific examples (commented out)
-# These examples are preserved for reference but should be adapted for generic use
-# ---
-# #mysql logical backup sample
-# apiVersion: upm.syntropycloud.io/v1alpha1
-# kind: GrpcCall
-# metadata:
-#   labels:
-#     app.kubernetes.io/name: unit-operator
-#     app.kubernetes.io/managed-by: kustomize
-#   name: grpccall-sample
-# spec:
-#   targetUnit: gegx7qnj-mysql-rqu-0
-#   type: mysql
-#   action: logical-backup
-#   parameters:
-#     backupFile: mysql-backup-20250516
-#     confFile: "/DATA_MOUNT/conf/mysqld.cnf"
-#     socketFile: "/DATA_MOUNT/mysqld.sock"
-#     username: root
-#     password: password
-#     database: test
-#     table: table1
-#     logicalBackupMode: 0
-#     s3Storage:
-#       endpoint: s3://192.168.1.1
-#       bucket: mysql-backup
-#       accessKey: accesskey
-#       secretKey: secretkey
+#mysql clone sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: clone
+  parameters:
+    sourceCloneUser: replication
+    sourceClonePassword: replication
+    sourceHost: mysql-source-0
+    sourcePort: 3306
+    socketFile: "/DATA_MOUNT/mysqld.sock"
+    username: root
+    password: password
+
+---
+#mysql gtid purge sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: gtid-purge
+  parameters:
+    socketFile: "/DATA_MOUNT/mysqld.sock"
+    username: root
+    password: password
+    archMode: 0
+
+---
+#mysql set variable sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: mysql
+  action: set-variable
+  parameters:
+    key: auto_increment
+    value: '2'
+    socketFile: "/DATA_MOUNT/mysqld.sock"
+    username: root
+    password: password
+
+---
+#postgresql logical backup sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: postgresql
+  action: logical-backup
+  parameters:
+    backupFile: postgresql-backup-20250520
+    username: root
+    password: password
+    database: test
+    table: table1
+    logicalBackupMode: 0
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
+
+---
+#postgresql physical backup sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: postgresql
+  action: physical-backup
+  parameters:
+    backupFile: postgresql-backup-20250520
+    username: root
+    password: password
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
+
+---
+#postgresql restore sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-mysql-rqu-0
+  type: postgresql
+  action: restore
+  parameters:
+    backupFile: postgresql-backup-20250520
+    s3Storage:
+      endpoint: s3://192.168.1.1
+      bucket: mysql-backup
+      accessKey: accesskey
+      secretKey: secretkey
+
+---
+#proxysql set variable sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: gegx7qnj-proxysql-rqu-0
+  type: proxysql
+  action: set-variable
+  parameters:
+    key: auto_increment
+    value: '2'
+    section: "admin"
+    username: root
+    password: password
