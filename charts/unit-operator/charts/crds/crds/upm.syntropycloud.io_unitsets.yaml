@@ -75,16 +75,6 @@ spec:
                     description: RootSecret Root secret name
                     type: string
                 type: object
-              certificateSecret:
-                description: CertificateSecret Secret configuration for certificates
-                properties:
-                  name:
-                    description: Name of the certificate secret
-                    type: string
-                  organization:
-                    description: Organization name for the certificate
-                    type: string
-                type: object
               edition:
                 description: Edition of the unit set
                 type: string
@@ -131,6 +121,14 @@ spec:
               podAntiAffinityPreset:
                 description: PodAntiAffinityPreset Pod anti-affinity policy
                 type: string
+              podMonitor:
+                properties:
+                  enable:
+                    description: |-
+                      Enable define if need create pod monitor
+                      default: false
+                    type: boolean
+                type: object
               resources:
                 description: Resources Resource requirements for the units
                 x-kubernetes-preserve-unknown-fields: true
@@ -144,9 +142,6 @@ spec:
                     description: Name of the secret
                     type: string
                 type: object
-              sharedConfigName:
-                description: SharedConfigName Name of the shared configuration
-                type: string
               storages:
                 description: Storages defines the configuration for storage
                 items:
@@ -206,9 +201,26 @@ spec:
           status:
             description: UnitSetStatus defines the observed state of UnitSet
             properties:
+              UnitService:
+                description: UnitService the information of unit service
+                properties:
+                  name:
+                    additionalProperties:
+                      type: string
+                    description: Name which is a map, the key is unit name, the value
+                      is unit service name
+                    type: object
+                type: object
               conditions:
                 description: Conditions is an array of conditions.
                 x-kubernetes-preserve-unknown-fields: true
+              externalService:
+                description: ExternalService the information of unitset external service
+                properties:
+                  name:
+                    description: Name the name of unitset external service
+                    type: string
+                type: object
               inUpdate:
                 description: InUpdate used to mark if a mirror upgrade or resource
                   change is in progress
