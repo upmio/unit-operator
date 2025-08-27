@@ -741,6 +741,18 @@ func (r *UnitSetReconciler) getPodTemplate(
 			return podTemplate, err
 		}
 
+		// check the ports in main container (container name= unitset.spec.type)
+		// ports are REQUIRED VALUE
+		for _, one := range templatePodTemplate.Template.Spec.Containers {
+			if one.Name == unitset.Spec.Type {
+				if one.Ports == nil || len(one.Ports) == 0 {
+					return v1.PodTemplate{}, fmt.Errorf("not found ports in pod template:[%s], "+
+						"ports are Required value",
+						templatePodTemplateNamespacedName.String())
+				}
+			}
+		}
+
 		ref := metav1.NewControllerRef(unitset, controllerKind)
 		podTemplate = v1.PodTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -764,31 +776,6 @@ func (r *UnitSetReconciler) getPodTemplate(
 
 	return podTemplate, nil
 }
-
-//func (r *UnitSetReconciler) getPortsFromSharedConfig(
-//	ctx context.Context,
-//	req ctrl.Request,
-//	unitset *upmiov1alpha2.UnitSet) (upmiov1alpha2.Ports, error) {
-//	sharedConfigmap := v1.ConfigMap{}
-//	err := r.Get(ctx, client.ObjectKey{Name: unitset.Spec.SharedConfigName, Namespace: req.Namespace}, &sharedConfigmap)
-//	if err != nil {
-//		return nil, fmt.Errorf("get shared config:[%s] error:[%s]", unitset.Spec.SharedConfigName, err.Error())
-//	}
-//
-//	ports := upmiov1alpha2.Ports{}
-//	portsKey := unitset.Spec.Type + "_ports"
-//	p, ok := sharedConfigmap.Data[portsKey]
-//	if !ok {
-//		return nil, fmt.Errorf("not found key:[%s] in shared config:[%s]", portsKey, unitset.Spec.SharedConfigName)
-//	}
-//
-//	err = json.Unmarshal([]byte(p), &ports)
-//	if err != nil {
-//		return nil, fmt.Errorf("unmarshal ports info:[%s] error:[%s]", p, err.Error())
-//	}
-//
-//	return ports, nil
-//}
 
 func getPortsFromPodtemplate(
 	ctx context.Context,
