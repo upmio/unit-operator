@@ -201,16 +201,6 @@ spec:
           status:
             description: UnitSetStatus defines the observed state of UnitSet
             properties:
-              unitService:
-                description: UnitService the information of unit service
-                properties:
-                  name:
-                    additionalProperties:
-                      type: string
-                    description: Name which is a map, the key is unit name, the value
-                      is unit service name
-                    type: object
-                type: object
               conditions:
                 description: Conditions is an array of conditions.
                 x-kubernetes-preserve-unknown-fields: true
@@ -267,6 +257,16 @@ spec:
                       Status the status of the resource sync
                       enum: True, False
                     type: string
+                type: object
+              unitService:
+                description: UnitService the information of unit service
+                properties:
+                  name:
+                    additionalProperties:
+                      type: string
+                    description: Name which is a map, the key is unit name, the value
+                      is unit service name
+                    type: object
                 type: object
               units:
                 description: Units the number of units
