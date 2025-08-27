@@ -12,83 +12,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-//func InitLogger(logpath, loglevel, maxSize string) logr.Logger {
-//	// split log
-//	hook := lumberjack.Logger{
-//		Filename:   "/tmp/unit-operator.log", // log file path, default: "/tmp/unit-operator.log"
-//		MaxSize:    10,                       // 10M for each log file, default 10M
-//		MaxBackups: 30,                       // keep 30 backups, unlimited by default
-//		MaxAge:     7,                        // reserved for 7 days, unlimited by default
-//		Compress:   true,                     // compress or not, no compression by default
-//	}
-//
-//	if logpath != "" {
-//		logFileName := filepath.Join(
-//			logpath,
-//			fmt.Sprintf("%s-%s", "unit-operator", time.Now().Format("2006-01-02-15:04:05")),
-//		)
-//		hook.Filename = logFileName
-//	}
-//
-//	if maxSize != "" {
-//		size, _ := strconv.Atoi(maxSize)
-//		hook.MaxSize = size
-//	}
-//
-//	write := zapcore.AddSync(&hook)
-//	// setting the log level
-//	// debug: info debug warn
-//	// info: warn info
-//	// warn: warn
-//	// debug -> info -> warn -> error
-//	var level zapcore.Level
-//	switch loglevel {
-//	case "debug":
-//		level = zap0.DebugLevel
-//	case "info":
-//		level = zap0.InfoLevel
-//	case "error":
-//		level = zap0.ErrorLevel
-//	default:
-//		level = zap0.InfoLevel
-//	}
-//	encoderConfig := zapcore.EncoderConfig{
-//		TimeKey:        "time",
-//		LevelKey:       "level",
-//		NameKey:        "logger",
-//		CallerKey:      "linenum",
-//		MessageKey:     "msg",
-//		StacktraceKey:  "stacktrace",
-//		LineEnding:     zapcore.DefaultLineEnding,
-//		EncodeLevel:    zapcore.LowercaseLevelEncoder,  // lowercase character encoders
-//		EncodeTime:     zapcore.ISO8601TimeEncoder,     // ISO8601 UTC time format
-//		EncodeDuration: zapcore.SecondsDurationEncoder, //
-//		EncodeCaller:   zapcore.FullCallerEncoder,      // full caller encoder
-//		EncodeName:     zapcore.FullNameEncoder,
-//	}
-//	// set log level
-//	atomicLevel := zap0.NewAtomicLevel()
-//	atomicLevel.SetLevel(level)
-//	core := zapcore.NewCore(
-//		// zapcore.NewConsoleEncoder(encoderConfig),
-//		zapcore.NewJSONEncoder(encoderConfig),
-//		// zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(&write)), // print to console and file
-//		write,
-//		level,
-//	)
-//	// open development mode, stack trace
-//	caller := zap0.AddCaller()
-//	// open file and line number
-//	development := zap0.Development()
-//	// set initialization fields, e.g. add a server name
-//	filed := zap0.Fields(zap0.String("unit-operator", "unit-operator"))
-//	// constructor Log
-//	//logger := zap0.New(core, caller, development, filed)
-//	//logger.Info("DefaultLogger init success")
-//
-//	return zapr.NewLogger(zap0.New(core, caller, development, filed))
-//}
-
 func InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize string) logr.Logger {
 
 	// Apply precedence: flag > env > default
@@ -205,3 +128,27 @@ func InitLogger(logpath, loglevel, maxSize string) logr.Logger {
 	// Wrap zap logger with zapr (logr interface)
 	return zapr.NewLogger(logger)
 }
+
+//func initLogger() {
+//	// 日志级别
+//	level := zapcore.DebugLevel
+//
+//	// 编码器配置（可以换成 zap.NewProductionEncoderConfig()）
+//	encCfg := zap.NewDevelopmentEncoderConfig()
+//	encCfg.EncodeTime = zapcore.ISO8601TimeEncoder // 时间格式
+//	encCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+//
+//	core := zapcore.NewCore(
+//		zapcore.NewConsoleEncoder(encCfg),
+//		zapcore.Lock(os.Stdout),
+//		level,
+//	)
+//
+//	// ⚡ 关键点：加上 AddCaller 和 AddCallerSkip(1)，这样就能看到文件和行号
+//	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+//
+//	// 转成 controller-runtime 可用的 logr.Logger
+//	ctrl.SetLogger(ctrzap.NewRaw(zap.UseDevMode(true), zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+//		return core
+//	})))
+//}

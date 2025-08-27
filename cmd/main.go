@@ -143,11 +143,7 @@ func main() {
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
-
-	if agentHostType != "" {
-		vars.UnitAgentHostType = agentHostType
-	}
-
+	
 	//ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
 	//ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -226,6 +222,10 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to init generic clientset and informer")
 		os.Exit(1)
+	}
+
+	if agentHostType != "" {
+		vars.UnitAgentHostType = agentHostType
 	}
 
 	err = apiextensionsV1.AddToScheme(mgr.GetScheme())
