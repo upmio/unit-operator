@@ -263,9 +263,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 			},
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			UnbindNode: true,
-			Startup:    true,
-			//SharedConfigName:   unitset.Spec.SharedConfigName,
+			Startup:            true,
 			ConfigTemplateName: unitset.ConfigTemplateName(),
 			Template:           v1.PodTemplateSpec{},
 		},
@@ -303,32 +301,8 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	fillResourcesToDefaultContainer(&unit, unitset)
 	fillNodeAffinity(&unit, unitset)
 	fillPodAffinity(&unit, unitset)
-	//fillPortToDefaultContainer(&unit, unitset, ports)
 
 	return unit, nil
-}
-
-func fillPortToDefaultContainer(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet, ports upmiov1alpha2.Ports) {
-	if len(ports) == 0 {
-		return
-	}
-
-	defaultContainerPort := []v1.ContainerPort{}
-	for _, p := range ports {
-		intPort, _ := strconv.Atoi(p.ContainerPort)
-		defaultContainerPort = append(defaultContainerPort, v1.ContainerPort{
-			Name:          p.Name,
-			ContainerPort: int32(intPort),
-			Protocol:      v1.Protocol(p.Protocol),
-		})
-
-	}
-
-	for i := range unit.Spec.Template.Spec.Containers {
-		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
-			unit.Spec.Template.Spec.Containers[i].Ports = defaultContainerPort
-		}
-	}
 }
 
 func fillNodeAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
@@ -470,13 +444,12 @@ func fillEnvs(
 	// All containers need these
 
 	firstEnvs := getFirstEnvs(unitset)
-	secondEnvs := getSecondEnvs(mountEnvs, ports)
+	secondEnvs := getSecondEnvs(mountEnvs)
 
 	klog.V(4).Infof("---[fillEnvs] unit:[%s], [firstEnvs] len:[%d], Envs:[%v]", unit.Name, len(firstEnvs), getEnvNames(firstEnvs))
 	klog.V(4).Infof("---[fillEnvs] unit:[%s], [secondEnvs] len:[%d],Envs:[%v]", unit.Name, len(secondEnvs), getEnvNames(secondEnvs))
 
 	updateContainerEnvs(unit, firstEnvs, secondEnvs)
-	//updateContainerEnvs( unit.Spec.Template.Spec.Containers, firstEnvs, secondEnvs)
 
 	klog.V(4).Infof("---------------------------------------")
 }
@@ -485,11 +458,7 @@ func updateContainerEnvs(unit *upmiov1alpha2.Unit, firstEnvs, secondEnvs []v1.En
 	for i := range unit.Spec.Template.Spec.InitContainers {
 
 		var thirdEnvs = []v1.EnvVar{}
-		// thirdEnvs := unit.Spec.Template.Spec.InitContainers[i].Env
 		if len(unit.Spec.Template.Spec.InitContainers[i].Env) != 0 {
-			//for _, env := range unit.Spec.Template.Spec.InitContainers[i].Env {
-			//	thirdEnvs = append(thirdEnvs, env)
-			//}
 			thirdEnvs = append(thirdEnvs, unit.Spec.Template.Spec.InitContainers[i].Env...)
 		}
 
@@ -569,19 +538,12 @@ func getFirstEnvs(unitset *upmiov1alpha2.UnitSet) []v1.EnvVar {
 	return firstEnvs
 }
 
-func getSecondEnvs(mountEnvs []v1.EnvVar, ports []v1.ContainerPort) []v1.EnvVar {
+func getSecondEnvs(mountEnvs []v1.EnvVar) []v1.EnvVar {
 
 	secondEnvs := make([]v1.EnvVar, 0)
 	if len(mountEnvs) != 0 {
 		secondEnvs = append(secondEnvs, mountEnvs...)
 	}
-
-	//for i := range ports {
-	//	secondEnvs = append(secondEnvs, v1.EnvVar{
-	//		Name:  strings.ToUpper(ports[i].Name) + "_PORT",
-	//		Value: ports[i].ContainerPort,
-	//	})
-	//}
 
 	return secondEnvs
 }

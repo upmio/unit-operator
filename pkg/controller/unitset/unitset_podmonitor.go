@@ -37,7 +37,7 @@ func (r *UnitSetReconciler) reconcilePodMonitor(ctx context.Context, req ctrl.Re
 
 	ref := metav1.NewControllerRef(unitset, controllerKind)
 
-	PodMetricsEndpointsPort := "exporter"
+	PodMetricsEndpointsPort := "metrics"
 
 	podMonitorName := unitset.Name + upmiov1alpha2.MonitorPodMonitorNameSuffix
 	exceptedPodMonitor := &serviceMonitorv1.PodMonitor{}

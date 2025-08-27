@@ -86,12 +86,6 @@ spec:
                 description: Template describes the data a pod should have when created
                   from a template
                 x-kubernetes-preserve-unknown-fields: true
-              unbindNode:
-                description: |-
-                  UnBindNode defines whether the unit is bound to a node or not.
-                  if false: when pod scheduled ok, write pod.Spec.NodeName
-                  to 'unit.annotations[last.unit.belong.node]' and 'unit.Spec.Template.Spec.NodeName'
-                type: boolean
               volumeClaimTemplates:
                 description: VolumeClaimTemplates is a user's request for and claim
                   to a persistent volume

@@ -22,12 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//const (
-//	AnnotationSharedConfigName  = "shared_config_name"
-//	AnnotationMaintenance       = "maintenance"
-//	AnnotationMainContainerName = "kubectl.kubernetes.io/default-container"
-//)
-
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -36,21 +30,9 @@ type UnitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// UnBindNode defines whether the unit is bound to a node or not.
-	// if false: when pod scheduled ok, write pod.Spec.NodeName
-	// to 'unit.annotations[last.unit.belong.node]' and 'unit.Spec.Template.Spec.NodeName'
-	// +optional
-	UnbindNode bool `json:"unbindNode,omitempty"`
-
 	// Startup defines whether the service is started or not
 	// +optional
 	Startup bool `json:"startup,omitempty"`
-
-	//// SharedConfigName defines the shared config name
-	//// derived from the same name field in unitset.
-	//// unit has no logic and is only used as a parameter when calling unit agent
-	//// +optional
-	//SharedConfigName string `json:"sharedConfigName,omitempty"`
 
 	// ConfigTemplateName defines the config template name.
 	// A unitset is instantiated as a config template for the unitset
