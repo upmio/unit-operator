@@ -162,7 +162,7 @@ func (r *UnitSetReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 	if envPathSecretName != "" {
 		secretName = envPathSecretName
 	}
-	
+
 	needSecret := v1.Secret{}
 
 	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: req.Namespace}, &needSecret)
@@ -193,7 +193,7 @@ func (r *UnitSetReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 		needSecret.Data = managerSecret.Data
 
 		err = r.Create(ctx, &needSecret)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileSecret] create secret:[%s/%s] error: [%v]", req.Namespace, secretName, err.Error())
 		}
 

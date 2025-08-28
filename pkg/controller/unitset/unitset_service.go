@@ -72,7 +72,7 @@ func (r *UnitSetReconciler) reconcileHeadlessService(
 		service.Spec.Selector[upmiov1alpha2.UnitsetName] = unitset.Name
 
 		err = r.Create(ctx, service)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create headless service:[%s] error:[%s]", unitset.HeadlessServiceName(), err.Error())
 		}
 
@@ -145,7 +145,7 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		service.Spec.Selector[upmiov1alpha2.UnitsetName] = unitset.Name
 
 		err = r.Create(ctx, service)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create external service:[%s] error:[%s]", unitset.ExternalServiceName(), err.Error())
 		}
 		createdAny = true
@@ -268,7 +268,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				service.Spec.Selector[upmiov1alpha2.UnitName] = unitName
 
 				err = r.Create(ctx, service)
-				if err != nil {
+				if err != nil && !apierrors.IsAlreadyExists(err) {
 					errs = append(errs, fmt.Errorf("create unit service:[%s] error:[%s]", unitServiceName, err.Error()))
 					return
 				}

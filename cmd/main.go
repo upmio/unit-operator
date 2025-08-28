@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -143,7 +142,7 @@ func main() {
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
-	
+
 	//ctrl.SetLogger(log.InitLogger(logDir, "", logFileMaxSize))
 	//ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -152,11 +151,11 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = "unit-operator-manager"
 
-	id, err := os.Hostname()
-	if err != nil {
-		klog.Fatalf("Error: %s", err)
-	}
-	id = id + "-" + string(uuid.NewUUID())[:8]
+	//id, err := os.Hostname()
+	//if err != nil {
+	//	klog.Fatalf("Error: %s", err)
+	//}
+	//id = id + "-" + string(uuid.NewUUID())[:8]
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -188,14 +187,15 @@ func main() {
 			Port:    webhookPort,
 			CertDir: certs.DefaultWebhookCertDir,
 		}),
-		HealthProbeBindAddress:     probeAddr,
-		LeaderElection:             LeaderElection.LeaderElect,
-		LeaderElectionID:           id,
-		LeaderElectionNamespace:    vars.ManagerNamespace,
-		LeaderElectionResourceLock: LeaderElection.ResourceLock,
-		LeaseDuration:              &LeaderElection.LeaseDuration.Duration,
-		RenewDeadline:              &LeaderElection.RenewDeadline.Duration,
-		RetryPeriod:                &LeaderElection.RetryPeriod.Duration,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         LeaderElection.LeaderElect,
+		//LeaderElectionID:           id,
+		LeaderElectionID:        "unit-operator",
+		LeaderElectionNamespace: vars.ManagerNamespace,
+		//LeaderElectionResourceLock: LeaderElection.ResourceLock,
+		LeaseDuration: &LeaderElection.LeaseDuration.Duration,
+		RenewDeadline: &LeaderElection.RenewDeadline.Duration,
+		RetryPeriod:   &LeaderElection.RetryPeriod.Duration,
 
 		//NewCache: client.NewCache,
 
@@ -209,7 +209,7 @@ func main() {
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")

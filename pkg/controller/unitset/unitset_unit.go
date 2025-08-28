@@ -766,7 +766,7 @@ func (r *UnitSetReconciler) getPodTemplate(
 		}
 
 		err = r.Create(ctx, &podTemplate)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return podTemplate, err
 		}
 

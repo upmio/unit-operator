@@ -31,7 +31,7 @@ func (r *UnitSetReconciler) reconcileServiceAccount(ctx context.Context, req ctr
 		sa.Labels["owner"] = vars.ManagerNamespace
 
 		err = r.Create(ctx, &sa)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileServiceAccount] create serviceaccount error: [%v]", err.Error())
 		}
 

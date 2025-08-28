@@ -49,7 +49,7 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 		cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
 
 		err = r.Create(ctx, &cm)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileConfigmap] [CREATE] create config template cm:[%s] error:[%s]", configTemplateName, err.Error())
 		}
 
@@ -155,7 +155,7 @@ func (r *UnitSetReconciler) reconcileConfigTemplateValue(
 		cm.Labels = unitset.Labels
 		cm.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
 		err = r.Create(ctx, &cm)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileConfigTemplateValue] [CREATE] create config value cm:[%s] error:[%s]", configValueName, err.Error())
 		}
 
