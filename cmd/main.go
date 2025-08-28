@@ -9,6 +9,7 @@ import (
 
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	klog "k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	"github.com/upmio/unit-operator/pkg/certs"
 	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
@@ -24,13 +25,10 @@ import (
 	"github.com/upmio/unit-operator/pkg/vars"
 
 	"github.com/upmio/unit-operator/pkg/controller"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	componentbaseconfig "k8s.io/component-base/config"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -48,13 +46,13 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	LeaderElection = &componentbaseconfig.LeaderElectionConfiguration{
-		LeaseDuration: metav1.Duration{Duration: 30 * time.Second},
-		RenewDeadline: metav1.Duration{Duration: 20 * time.Second},
-		RetryPeriod:   metav1.Duration{Duration: 2 * time.Second},
-		ResourceLock:  resourcelock.LeasesResourceLock,
-		LeaderElect:   true,
-	}
+	//LeaderElection = &componentbaseconfig.LeaderElectionConfiguration{
+	//	LeaseDuration: metav1.Duration{Duration: 30 * time.Second},
+	//	RenewDeadline: metav1.Duration{Duration: 20 * time.Second},
+	//	RetryPeriod:   metav1.Duration{Duration: 2 * time.Second},
+	//	ResourceLock:  resourcelock.LeasesResourceLock,
+	//	LeaderElect:   true,
+	//}
 
 	metricsAddr   string
 	probeAddr     string
@@ -95,30 +93,30 @@ func init() {
 	//flag.BoolVar(&enableHTTP2, "enable-http2", false,
 	//	"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 
-	flag.BoolVar(&LeaderElection.LeaderElect, "leader-elect", LeaderElection.LeaderElect, ""+
-		"Start a leader election client and gain leadership before "+
-		"executing the main loop. Enable this when running replicated "+
-		"components for high availability.")
-	flag.DurationVar(&LeaderElection.LeaseDuration.Duration, "leader-elect-lease-duration",
-		LeaderElection.LeaseDuration.Duration, ""+
-			"The duration that non-leader candidates will wait after observing a leadership "+
-			"renewal until attempting to acquire leadership of a led but unrenewed leader "+
-			"slot. This is effectively the maximum duration that a leader can be stopped "+
-			"before it is replaced by another candidate. This is only applicable if leader "+
-			"election is enabled.")
-	flag.DurationVar(&LeaderElection.RenewDeadline.Duration, "leader-elect-renew-deadline",
-		LeaderElection.RenewDeadline.Duration, ""+
-			"The interval between attempts by the acting master to renew a leadership slot "+
-			"before it stops leading. This must be less than or equal to the lease duration. "+
-			"This is only applicable if leader election is enabled.")
-	flag.DurationVar(&LeaderElection.RetryPeriod.Duration, "leader-elect-retry-period",
-		LeaderElection.RetryPeriod.Duration, ""+
-			"The duration the clients should wait between attempting acquisition and renewal "+
-			"of a leadership. This is only applicable if leader election is enabled.")
-	flag.StringVar(&LeaderElection.ResourceLock, "leader-elect-resource-lock",
-		LeaderElection.ResourceLock, ""+
-			"The type of resource object that is used for locking during "+
-			"leader election. Supported options are `endpoints` (default) and `configmaps`.")
+	//flag.BoolVar(&LeaderElection.LeaderElect, "leader-elect", LeaderElection.LeaderElect, ""+
+	//	"Start a leader election client and gain leadership before "+
+	//	"executing the main loop. Enable this when running replicated "+
+	//	"components for high availability.")
+	//flag.DurationVar(&LeaderElection.LeaseDuration.Duration, "leader-elect-lease-duration",
+	//	LeaderElection.LeaseDuration.Duration, ""+
+	//		"The duration that non-leader candidates will wait after observing a leadership "+
+	//		"renewal until attempting to acquire leadership of a led but unrenewed leader "+
+	//		"slot. This is effectively the maximum duration that a leader can be stopped "+
+	//		"before it is replaced by another candidate. This is only applicable if leader "+
+	//		"election is enabled.")
+	//flag.DurationVar(&LeaderElection.RenewDeadline.Duration, "leader-elect-renew-deadline",
+	//	LeaderElection.RenewDeadline.Duration, ""+
+	//		"The interval between attempts by the acting master to renew a leadership slot "+
+	//		"before it stops leading. This must be less than or equal to the lease duration. "+
+	//		"This is only applicable if leader election is enabled.")
+	//flag.DurationVar(&LeaderElection.RetryPeriod.Duration, "leader-elect-retry-period",
+	//	LeaderElection.RetryPeriod.Duration, ""+
+	//		"The duration the clients should wait between attempting acquisition and renewal "+
+	//		"of a leadership. This is only applicable if leader election is enabled.")
+	//flag.StringVar(&LeaderElection.ResourceLock, "leader-elect-resource-lock",
+	//	LeaderElection.ResourceLock, ""+
+	//		"The type of resource object that is used for locking during "+
+	//		"leader election. Supported options are `endpoints` (default) and `configmaps`.")
 
 	// Register log flags
 	flag.StringVar(&logFileMaxSize, "log-file-max-size", "",
@@ -188,14 +186,20 @@ func main() {
 			CertDir: certs.DefaultWebhookCertDir,
 		}),
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         LeaderElection.LeaderElect,
+		//LeaderElection:         LeaderElection.LeaderElect,
 		//LeaderElectionID:           id,
+		//LeaderElectionNamespace: vars.ManagerNamespace,
+		//LeaderElectionResourceLock: LeaderElection.ResourceLock,
+		//LeaseDuration: &LeaderElection.LeaseDuration.Duration,
+		//RenewDeadline: &LeaderElection.RenewDeadline.Duration,
+		//RetryPeriod:   &LeaderElection.RetryPeriod.Duration,
+
+		LeaderElection:          true,
 		LeaderElectionID:        "unit-operator",
 		LeaderElectionNamespace: vars.ManagerNamespace,
-		//LeaderElectionResourceLock: LeaderElection.ResourceLock,
-		LeaseDuration: &LeaderElection.LeaseDuration.Duration,
-		RenewDeadline: &LeaderElection.RenewDeadline.Duration,
-		RetryPeriod:   &LeaderElection.RetryPeriod.Duration,
+		LeaseDuration:           ptr.To(30 * time.Second),
+		RenewDeadline:           ptr.To(20 * time.Second),
+		RetryPeriod:             ptr.To(2 * time.Second),
 
 		//NewCache: client.NewCache,
 
