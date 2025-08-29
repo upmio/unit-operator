@@ -14,4 +14,4 @@ Port = 9001
 
 [log]
 level = "info"
-dir = "/tmp/logs/agent"
+dir = "logs"
