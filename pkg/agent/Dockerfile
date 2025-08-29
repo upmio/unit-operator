@@ -56,4 +56,4 @@ COPY --from=builder /workspace/pkg/agent/etc/config.toml /opt/unit-agent/config.
 
 USER unit-agent
 
-CMD ["unit-agent","daemon","-f","/etc/unit-agent/config.toml"]
+CMD ["unit-agent","daemon","-f","/opt/unit-agent/config.toml"]
