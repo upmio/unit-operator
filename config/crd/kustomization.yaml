@@ -5,6 +5,7 @@ resources:
 - bases/upm.syntropycloud.io_unitsets.yaml
 - bases/upm.syntropycloud.io_units.yaml
 - bases/upm.syntropycloud.io_grpccalls.yaml
+- bases/upm.syntropycloud.io_projects.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:
@@ -19,6 +20,7 @@ patches:
 #- path: patches/cainjection_in_units.yaml
 #- path: patches/cainjection_in_unitsets.yaml
 #- path: patches/cainjection_in_grpccalls.yaml
+#- path: patches/cainjection_in_projects.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section

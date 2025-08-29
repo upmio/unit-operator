@@ -58,6 +58,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - namespaces
   - nodes
   - persistentvolumeclaims
   - persistentvolumes
@@ -103,6 +104,7 @@ rules:
   - upm.syntropycloud.io
   resources:
   - grpccalls
+  - projects
   - redisreplications
   - units
   - unitsets
@@ -118,6 +120,7 @@ rules:
   - upm.syntropycloud.io
   resources:
   - grpccalls/finalizers
+  - projects/finalizers
   - units/finalizers
   - unitsets/finalizers
   verbs:
@@ -126,6 +129,7 @@ rules:
   - upm.syntropycloud.io
   resources:
   - grpccalls/status
+  - projects/status
   - units/status
   - unitsets/status
   verbs:

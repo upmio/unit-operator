@@ -30,6 +30,9 @@ const (
 	AnnotationUnitServiceNodeportMapPrefix = "unit-operator.unit-service."
 	AnnotationUnitServiceNodeportMapSuffix = ".nodeport.map"
 
+	LabelProjectOwner = "upm.io/owner"
+	LabelNamespace    = "namespace"
+
 	FinalizerUnitDelete      = "upm.io/unit-delete"
 	FinalizerConfigMapDelete = "upm.io/configmap-delete"
 	FinalizerPodDelete       = "upm.io/pod-delete"

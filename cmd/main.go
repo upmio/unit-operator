@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/upmio/unit-operator/pkg/controller/project"
 	klog "k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -235,6 +236,15 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("unit-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Unit")
+		os.Exit(1)
+	}
+
+	if err = (&project.ProjectReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("project-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Project")
 		os.Exit(1)
 	}
 

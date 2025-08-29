@@ -46,4 +46,13 @@ resources:
   kind: GrpcCall
   path: github.com/upmio/unit-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: syntropycloud.io
+  group: upm
+  kind: Project
+  path: github.com/upmio/unit-operator/api/v1alpha2
+  version: v1alpha2
 version: "3"
