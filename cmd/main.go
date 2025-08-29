@@ -7,24 +7,22 @@ import (
 	"os"
 	"time"
 
-	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	klog "k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
+	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
+	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/certs"
-	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
-
+	genericClient "github.com/upmio/unit-operator/pkg/client/generic"
+	"github.com/upmio/unit-operator/pkg/controller"
 	"github.com/upmio/unit-operator/pkg/controller/unit"
 	"github.com/upmio/unit-operator/pkg/controller/unitset"
-
-	genericClient "github.com/upmio/unit-operator/pkg/client/generic"
+	"github.com/upmio/unit-operator/pkg/vars"
+	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/upmio/unit-operator/pkg/vars"
-
-	"github.com/upmio/unit-operator/pkg/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 
 	certmanagerV1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -46,13 +43,7 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	//LeaderElection = &componentbaseconfig.LeaderElectionConfiguration{
-	//	LeaseDuration: metav1.Duration{Duration: 30 * time.Second},
-	//	RenewDeadline: metav1.Duration{Duration: 20 * time.Second},
-	//	RetryPeriod:   metav1.Duration{Duration: 2 * time.Second},
-	//	ResourceLock:  resourcelock.LeasesResourceLock,
-	//	LeaderElect:   true,
-	//}
+	leaderElect bool
 
 	metricsAddr   string
 	probeAddr     string
@@ -93,30 +84,10 @@ func init() {
 	//flag.BoolVar(&enableHTTP2, "enable-http2", false,
 	//	"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 
-	//flag.BoolVar(&LeaderElection.LeaderElect, "leader-elect", LeaderElection.LeaderElect, ""+
-	//	"Start a leader election client and gain leadership before "+
-	//	"executing the main loop. Enable this when running replicated "+
-	//	"components for high availability.")
-	//flag.DurationVar(&LeaderElection.LeaseDuration.Duration, "leader-elect-lease-duration",
-	//	LeaderElection.LeaseDuration.Duration, ""+
-	//		"The duration that non-leader candidates will wait after observing a leadership "+
-	//		"renewal until attempting to acquire leadership of a led but unrenewed leader "+
-	//		"slot. This is effectively the maximum duration that a leader can be stopped "+
-	//		"before it is replaced by another candidate. This is only applicable if leader "+
-	//		"election is enabled.")
-	//flag.DurationVar(&LeaderElection.RenewDeadline.Duration, "leader-elect-renew-deadline",
-	//	LeaderElection.RenewDeadline.Duration, ""+
-	//		"The interval between attempts by the acting master to renew a leadership slot "+
-	//		"before it stops leading. This must be less than or equal to the lease duration. "+
-	//		"This is only applicable if leader election is enabled.")
-	//flag.DurationVar(&LeaderElection.RetryPeriod.Duration, "leader-elect-retry-period",
-	//	LeaderElection.RetryPeriod.Duration, ""+
-	//		"The duration the clients should wait between attempting acquisition and renewal "+
-	//		"of a leadership. This is only applicable if leader election is enabled.")
-	//flag.StringVar(&LeaderElection.ResourceLock, "leader-elect-resource-lock",
-	//	LeaderElection.ResourceLock, ""+
-	//		"The type of resource object that is used for locking during "+
-	//		"leader election. Supported options are `endpoints` (default) and `configmaps`.")
+	flag.BoolVar(&leaderElect, "leader-elect", true, ""+
+		"Start a leader election client and gain leadership before "+
+		"executing the main loop. Enable this when running replicated "+
+		"components for high availability.")
 
 	// Register log flags
 	flag.StringVar(&logFileMaxSize, "log-file-max-size", "",
@@ -149,12 +120,6 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = "unit-operator-manager"
 
-	//id, err := os.Hostname()
-	//if err != nil {
-	//	klog.Fatalf("Error: %s", err)
-	//}
-	//id = id + "-" + string(uuid.NewUUID())[:8]
-
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
@@ -186,15 +151,8 @@ func main() {
 			CertDir: certs.DefaultWebhookCertDir,
 		}),
 		HealthProbeBindAddress: probeAddr,
-		//LeaderElection:         LeaderElection.LeaderElect,
-		//LeaderElectionID:           id,
-		//LeaderElectionNamespace: vars.ManagerNamespace,
-		//LeaderElectionResourceLock: LeaderElection.ResourceLock,
-		//LeaseDuration: &LeaderElection.LeaseDuration.Duration,
-		//RenewDeadline: &LeaderElection.RenewDeadline.Duration,
-		//RetryPeriod:   &LeaderElection.RetryPeriod.Duration,
 
-		LeaderElection:          true,
+		LeaderElection:          leaderElect,
 		LeaderElectionID:        "unit-operator",
 		LeaderElectionNamespace: vars.ManagerNamespace,
 		LeaseDuration:           ptr.To(30 * time.Second),
@@ -250,14 +208,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	//go func() {
-	//	setupLog.Info("setup controllers")
-	//	if err = controller.SetupWithManager(mgr); err != nil {
-	//		setupLog.Error(err, "unable to setup controllers")
-	//		os.Exit(1)
-	//	}
-	//}()
-
 	kubeClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
 	if err != nil {
 		setupLog.Error(err, "unable to create Kubernetes client")
@@ -290,7 +240,7 @@ func main() {
 
 	err = controller.Setup(mgr)
 	if err != nil {
-		setupLog.Error(err, "unable to setup manager")
+		setupLog.Error(err, "unable to setup grpccall manager")
 		os.Exit(1)
 	}
 
