@@ -1,9 +1,9 @@
 dependencies:
 - name: common
   repository: https://charts.bitnami.com/bitnami
-  version: 2.31.3
+  version: 2.31.4
 - name: crds
   repository: ""
-  version: 1.0.0
-digest: sha256:ef855ce16e7cb10dd1ac2fb7db1ae0c870b21874d13625b1b1e09b4facd5e834
-generated: "2025-07-30T21:22:50.041827+08:00"
+  version: 1.1.0
+digest: sha256:1540bfa956519a7ebb646311e13a503a6a74506f5c7add3bb8b7a2e0b4d4b552
+generated: "2025-08-30T09:44:29.546843+08:00"
