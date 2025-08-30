@@ -33,7 +33,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o di
 
 # Use distroless as minimal base image to package the unit-operator binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM rockylinux/rockylinux:9.5.20241118
+FROM rockylinux/rockylinux:9.6.20250531
 
 # set timezone
 ENV TZ=Asia/Shanghai
