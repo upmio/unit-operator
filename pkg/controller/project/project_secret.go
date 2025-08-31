@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -61,16 +62,43 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 
 	} else if err != nil {
 		return fmt.Errorf("[reconcileSecret] get secret:[%s/%s] error: [%v]", req.Name, secretName, err.Error())
+	} else {
+		// Secret exists: validate AES key (must be 32-char hex) and self-heal if needed
+		current, ok := needSecret.Data[defaultAESSecretKey]
+		if !ok || !isValidHex32(current) {
+			if needSecret.Data == nil {
+				needSecret.Data = make(map[string][]byte)
+			}
+			newVal, genErr := generateAES256Key()
+			if genErr != nil {
+				return fmt.Errorf("[reconcileSecret] regenerate AES key error: [%v]", genErr)
+			}
+			needSecret.Data[defaultAESSecretKey] = newVal
+			if updErr := r.Update(ctx, &needSecret); updErr != nil {
+				return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+			}
+		}
 	}
 
 	return nil
 }
 
 func generateAES256Key() (key []byte, err error) {
-	key = make([]byte, 32)
-	if _, err = io.ReadFull(rand.Reader, key); err != nil {
+	// Generate 16 random bytes and hex-encode to 32 characters
+	raw := make([]byte, 16)
+	if _, err = io.ReadFull(rand.Reader, raw); err != nil {
 		return nil, err
 	}
+	hexStr := hex.EncodeToString(raw)
+	return []byte(hexStr), nil
+}
 
-	return key, nil
+func isValidHex32(b []byte) bool {
+	if len(b) != 32 {
+		return false
+	}
+	if _, err := hex.DecodeString(string(b)); err != nil {
+		return false
+	}
+	return true
 }
