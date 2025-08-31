@@ -41,6 +41,9 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 			},
 		}
 
+		// initialize data map to avoid panic: assignment to entry in nil map
+		needSecret.Data = make(map[string][]byte)
+
 		needSecret.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 		needSecret.Labels[upmiov1alpha2.LabelNamespace] = req.Name
 
