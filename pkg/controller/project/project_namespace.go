@@ -26,6 +26,9 @@ func (r *ProjectReconciler) reconcileNamespace(ctx context.Context, req ctrl.Req
 			},
 		}
 
+		if project.Labels != nil {
+			ns.Labels = project.Labels
+		}
 		ns.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
 		err = r.Create(ctx, &ns)

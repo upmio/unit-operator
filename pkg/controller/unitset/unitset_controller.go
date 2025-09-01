@@ -158,16 +158,6 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 		return nil
 	}
 
-	//err = r.reconcileServiceAccount(ctx, req, unitset)
-	//if err != nil {
-	//	return err
-	//}
-
-	//err = r.reconcileSecret(ctx, req, unitset)
-	//if err != nil {
-	//	return err
-	//}
-
 	err = r.reconcileConfigmap(ctx, req, unitset)
 	if err != nil {
 		return err

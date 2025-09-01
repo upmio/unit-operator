@@ -39,12 +39,18 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 				Namespace:   req.Name,
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
+				Finalizers: []string{
+					upmiov1alpha2.FinalizerProtect,
+				},
 			},
 		}
 
 		// initialize data map to avoid panic: assignment to entry in nil map
 		needSecret.Data = make(map[string][]byte)
 
+		if project.Labels != nil {
+			needSecret.Labels = project.Labels
+		}
 		needSecret.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 		needSecret.Labels[upmiov1alpha2.LabelNamespace] = req.Name
 

@@ -29,6 +29,9 @@ func (r *ProjectReconciler) reconcileServiceAccount(ctx context.Context, req ctr
 			},
 		}
 
+		if project.Labels != nil {
+			sa.Labels = project.Labels
+		}
 		sa.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
 		err = r.Create(ctx, &sa)
@@ -101,6 +104,9 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 			},
 		}
 
+		if project.Labels != nil {
+			role.Labels = project.Labels
+		}
 		role.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
 		err = r.Create(ctx, &role)
@@ -140,6 +146,9 @@ func (r *ProjectReconciler) reconcileRoleBinding(ctx context.Context, req ctrl.R
 			},
 		}
 
+		if project.Labels != nil {
+			rb.Labels = project.Labels
+		}
 		rb.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
 		err = r.Create(ctx, &rb)

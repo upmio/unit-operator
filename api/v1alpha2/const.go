@@ -37,6 +37,7 @@ const (
 	FinalizerConfigMapDelete = "upm.io/configmap-delete"
 	FinalizerPodDelete       = "upm.io/pod-delete"
 	FinalizerPvcDelete       = "upm.io/pvc-delete"
+	FinalizerProtect         = "upm.io/protect"
 
 	CertmanagerIssuerSuffix      = "certmanager-issuer"
 	CertmanagerCertificateSuffix = "certmanager-ca"
