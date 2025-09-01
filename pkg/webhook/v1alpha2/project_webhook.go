@@ -45,7 +45,7 @@ func SetupProjectWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-upm-syntropycloud-io-v1alpha2-project,mutating=true,failurePolicy=fail,sideEffects=None,groups=upm.syntropycloud.io,resources=projects,verbs=create;update,versions=v1alpha2,name=mproject.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-upm-syntropycloud-io-v1alpha2-project,mutating=true,failurePolicy=fail,sideEffects=None,groups=upm.syntropycloud.io,resources=projects,verbs=create;update;delete,versions=v1alpha2,name=mproject.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomDefaulter = &projectAdmission{}
 
@@ -60,7 +60,8 @@ func (r *projectAdmission) Default(ctx context.Context, obj runtime.Object) erro
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-upm-syntropycloud-io-v1alpha2-project,mutating=false,failurePolicy=fail,sideEffects=None,groups=upm.syntropycloud.io,resources=projects,verbs=create;update,versions=v1alpha2,name=vproject.kb.io,admissionReviewVersions=v1
+
+// +kubebuilder:webhook:path=/validate-upm-syntropycloud-io-v1alpha2-project,mutating=false,failurePolicy=fail,sideEffects=None,groups=upm.syntropycloud.io,resources=projects,verbs=create;update;delete,versions=v1alpha2,name=vproject.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &projectAdmission{}
 
@@ -82,13 +83,14 @@ func (r *projectAdmission) ValidateUpdate(ctx context.Context, oldObj, newObj ru
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *projectAdmission) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	//projectlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	project, ok := obj.(*v1alpha2.Project)
 	if !ok {
 		return nil, fmt.Errorf("object type assertion to Project failed")
 	}
+
+	projectlog.Info("validate delete", "name", project.Name)
 
 	namespace := project.Namespace
 

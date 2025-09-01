@@ -66,7 +66,7 @@ type ProjectReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.0/pkg/reconcile
 func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
-	startTime := time.Now()
+	//startTime := time.Now()
 
 	project := &upmiov1alpha2.Project{}
 	if err := r.Get(ctx, req.NamespacedName, project); err != nil {
@@ -88,7 +88,7 @@ func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 		// If retErr is empty, print log
 		// If retErr is not empty, print log and update error to Project's event
 		if retErr == nil {
-			klog.Infof("finished reconciling Project [%s], duration [%v]", req.String(), time.Since(startTime))
+			//klog.Infof("finished reconciling Project [%s], duration [%v]", req.String(), time.Since(startTime))
 		} else {
 			klog.Errorf("failed to reconcile Project [%s], error: [%v]", req.String(), retErr)
 			// Update project's event
@@ -102,7 +102,7 @@ func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 }
 
 func (r *ProjectReconciler) reconcileProject(ctx context.Context, req ctrl.Request, project *upmiov1alpha2.Project) (err error) {
-	klog.Infof("start reconciling Project [%s]", req.String())
+	//klog.Infof("start reconciling Project [%s]", req.String())
 
 	err = r.reconcileNamespace(ctx, req, project)
 	if err != nil {
