@@ -7,9 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/upmio/unit-operator/pkg/controller/project"
 	klog "k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+
+	"github.com/upmio/unit-operator/pkg/controller/project"
 
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
@@ -269,6 +270,12 @@ func main() {
 		}
 	}
 
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = upmioWebhook.SetupProjectWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
+			os.Exit(1)
+		}
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

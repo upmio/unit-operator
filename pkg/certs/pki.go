@@ -2,6 +2,7 @@ package certs
 
 import (
 	"context"
+
 	"github.com/upmio/unit-operator/pkg/vars"
 	klog "k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +23,7 @@ const (
 	// ValidatingWebhookConfigurationName is the name of the validating webhook configuration
 	ValidatingWebhookConfigurationName = "unit-operator-validating-webhook-configuration"
 
-	// The name of the directory containing the TLS certificates
+	// DefaultWebhookCertDir The name of the directory containing the TLS certificates
 	DefaultWebhookCertDir = "/run/secrets/unit-operator/webhook"
 
 	// CaSecretName is the name of the secret which is hosting the Operator CA

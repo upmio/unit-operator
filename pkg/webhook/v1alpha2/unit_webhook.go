@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"context"
+
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

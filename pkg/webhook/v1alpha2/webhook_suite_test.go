@@ -17,12 +17,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/upmio/unit-operator/api/v1alpha2"
 	"net"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/upmio/unit-operator/api/v1alpha2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,7 +63,7 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
