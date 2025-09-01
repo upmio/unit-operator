@@ -90,36 +90,38 @@ func (r *projectAdmission) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return nil, fmt.Errorf("object type assertion to Project failed")
 	}
 
-	projectlog.Info("validate delete", "name", project.Name)
+	projectlog.Info("validate Project delete", "name", project.Name)
 
-	namespace := project.Namespace
+	namespace := project.Name
 
 	// Check UnitSet
 	var unitsetList v1alpha2.UnitSetList
 	if err := r.client.List(ctx, &unitsetList, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list UnitSet in namespace [%s]: [%v]", namespace, err)
+		return nil, fmt.Errorf("failed to list UnitSet in namespace:[%s] [%v] of Project:[%s]",
+			namespace, err, project.Name)
 	}
 	if len(unitsetList.Items) > 0 {
 		names := make([]string, 0, len(unitsetList.Items))
 		for _, us := range unitsetList.Items {
 			names = append(names, us.Name)
 		}
-		return nil, fmt.Errorf("cannot delete Project: UnitSet(s) [%s] exist in namespace [%s]",
-			strings.Join(names, ", "), namespace)
+		return nil, fmt.Errorf("cannot delete Project:[%s] UnitSet(s) [%s] exist in namespace [%s]",
+			project.Name, strings.Join(names, ", "), namespace)
 	}
 
 	// Check Unit
 	var unitList v1alpha2.UnitList
 	if err := r.client.List(ctx, &unitList, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list Unit in namespace [%s]: [%v]", namespace, err)
+		return nil, fmt.Errorf("failed to list Unit in namespace:[%s] [%v] of Project:[%s]",
+			namespace, err, project.Name)
 	}
 	if len(unitList.Items) > 0 {
 		names := make([]string, 0, len(unitList.Items))
 		for _, u := range unitList.Items {
 			names = append(names, u.Name)
 		}
-		return nil, fmt.Errorf("cannot delete Project: Unit(s) [%s] exist in namespace [%s]",
-			strings.Join(names, ", "), namespace)
+		return nil, fmt.Errorf("cannot delete Project:[%s] Unit(s) [%s] exist in namespace [%s]",
+			project.Name, strings.Join(names, ", "), namespace)
 	}
 
 	return nil, nil
