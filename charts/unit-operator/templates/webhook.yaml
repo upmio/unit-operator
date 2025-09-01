@@ -80,6 +80,7 @@ metadata:
 webhooks:
   - admissionReviewVersions:
       - v1
+    clientConfig:
       service:
         name: unit-operator-webhook-service
         namespace: {{ $.Release.Namespace }}
