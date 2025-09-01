@@ -12,6 +12,28 @@ webhooks:
       service:
         name: unit-operator-webhook-service
         namespace: {{ $.Release.Namespace }}
+        path: /mutate-upm-syntropycloud-io-v1alpha2-project
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: mproject.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - projects
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
         path: /mutate-upm-syntropycloud-io-v1alpha2-unit
         port: {{ .Values.service.port }}
     failurePolicy: Fail
@@ -56,6 +78,28 @@ metadata:
   labels:
     {{- include "common.labels.standard" . | nindent 4 }}
 webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: unit-operator-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: /validate-upm-syntropycloud-io-v1alpha2-project
+        port: {{ .Values.service.port }}
+    failurePolicy: Fail
+    name: vproject.kb.io
+    rules:
+      - apiGroups:
+          - upm.syntropycloud.io
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - projects
+    sideEffects: None
   - admissionReviewVersions:
       - v1
     clientConfig:
