@@ -70,8 +70,13 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 			Rules: []rbacV1.PolicyRule{
 				{
 					APIGroups: []string{""},
-					Resources: []string{"pods", "secrets"},
+					Resources: []string{"pods"},
 					Verbs:     []string{"get", "list"},
+				},
+				{
+					APIGroups: []string{""},
+					Resources: []string{"secrets"},
+					Verbs:     []string{"get", "list", "create", "patch"},
 				},
 				{
 					APIGroups: []string{""},
