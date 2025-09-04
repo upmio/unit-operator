@@ -1,24 +1,23 @@
 package v1alpha2
 
 const (
-	UnitsetName = "unitset.name"
-	UnitName    = "unit.name"
-	UnitSn      = "unit.sn"
+	UnitsetName = "unit-operator/unitset.name"
+	UnitName    = "unit-operator/unit.name"
+	UnitSn      = "unit-operator/unit.sn"
 
 	NoneSetFlag = "noneSet"
 
-	AnnotationMaintenance          = "maintenance"
+	AnnotationMaintenance          = "unit-operator/maintenance"
 	AnnotationMainContainerName    = "kubectl.kubernetes.io/default-container"
 	AnnotationMainContainerVersion = "kubectl.kubernetes.io/default-container-version"
-	AnnotationForceDelete          = "upm.io/force-delete"
-	AnnotationLastUnitBelongNode   = "last.unit.belong.node"
+	AnnotationForceDelete          = "unit-operator/force-delete"
 	// AnnotationUnitsetNodeNameMap stores a JSON object mapping unit name -> node name (or "noneSet")
 	// Example: {"mysql-cluster-0":"node-a","mysql-cluster-1":"noneSet"}
-	AnnotationUnitsetNodeNameMap = "unit-operator.unit.node-name.map"
+	AnnotationUnitsetNodeNameMap = "unit-operator/unit.node-name.map"
 	// AnnotationUnitServiceType is the type of the unit service
 	// Example: "ClusterIP"
-	AnnotationUnitServiceType     = "unit-operator.unit-service.type"
-	AnnotationExternalServiceType = "unit-operator.external-service.type"
+	AnnotationUnitServiceType     = "unit-operator/unit-service.type"
+	AnnotationExternalServiceType = "unit-operator/external-service.type"
 
 	// AnnotationUnitServiceNodeportMapPrefix
 	// AnnotationUnitServiceNodeportMapSuffix
@@ -27,19 +26,19 @@ const (
 	// value is a JSON object mapping unit name -> nodePort
 	// Example: {"mysql-cluster-0":30468,"mysql-cluster-1":30469}
 	// if the annotation is not empty, when recreate the unit service, the nodePort will be filled from the annotation
-	AnnotationUnitServiceNodeportMapPrefix = "unit-operator.unit-service."
+	AnnotationUnitServiceNodeportMapPrefix = "unit-operator/unit-service."
 	AnnotationUnitServiceNodeportMapSuffix = ".nodeport.map"
 
-	AnnotationAesSecretKey = "upm.io/secret.aes-secret-key"
+	AnnotationAesSecretKey = "unit-operator/secret.aes-secret-key"
 
-	LabelProjectOwner = "upm.io/owner"
-	LabelNamespace    = "namespace"
+	LabelProjectOwner = "unit-operator/owner"
+	LabelNamespace    = "unit-operator/namespace"
 
-	FinalizerUnitDelete      = "upm.io/unit-delete"
-	FinalizerConfigMapDelete = "upm.io/configmap-delete"
-	FinalizerPodDelete       = "upm.io/pod-delete"
-	FinalizerPvcDelete       = "upm.io/pvc-delete"
-	FinalizerProtect         = "upm.io/protect"
+	FinalizerUnitDelete      = "unit-operator/unit-delete"
+	FinalizerConfigMapDelete = "unit-operator/configmap-delete"
+	FinalizerPodDelete       = "unit-operator/pod-delete"
+	FinalizerPvcDelete       = "unit-operator/pvc-delete"
+	FinalizerProtect         = "unit-operator/protect"
 
 	CertmanagerIssuerSuffix      = "certmanager-issuer"
 	CertmanagerCertificateSuffix = "certmanager-ca"
