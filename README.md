@@ -5,13 +5,9 @@
 [![Release](https://img.shields.io/github/v/release/upmio/unit-operator)](https://github.com/upmio/unit-operator/releases)
 [![Stars](https://img.shields.io/github/stars/upmio/unit-operator)](https://github.com/upmio/unit-operator)
 
-<div align="center">
-  <img src="./doc/unit-operator.svg" alt="Uni-Operator" width="120" height="120">
-  <h3>Unit Operator </h3>
-  <p>A Kubernetes-based extension
-suite focused on extending pod management capabilities
-such as deployment, publishing, operations, and availability protection.</p>
-</div>
+![Unit Operator](./doc/unit-operator.svg)
+
+A Kubernetes-based extension suite focused on extending pod management capabilities such as deployment, publishing, operations, and availability protection.
 
 ## ✨ Features
 
@@ -30,7 +26,7 @@ such as deployment, publishing, operations, and availability protection.</p>
 
 The Unit Operator follows a two-layer architecture:
 
-```
+```text
 ┌─────────────────────────────────────┐
 │           UnitSet                   │
 │      (Cluster Manager)              │
@@ -71,12 +67,9 @@ For Custom Resource Definitions (CRDs), you can install them manually (recommend
 - Install CRDs manually: uninstalling the chart will not affect the CRDs and their CR instances
 - Install CRDs via this chart (`crds.enabled=true`): uninstalling the chart will also remove the CRDs and thus delete all related CRs; use with care
 
-
-
 > To find more details, click on the following document:
-> 
+>
 > [Unit Operator Helm Chart](./charts/unit-operator/README.md)
-
 
 ## ⚙️ Configuration
 
@@ -87,14 +80,15 @@ For Custom Resource Definitions (CRDs), you can install them manually (recommend
 | UnitSet | v1alpha2 | Manages a set of distributed units |
 | Unit | v1alpha2 | Individual workload instances |
 | GrpcCall | v1alpha1 | Manages gRPC-based operations |
+| Project | v1alpha2 | Manages project-level configuration and resources |
 
 ### 📞 gRPC Communication
 
 The operator supports gRPC communication between units:
+
 - Service discovery and registration
 - Configuration synchronization
 - Cross-unit communication
-
 
 ## 💻 Development
 
@@ -147,9 +141,10 @@ make pb-gen
 
 The Unit Operator provides the following custom resources:
 
-- 🎯 [UnitSet](doc/unit-operator_api.md#unitset): Manages a cluster of database instances
-- 📦 [Unit](doc/unit-operator_api.md#unit): Individual database instance
+- 🎯 [UnitSet](doc/unit-operator_api.md#unitset): Manages a cluster of workload instances
+- 📦 [Unit](doc/unit-operator_api.md#unit): Individual workload instance
 - 📞 [GrpcCall](doc/unit-operator_api.md#grpccall): gRPC-based operations
+- 🏗️ [Project](doc/unit-operator_api.md#project): Manages project-level configuration and resources
 
 ### 🧩 Compose Operator Integration (optional)
 
@@ -204,7 +199,6 @@ kubectl create secret generic proxysql-credentials \
 ```
 
 > Note: The capabilities and tooling above come from the Compose Operator project. Refer to its latest documentation: `https://github.com/upmio/compose-operator`.
-
 
 ## 🚨 Troubleshooting
 
@@ -269,25 +263,18 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 - 📚 [Documentation](doc/unit-operator_api.md)
 - 🐛 [Issues](https://github.com/upmio/unit-operator/issues)
-- 💬 [Discussions](https://github.com/upmio/unit-operator/discussions)
 
 ## 🙏 Acknowledgments
 
-<div align="center">
-  <p>
-    <img src="https://img.icons8.com/color/96/000000/github.png" alt="GitHub" width="32" height="32">
-    Built with ❤️ using these amazing tools and frameworks
-  </p>
-</div>
+![GitHub](https://img.icons8.com/color/96/000000/github.png)
+
+Built with ❤️ using these amazing tools and frameworks
 
 - 🏗️ [Kubebuilder](https://book.kubebuilder.io/) - Kubernetes API development framework
 - 🎛️ [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) - Kubernetes controller framework
 
 ---
 
-<div align="center">
-  <p>
-    <img src="https://img.icons8.com/color/96/000000/kubernetes.png" alt="Kubernetes" width="32" height="32">
-    Made with ❤️ by the Unit Operator community
-  </p>
-</div>
+![Kubernetes](https://img.icons8.com/color/96/000000/kubernetes.png)
+
+Made with ❤️ by the Unit Operator community
