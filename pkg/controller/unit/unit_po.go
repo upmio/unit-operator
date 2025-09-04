@@ -35,6 +35,8 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 			return err
 		}
 
+		return nil
+
 	} else if err != nil {
 		return err
 	}
@@ -219,7 +221,8 @@ func convert2Pod(unit *upmiov1alpha2.Unit) (*v1.Pod, error) {
 		},
 	}
 
-	pod.Spec = *unit.Spec.Template.Spec.DeepCopy()
+	podSpec := unit.Spec.Template.Spec.DeepCopy()
+	pod.Spec = *podSpec
 
 	return &pod, nil
 }
@@ -364,4 +367,94 @@ func (r *UnitReconciler) waitUntilPodScheduled(ctx context.Context, podName, nam
 	}
 
 	return pod, err
+}
+
+func (r *UnitReconciler) podAutoRecovery(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
+	pod := &v1.Pod{}
+	podNamespacedName := client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}
+	err := r.Get(ctx, podNamespacedName, pod)
+	if err != nil && apierrors.IsNotFound(err) {
+		//klog.Infof("[podAutoRecovery]:pod:[%s] not found, no need trrigger recovery", unit.Name)
+		return nil
+	}
+
+	if pod.Status.Phase == v1.PodFailed || pod.Status.Phase == v1.PodSucceeded {
+		if unit.Spec.FailedPodRecoveryPolicy != nil {
+			if !unit.Spec.FailedPodRecoveryPolicy.Enabled {
+				klog.Infof("[podAutoRecovery]:pod:[%s] is failed, but recovery policy is disabled, no need trrigger recovery", unit.Name)
+				return nil
+			}
+		}
+	}
+
+	if pod.Status.Phase == v1.PodFailed || pod.Status.Phase == v1.PodSucceeded {
+		waitErr := r.waitPodFailed(ctx, unit)
+		if waitErr == nil {
+			return nil
+		}
+
+		klog.Infof("[podAutoRecovery]:pod:[%s], trrigger recreate", unit.Name)
+
+		// delete pod
+		err = r.Delete(ctx, pod)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		// wait delete
+		err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+			pod := &v1.Pod{}
+			podNamespacedName := client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}
+			err := r.Get(ctx, podNamespacedName, pod)
+			if err != nil && apierrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			return false, nil
+		})
+
+		if err != nil {
+			return fmt.Errorf("[podAutoRecovery]: wait pod delete fail:%s", err.Error())
+		}
+
+		// create
+		newPod, _ := convert2Pod(unit)
+
+		err = r.Create(ctx, newPod)
+		if err == nil {
+			r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessCreated", "[podAutoRecovery]: recreate pod [%s] ok", pod.Name)
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (r *UnitReconciler) waitPodFailed(ctx context.Context, unit *upmiov1alpha2.Unit) error {
+
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second,
+		time.Duration(10*int(unit.Spec.FailedPodRecoveryPolicy.ReconcileThreshold))*time.Second,
+		true, func(ctx context.Context) (bool, error) {
+
+			pod := &v1.Pod{}
+			podNamespacedName := client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}
+			err := r.Get(ctx, podNamespacedName, pod)
+			if err != nil {
+				return false, nil
+			}
+
+			if podutil.IsFailed(pod) || podutil.IsPodSucceeded(pod) {
+				return false, nil
+			}
+
+			return true, nil
+
+		})
+
+	if err != nil {
+		err = fmt.Errorf("waitPodFailed %s fail: %s", unit.Name, err.Error())
+	}
+
+	return err
 }

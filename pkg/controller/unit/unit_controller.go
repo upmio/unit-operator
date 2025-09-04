@@ -153,42 +153,35 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 		return fmt.Errorf("failed to reconcile UnitStatus, err: [%v]", err.Error())
 	}
 
+	err = r.podAutoRecovery(ctx, req, unit)
+	if err != nil {
+		klog.Errorf("failed to auto recovery Pod [%s], err: [%v]", req.NamespacedName, err.Error())
+		return fmt.Errorf("failed to auto recovery Pod [%s], err: [%v]", req.NamespacedName, err.Error())
+	}
+
 	err = r.reconcilePod(ctx, req, unit)
 	if err != nil {
 		klog.Errorf("failed to reconcile Pod [%s], err: [%v]", req.NamespacedName, err.Error())
 		return fmt.Errorf("failed to reconcile Pod [%s], err: [%v]", req.NamespacedName, err.Error())
 	}
 
-	pod, err := r.waitUntilPodScheduled(ctx, unit.Name, unit.GetNamespace())
+	_, err = r.waitUntilPodScheduled(ctx, unit.Name, unit.GetNamespace())
 	if err != nil {
 		klog.Errorf("failed to waitUntilPodScheduled [%s], err: [%v]", req.NamespacedName, err.Error())
 		return fmt.Errorf("failed to waitUntilPodScheduled [%s], err: [%v]", req.NamespacedName, err.Error())
 	}
 
-	//if !unit.Spec.UnbindNode && unit.Spec.Template.Spec.NodeName == "" {
-	//	updateUnit := unit.DeepCopy()
-	//	if updateUnit.Annotations == nil {
-	//		updateUnit.Annotations = make(map[string]string)
-	//	}
-	//	updateUnit.Spec.Template.Spec.NodeName = pod.Spec.NodeName
-	//	updateUnit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = pod.Spec.NodeName
-	//	_, err = r.patchUnit(ctx, unit, updateUnit)
-	//	if err != nil {
-	//		return fmt.Errorf("patchUnit fail: [%s]", err.Error())
+	//{
+	//	belongNode := unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode]
+	//	if belongNode != pod.Spec.NodeName {
+	//		updateUnit := unit.DeepCopy()
+	//		updateUnit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = pod.Spec.NodeName
+	//		_, err = r.patchUnit(ctx, unit, updateUnit)
+	//		if err != nil {
+	//			return fmt.Errorf("patchUnit fail: [%s]", err.Error())
+	//		}
 	//	}
 	//}
-
-	{
-		belongNode := unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode]
-		if belongNode != pod.Spec.NodeName {
-			updateUnit := unit.DeepCopy()
-			updateUnit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = pod.Spec.NodeName
-			_, err = r.patchUnit(ctx, unit, updateUnit)
-			if err != nil {
-				return fmt.Errorf("patchUnit fail: [%s]", err.Error())
-			}
-		}
-	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return r.reconcileUnitStatus(ctx, req, unit)

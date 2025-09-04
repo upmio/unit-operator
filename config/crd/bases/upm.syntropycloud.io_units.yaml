@@ -79,6 +79,19 @@ spec:
                   unitset does no logical processing
                   and is passed as a parameter in the call to the unit agent
                 type: string
+              failedPodRecoveryPolicy:
+                description: FailedPodRecoveryPolicy indicates whether failed pod
+                  recovery is enabled
+                properties:
+                  enabled:
+                    description: Enabled indicates whether failed pod recovery is
+                      enabled
+                    type: boolean
+                  reconcileThreshold:
+                    description: ReconcileThreshold is the threshold of failed pod
+                      recovery
+                    type: integer
+                type: object
               startup:
                 description: Startup defines whether the service is started or not
                 type: boolean

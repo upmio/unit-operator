@@ -169,7 +169,7 @@ func fillUnitPersonalizedInfo(
 	if len(nodeNameMap) != 0 {
 		nodeName, ok := nodeNameMap[unitName]
 		if ok && nodeName != upmiov1alpha2.NoneSetFlag {
-			unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
+			//unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
 
 			if unit.Spec.Template.Spec.Affinity == nil {
 				unit.Spec.Template.Spec.Affinity = &v1.Affinity{}
@@ -250,6 +250,11 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	// no name, ConfigValueName
 	ref := metav1.NewControllerRef(unitset, controllerKind)
 
+	failedPodRecoveryPolicy := upmiov1alpha2.FailedPodRecoveryPolicy{
+		Enabled:            true,
+		ReconcileThreshold: 6,
+	}
+
 	unit := upmiov1alpha2.Unit{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            unitName,
@@ -263,9 +268,10 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 			},
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			Startup:            true,
-			ConfigTemplateName: unitset.ConfigTemplateName(),
-			Template:           v1.PodTemplateSpec{},
+			Startup:                 true,
+			ConfigTemplateName:      unitset.ConfigTemplateName(),
+			Template:                v1.PodTemplateSpec{},
+			FailedPodRecoveryPolicy: &failedPodRecoveryPolicy,
 		},
 	}
 

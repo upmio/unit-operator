@@ -78,6 +78,10 @@ func IsFailed(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodFailed
 }
 
+func IsPodSucceeded(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodSucceeded
+}
+
 // isTerminating returns true if pod's DeletionTimestamp has been set
 func IsTerminating(pod *v1.Pod) bool {
 	return pod.DeletionTimestamp != nil

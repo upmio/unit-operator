@@ -182,7 +182,7 @@ func mergePodTemplate(
 	if len(nodeNameMap) != 0 {
 		nodeName, ok := nodeNameMap[unit.Name]
 		if ok && nodeName != upmiov1alpha2.NoneSetFlag {
-			unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
+			//unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = nodeName
 
 			if unit.Spec.Template.Spec.Affinity == nil {
 				unit.Spec.Template.Spec.Affinity = &v1.Affinity{}

@@ -63,6 +63,21 @@ type UnitSpec struct {
 	// +kubebuilder:validation:Schemaless
 	// +optional
 	Template corev1.PodTemplateSpec `json:"template,omitempty"`
+
+	// FailedPodRecoveryPolicy indicates whether failed pod recovery is enabled
+	// +optional
+	FailedPodRecoveryPolicy *FailedPodRecoveryPolicy `json:"failedPodRecoveryPolicy,omitempty"`
+}
+
+type FailedPodRecoveryPolicy struct {
+
+	// Enabled indicates whether failed pod recovery is enabled
+	// +optional
+	Enabled bool `json:"enabled"`
+
+	// ReconcileThreshold is the threshold of failed pod recovery
+	// +optional
+	ReconcileThreshold int `json:"reconcileThreshold"`
 }
 
 // UnitStatus defines the observed state of Unit
