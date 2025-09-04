@@ -81,11 +81,15 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 	unit := &upmiov1alpha2.Unit{}
 	if err := r.Get(ctx, req.NamespacedName, unit); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return ctrl.Result{
+				RequeueAfter: 3 * time.Second,
+			}, nil
 		}
 
 		klog.Errorf("unable to fetch Unit [%s], error: [%v]", req.String(), err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{
+			RequeueAfter: 3 * time.Second,
+		}, err
 	}
 
 	retErr = r.reconcileUnit(ctx, req, unit)
@@ -99,7 +103,9 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 		}
 	}()
 
-	return ctrl.Result{}, retErr
+	return ctrl.Result{
+		RequeueAfter: 3 * time.Second,
+	}, retErr
 }
 
 func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
@@ -122,10 +128,10 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 			go func(finalizer string) {
 				defer wg.Done()
 				// our finalizer is present, so lets handle any external dependency
-				if err := r.deleteResources(ctx, req, unit, finalizer); err != nil {
+				if deleteResourcesErr := r.deleteResources(ctx, req, unit, finalizer); deleteResourcesErr != nil {
 					// if fail to delete the external dependency here, return with error
 					// so that it can be retried.
-					errs = append(errs, err)
+					errs = append(errs, deleteResourcesErr)
 					return
 				}
 			}(myFinalizerName)
