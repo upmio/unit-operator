@@ -30,6 +30,8 @@ const (
 	AnnotationUnitServiceNodeportMapPrefix = "unit-operator.unit-service."
 	AnnotationUnitServiceNodeportMapSuffix = ".nodeport.map"
 
+	AnnotationAesSecretKey = "upm.io/secret.aes-secret-key"
+
 	LabelProjectOwner = "upm.io/owner"
 	LabelNamespace    = "namespace"
 

@@ -54,10 +54,16 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 		needSecret.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 		needSecret.Labels[upmiov1alpha2.LabelNamespace] = req.Name
 
+		if project.Annotations != nil {
+			needSecret.Annotations = project.Annotations
+		}
+
 		data, err := generateAES256Key()
 		if err != nil {
 			return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
 		}
+
+		needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
 
 		needSecret.Data[defaultAESSecretKey] = data
 
@@ -71,15 +77,16 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 	} else {
 		// Secret exists: validate AES key (must be 32-char hex) and self-heal if needed
 		current, ok := needSecret.Data[defaultAESSecretKey]
-		if !ok || !isValidHex32(current) {
+		if !ok || !isValidHex32(current) || string(current) != needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey] {
 			if needSecret.Data == nil {
 				needSecret.Data = make(map[string][]byte)
 			}
-			newVal, genErr := generateAES256Key()
-			if genErr != nil {
-				return fmt.Errorf("[reconcileSecret] regenerate AES key error: [%v]", genErr)
-			}
-			needSecret.Data[defaultAESSecretKey] = newVal
+			//newVal, genErr := generateAES256Key()
+			//if genErr != nil {
+			//	return fmt.Errorf("[reconcileSecret] regenerate AES key error: [%v]", genErr)
+			//}
+
+			needSecret.Data[defaultAESSecretKey] = []byte(needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
 			if updErr := r.Update(ctx, &needSecret); updErr != nil {
 				return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
 			}
