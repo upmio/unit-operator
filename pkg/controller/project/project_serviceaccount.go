@@ -23,9 +23,10 @@ func (r *ProjectReconciler) reconcileServiceAccount(ctx context.Context, req ctr
 	if apierrors.IsNotFound(err) {
 		sa = v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      saName,
-				Namespace: req.Name,
-				Labels:    make(map[string]string),
+				Name:        saName,
+				Namespace:   req.Name,
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
 			},
 		}
 
@@ -33,6 +34,10 @@ func (r *ProjectReconciler) reconcileServiceAccount(ctx context.Context, req ctr
 			sa.Labels = project.Labels
 		}
 		sa.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
+
+		if project.Annotations != nil {
+			sa.Annotations = project.Annotations
+		}
 
 		err = r.Create(ctx, &sa)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
@@ -66,9 +71,10 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 	if apierrors.IsNotFound(err) {
 		role = rbacV1.Role{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      roleName,
-				Namespace: req.Name,
-				Labels:    make(map[string]string),
+				Name:        roleName,
+				Namespace:   req.Name,
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
 			},
 			Rules: []rbacV1.PolicyRule{
 				{
@@ -109,6 +115,10 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 		}
 		role.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
+		if project.Annotations != nil {
+			role.Annotations = project.Annotations
+		}
+
 		err = r.Create(ctx, &role)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -128,9 +138,10 @@ func (r *ProjectReconciler) reconcileRoleBinding(ctx context.Context, req ctrl.R
 	if apierrors.IsNotFound(err) {
 		rb = rbacV1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      rbName,
-				Namespace: req.Name,
-				Labels:    make(map[string]string),
+				Name:        rbName,
+				Namespace:   req.Name,
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
 			},
 			RoleRef: rbacV1.RoleRef{
 				APIGroup: "rbac.authorization.k8s.io",
@@ -151,10 +162,15 @@ func (r *ProjectReconciler) reconcileRoleBinding(ctx context.Context, req ctrl.R
 		}
 		rb.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
+		if project.Annotations != nil {
+			rb.Annotations = project.Annotations
+		}
+
 		err = r.Create(ctx, &rb)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
 		}
+
 	} else if err != nil {
 		return err
 	}

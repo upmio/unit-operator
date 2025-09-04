@@ -21,8 +21,9 @@ func (r *ProjectReconciler) reconcileNamespace(ctx context.Context, req ctrl.Req
 	if apierrors.IsNotFound(err) {
 		ns = v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   namespaceName,
-				Labels: make(map[string]string),
+				Name:        namespaceName,
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
 			},
 		}
 
@@ -30,6 +31,10 @@ func (r *ProjectReconciler) reconcileNamespace(ctx context.Context, req ctrl.Req
 			ns.Labels = project.Labels
 		}
 		ns.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
+
+		if project.Annotations != nil {
+			ns.Annotations = project.Annotations
+		}
 
 		err = r.Create(ctx, &ns)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
