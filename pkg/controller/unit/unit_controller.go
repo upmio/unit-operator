@@ -108,6 +108,9 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 	var err error
 	// examine DeletionTimestamp to determine if object is under deletion
 	if unit.DeletionTimestamp != nil || !unit.DeletionTimestamp.IsZero() {
+
+		klog.Infof("Unit [%s] is being deleted, finalizers: %v", req.String(), unit.GetFinalizers())
+
 		errs := []error{}
 		var wg sync.WaitGroup
 

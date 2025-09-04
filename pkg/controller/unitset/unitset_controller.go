@@ -124,6 +124,7 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 
 	// Handle deletion only when DeletionTimestamp is set and non-zero
 	if unitset.DeletionTimestamp != nil && !unitset.DeletionTimestamp.IsZero() {
+		klog.Infof("Unitset [%s] is being deleted, finalizers: %v", req.String(), unitset.GetFinalizers())
 
 		errs := []error{}
 		var wg sync.WaitGroup
