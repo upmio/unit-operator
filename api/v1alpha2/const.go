@@ -26,8 +26,9 @@ const (
 	// value is a JSON object mapping unit name -> nodePort
 	// Example: {"mysql-cluster-0":30468,"mysql-cluster-1":30469}
 	// if the annotation is not empty, when recreate the unit service, the nodePort will be filled from the annotation
-	AnnotationUnitServiceNodeportMapPrefix = "unit-operator/unit-service."
-	AnnotationUnitServiceNodeportMapSuffix = ".nodeport.map"
+	AnnotationUnitServiceNodeportMapPrefix       = "unit-operator/unit-service."
+	AnnotationUnitServiceNodeportMapSuffix       = ".nodeport.map"
+	AnnotationUnitServiceLoadBalancerIPMapSuffix = "unit-operator/unit-service.loadbalancer-ip.map"
 
 	AnnotationAesSecretKey = "unit-operator/secret.aes-secret-key"
 

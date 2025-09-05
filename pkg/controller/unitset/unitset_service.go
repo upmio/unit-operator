@@ -45,17 +45,13 @@ func (r *UnitSetReconciler) reconcileHeadlessService(
 		}
 
 		for _, p := range ports {
-			//intPort, convErr := strconv.Atoi(p.ContainerPort)
-			//if convErr != nil || intPort <= 0 || intPort > 65535 {
 			if p.ContainerPort <= 0 || p.ContainerPort > 65535 {
 				// Skip invalid ports to avoid API validation errors
 				continue
 			}
 			service.Spec.Ports = append(service.Spec.Ports, v1.ServicePort{
-				Name: p.Name,
-				//Port:     int32(intPort),
-				Port: p.ContainerPort,
-				//Protocol: v1.Protocol(p.Protocol),
+				Name:     p.Name,
+				Port:     p.ContainerPort,
 				Protocol: p.Protocol,
 			})
 		}
@@ -95,11 +91,6 @@ func (r *UnitSetReconciler) reconcileExternalService(
 		return nil
 	}
 
-	//if unitset.Spec.SharedConfigName == "" {
-	//	klog.V(4).Infof("reconcileExternalService: unitset name: [%s], not found shared config!!!", unitset.Name)
-	//	return nil
-	//}
-
 	createdAny := false
 	externalService := v1.Service{}
 	exceptedServiceNamespacedName := client.ObjectKey{Name: unitset.ExternalServiceName(), Namespace: unitset.Namespace}
@@ -117,8 +108,7 @@ func (r *UnitSetReconciler) reconcileExternalService(
 			Spec: v1.ServiceSpec{
 				Type:                     v1.ServiceType(unitset.Spec.ExternalService.Type),
 				PublishNotReadyAddresses: true,
-				//ClusterIP:                "None",
-				Selector: make(map[string]string),
+				Selector:                 make(map[string]string),
 			},
 		}
 
@@ -301,8 +291,11 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	}
 
 	// For NodePort: fetch assigned nodePort and record into map
-	if unitset.Spec.UnitService.Type == string(v1.ServiceTypeNodePort) {
+	// For LoadBalancer: fetch ingress ip and record into map
+	loadBalancerIPMap := make(map[string]string)
 
+	switch unitset.Spec.UnitService.Type {
+	case string(v1.ServiceTypeNodePort):
 		for _, unitName := range unitNames {
 			unitServiceName := fmt.Sprintf("%s-svc", unitName)
 			unitServiceNamespacedName := client.ObjectKey{Name: unitServiceName, Namespace: unitset.Namespace}
@@ -328,6 +321,19 @@ func (r *UnitSetReconciler) reconcileUnitService(
 				mu.Unlock()
 			}
 		}
+	case string(v1.ServiceTypeLoadBalancer):
+		for _, unitName := range unitNames {
+			unitServiceName := fmt.Sprintf("%s-svc", unitName)
+			unitServiceNamespacedName := client.ObjectKey{Name: unitServiceName, Namespace: unitset.Namespace}
+			created := &v1.Service{}
+
+			if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
+				// merge observed nodePorts into maps
+				mu.Lock()
+				loadBalancerIPMap[unitName] = created.Status.LoadBalancer.Ingress[0].IP
+				mu.Unlock()
+			}
+		}
 	}
 
 	// Patch back annotation maps if changed
@@ -349,6 +355,23 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	err := utilerrors.NewAggregate(errs)
 	if err != nil {
 		return err
+	}
+
+	if len(loadBalancerIPMap) > 0 {
+		orig := unitset.DeepCopy()
+		if unitset.Annotations == nil {
+			unitset.Annotations = map[string]string{}
+		}
+
+		b, _ := json.Marshal(loadBalancerIPMap)
+		if unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] !=
+			orig.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] {
+			unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] = string(b)
+			if _, pErr := r.patchUnitset(ctx, orig, unitset); pErr != nil {
+				return fmt.Errorf("patch unitset loadbalancer ip maps error:[%s]", pErr.Error())
+			}
+		}
+
 	}
 
 	return nil
