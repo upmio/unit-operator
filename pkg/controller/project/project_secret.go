@@ -58,7 +58,7 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 			needSecret.Annotations = project.Annotations
 		}
 
-		if _, ok := project.Annotations[upmiov1alpha2.AnnotationAesSecretKey]; !ok {
+		if _, ok := project.Annotations[upmiov1alpha2.AnnotationAesSecretKey]; ok {
 			needSecret.Data[defaultAESSecretKey] = []byte(project.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
 		} else {
 			data, err := generateAES256Key()
@@ -66,7 +66,7 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 				return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
 			}
 
-			needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+			//needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
 
 			needSecret.Data[defaultAESSecretKey] = data
 
