@@ -180,18 +180,6 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 		return fmt.Errorf("failed to waitUntilPodScheduled [%s], err: [%v]", req.NamespacedName, err.Error())
 	}
 
-	//{
-	//	belongNode := unit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode]
-	//	if belongNode != pod.Spec.NodeName {
-	//		updateUnit := unit.DeepCopy()
-	//		updateUnit.Annotations[upmiov1alpha2.AnnotationLastUnitBelongNode] = pod.Spec.NodeName
-	//		_, err = r.patchUnit(ctx, unit, updateUnit)
-	//		if err != nil {
-	//			return fmt.Errorf("patchUnit fail: [%s]", err.Error())
-	//		}
-	//	}
-	//}
-
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return r.reconcileUnitStatus(ctx, req, unit)
 	})
@@ -200,7 +188,7 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 		return fmt.Errorf("failed to reconcile UnitStatus, err: [%v]", err.Error())
 	}
 
-	err = r.reconcileUnitConfig(ctx, unit)
+	err = r.reconcileUnitConfig(ctx, req, unit)
 	if err != nil {
 		klog.Errorf("failed to reconcile UnitConfig [%s], err: [%v]", req.NamespacedName, err.Error())
 		return fmt.Errorf("failed to reconcile UnitConfig [%s], err: [%v]", req.NamespacedName, err.Error())
@@ -224,14 +212,14 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 }
 
 func (r *UnitReconciler) patchUnit(ctx context.Context, old, _new *upmiov1alpha2.Unit) (*upmiov1alpha2.Unit, error) {
-	patch, update, err := patch.GenerateMergePatch(old, _new, upmiov1alpha2.Unit{})
+	patchInfo, update, err := patch.GenerateMergePatch(old, _new, upmiov1alpha2.Unit{})
 	if err != nil || !update {
 		return old, err
 	}
 
-	r.Recorder.Eventf(old, v1.EventTypeNormal, "ResourceCheck", "patch unit ok~ (data: %s)", patch)
+	r.Recorder.Eventf(old, v1.EventTypeNormal, "ResourceCheck", "patch unit ok~ (data: %s)", patchInfo)
 
-	err = r.Patch(ctx, old, client.RawPatch(types.MergePatchType, patch), &client.PatchOptions{})
+	err = r.Patch(ctx, old, client.RawPatch(types.MergePatchType, patchInfo), &client.PatchOptions{})
 	if err != nil {
 		return nil, err
 	}
