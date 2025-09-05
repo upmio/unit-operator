@@ -21,27 +21,27 @@ import (
 	klog "k8s.io/klog/v2"
 )
 
-func IsContainerRunningAndReady(pod *v1.Pod, concainername string) bool {
-	return IsContainerRunning(pod, concainername) && IsContainerReady(pod, concainername)
+func IsContainerRunningAndReady(pod *v1.Pod, containerName string) bool {
+	return IsContainerRunning(pod, containerName) && IsContainerReady(pod, containerName)
 }
 
-func IsContainerRunning(pod *v1.Pod, concainername string) bool {
-	if concainername == "" {
+func IsContainerRunning(pod *v1.Pod, containerName string) bool {
+	if containerName == "" {
 		return pod.Status.Phase == v1.PodRunning
 	}
 
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == concainername {
+		if status.Name == containerName {
 			return status.State.Running != nil
 		}
 	}
 
-	klog.Warningf("IsContainerRunning :%s not find the %s container", pod.Name, concainername)
+	klog.Warningf("IsContainerRunning :%s not find the %s container", pod.Name, containerName)
 	return false
 }
 
-func IsContainerReady(pod *v1.Pod, concainername string) bool {
-	if concainername == "" {
+func IsContainerReady(pod *v1.Pod, containerName string) bool {
+	if containerName == "" {
 		_, condition := GetPodCondition(&pod.Status, v1.ContainersReady)
 
 		return pod.Status.Phase == v1.PodRunning &&
@@ -49,31 +49,31 @@ func IsContainerReady(pod *v1.Pod, concainername string) bool {
 	}
 
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == concainername {
+		if status.Name == containerName {
 			return status.Ready
 		}
 	}
 
-	klog.Warningf("IsContainerReady :%s not find the %s container", pod.Name, concainername)
+	klog.Warningf("IsContainerReady :%s not find the %s container", pod.Name, containerName)
 	return false
 }
 
-// // IsRunning returns true if pod is in the PodRunning Phase
+// IsRunning returns true if pod is in the PodRunning Phase
 func IsRunning(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodRunning
 }
 
-// isRunningAndReady returns true if pod is in the PodRunning Phase, if it has a condition of PodReady.
+// IsRunningAndReady returns true if pod is in the PodRunning Phase, if it has a condition of PodReady.
 func IsRunningAndReady(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodRunning && IsPodReady(pod)
 }
 
-// isCreated returns true if pod has been created and is maintained by the API server
+// IsCreated returns true if pod has been created and is maintained by the API server
 func IsCreated(pod *v1.Pod) bool {
 	return pod.Status.Phase != ""
 }
 
-// isFailed returns true if pod has a Phase of PodFailed
+// IsFailed returns true if pod has a Phase of PodFailed
 func IsFailed(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodFailed
 }
@@ -82,12 +82,12 @@ func IsPodSucceeded(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodSucceeded
 }
 
-// isTerminating returns true if pod's DeletionTimestamp has been set
+// IsTerminating returns true if pod's DeletionTimestamp has been set
 func IsTerminating(pod *v1.Pod) bool {
 	return pod.DeletionTimestamp != nil
 }
 
-// // isHealthy returns true if pod is running and ready and has not been terminated
+// IsHealthy returns true if pod is running and ready and has not been terminated
 func IsHealthy(pod *v1.Pod) bool {
 	return IsRunningAndReady(pod) && !IsTerminating(pod)
 }
