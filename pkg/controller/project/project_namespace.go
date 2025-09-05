@@ -18,7 +18,7 @@ func (r *ProjectReconciler) reconcileNamespace(ctx context.Context, req ctrl.Req
 	ns := v1.Namespace{}
 
 	err := r.Get(ctx, client.ObjectKey{Name: namespaceName}, &ns)
-	if apierrors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		ns = v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        namespaceName,
@@ -32,17 +32,13 @@ func (r *ProjectReconciler) reconcileNamespace(ctx context.Context, req ctrl.Req
 		}
 		ns.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
-		if project.Annotations != nil {
-			ns.Annotations = project.Annotations
-		}
-
 		err = r.Create(ctx, &ns)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileNamespace] create Namespace:[%s] error: [%v]",
 				namespaceName, err.Error())
 		}
 
-	} else if err != nil {
+	} else if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("[reconcileNamespace] get Namespace:[%s] error: [%v]",
 			namespaceName, err.Error())
 	}

@@ -35,10 +35,6 @@ func (r *ProjectReconciler) reconcileServiceAccount(ctx context.Context, req ctr
 		}
 		sa.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
-		if project.Annotations != nil {
-			sa.Annotations = project.Annotations
-		}
-
 		err = r.Create(ctx, &sa)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileServiceAccount] create serviceaccount error: [%v]", err.Error())
@@ -115,10 +111,6 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 		}
 		role.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 
-		if project.Annotations != nil {
-			role.Annotations = project.Annotations
-		}
-
 		err = r.Create(ctx, &role)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -161,11 +153,7 @@ func (r *ProjectReconciler) reconcileRoleBinding(ctx context.Context, req ctrl.R
 			rb.Labels = project.Labels
 		}
 		rb.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
-
-		if project.Annotations != nil {
-			rb.Annotations = project.Annotations
-		}
-
+		
 		err = r.Create(ctx, &rb)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err

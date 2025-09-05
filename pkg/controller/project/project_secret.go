@@ -31,7 +31,7 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 	needSecret := v1.Secret{}
 
 	err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: req.Name}, &needSecret)
-	if apierrors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 
 		needSecret = v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -54,10 +54,6 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 		needSecret.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
 		needSecret.Labels[upmiov1alpha2.LabelNamespace] = req.Name
 
-		if project.Annotations != nil {
-			needSecret.Annotations = project.Annotations
-		}
-
 		if _, ok := project.Annotations[upmiov1alpha2.AnnotationAesSecretKey]; ok {
 			needSecret.Data[defaultAESSecretKey] = []byte(project.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
 		} else {
@@ -65,8 +61,6 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 			if err != nil {
 				return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
 			}
-
-			//needSecret.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
 
 			needSecret.Data[defaultAESSecretKey] = data
 
@@ -85,7 +79,7 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileSecret] create secret:[%s/%s] error: [%v]", req.Name, secretName, err.Error())
 		}
-	} else if err != nil {
+	} else if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("[reconcileSecret] get secret:[%s/%s] error: [%v]", req.Name, secretName, err.Error())
 	} else {
 		// Secret exists: validate AES key (must be 32-char hex) and self-heal if needed
