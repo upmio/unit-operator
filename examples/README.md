@@ -201,7 +201,7 @@ kubectl apply -f examples/operations/migration-operations.yaml
 
 Before using the examples, ensure you have:
 
-1. **Kubernetes cluster** (v1.27+)
+1. **Kubernetes cluster** (v1.29+)
 2. **Unit Operator installed**
 3. **Storage classes configured**
 4. **Network policies** (optional)

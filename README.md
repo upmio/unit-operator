@@ -54,7 +54,7 @@ The Unit Operator follows a two-layer architecture:
 
 ### Prerequisites
 
-- Kubernetes ≥ 1.27 or OpenShift ≥ 4.6
+- Kubernetes ≥ 1.29 or OpenShift ≥ 4.14
 - `helm` v3 installed and available
 - Permissions to create CRDs, RBAC, and ServiceAccounts in the target namespace
 

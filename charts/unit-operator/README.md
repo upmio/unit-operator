@@ -1,6 +1,6 @@
 ## Unit Operator Helm Chart
 
-This chart deploys the Unit Operator to Kubernetes (v1.27+) and OpenShift (v4.6+) clusters.
+This chart deploys the Unit Operator to Kubernetes (v1.29+) and OpenShift (v4.14+) clusters.
 
 ### TL;DR
 
@@ -17,7 +17,7 @@ helm install unit-operator unit-operator/unit-operator \
 
 ### Prerequisites
 
-- Kubernetes ≥ 1.27 or OpenShift ≥ 4.6
+- Kubernetes ≥ 1.29 or OpenShift ≥ 4.14
 - `helm` v3 installed and available
 - Permissions to create CRDs, RBAC, and ServiceAccounts in the target namespace
 
@@ -150,4 +150,4 @@ There are two primary ways to customize the deployment:
 ### Compatibility
 
 - Kubernetes: v1.29+
-- OpenShift: v4.6+
+- OpenShift: v4.14+

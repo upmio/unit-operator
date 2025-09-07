@@ -42,7 +42,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha1` | | |
 | `kind` _string_ | `GrpcCall` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[GrpcCallSpec](#grpccallspec)_ |  |  |  |
 | `status` _[GrpcCallStatus](#grpccallstatus)_ |  |  |  |
 
@@ -54,7 +54,7 @@ GrpcCallList contains a list of GrpcCall
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha1` | | |
 | `kind` _string_ | `GrpcCallList` | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[GrpcCall](#grpccall) array_ |  |  |  |
 
 #### GrpcCallSpec
@@ -85,8 +85,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `result` _[Result](#result)_ | Final outcome of the operation |  | Required: ✓, Enum: `Success`, `Failed` |
 | `message` _string_ | Detailed message or error context |  | Required: ✓ |
-| `completionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Completion time |  |  |
-| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#time-v1-meta)_ | Start time |  |  |
+| `completionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#time-v1-meta)_ | Completion time |  |  |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#time-v1-meta)_ | Start time |  |  |
 
 #### Result
 
@@ -231,7 +231,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `Project` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[ProjectSpec](#projectspec)_ |  |  |  |
 | `status` _[ProjectStatus](#projectstatus)_ |  |  |  |
 
@@ -243,7 +243,7 @@ ProjectList contains a list of Project
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `ProjectList` | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[Project](#project) array_ |  |  |  |
 
 #### ProjectSpec
@@ -313,7 +313,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `Unit` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[UnitSpec](#unitspec)_ |  |  |  |
 | `status` _[UnitStatus](#unitstatus)_ |  |  |  |
 
@@ -325,7 +325,7 @@ UnitList contains a list of Unit
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `UnitList` | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[Unit](#unit) array_ |  |  |  |
 
 #### UnitPhase
@@ -357,14 +357,14 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#condition-v1-meta) array_ | Conditions represent the latest available observations of a unit's current state |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#condition-v1-meta) array_ | Conditions represent the latest available observations of a unit's current state |  |  |
 | `configSynced` _boolean_ | ConfigSynced indicates whether the configuration has been synchronized |  |  |
 | `hostIP` _string_ | HostIP is the IP address of the host where the Unit's Pod is running |  |  |
 | `nodeName` _string_ | NodeName is the name of the node where the Unit's Pod is running |  |  |
 | `nodeReady` _boolean_ | NodeReady indicates whether the node is ready |  |  |
-| `persistentVolumeClaim` _[PersistentVolumeClaimStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#persistentvolumeclaimstatus-v1-core) array_ | PersistentVolumeClaim represents the status of persistent volume claims |  |  |
+| `persistentVolumeClaim` _[PersistentVolumeClaimStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaimstatus-v1-core) array_ | PersistentVolumeClaim represents the status of persistent volume claims |  |  |
 | `phase` _[UnitPhase](#unitphase)_ | Phase is the current phase of the Unit |  |  |
-| `podIPs` _[PodIP](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#podip-v1-core) array_ | PodIPs holds the IP addresses allocated to the pod |  |  |
+| `podIPs` _[PodIP](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podip-v1-core) array_ | PodIPs holds the IP addresses allocated to the pod |  |  |
 | `processState` _string_ | ProcessState represents the current state of the process |  |  |
 | `task` _string_ | Task represents the current task being executed |  |  |
 
@@ -409,7 +409,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `UnitSet` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[UnitSetSpec](#unitsetspec)_ |  |  |  |
 | `status` _[UnitSetStatus](#unitsetstatus)_ |  |  |  |
 
@@ -438,7 +438,7 @@ UnitSetList contains a list of UnitSet
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `upm.syntropycloud.io/v1alpha2` | | |
 | `kind` _string_ | `UnitSetList` | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[UnitSet](#unitset) array_ |  |  |  |
 
 #### UnitSetSpec
@@ -454,12 +454,12 @@ _Appears in:_
 | `certificateProfile` _string_ | CertificateProfile defines certificate profile for this UnitSet |  |  |
 | `edition` _string_ | Edition specifies the edition of the UnitSet |  |  |
 | `emptyDir` _[EmptyDirSpec](#emptydirspec)_ | EmptyDir defines empty directory configuration |  |  |
-| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#envvar-v1-core) array_ | Env defines environment variables for the UnitSet |  |  |
+| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#envvar-v1-core) array_ | Env defines environment variables for the UnitSet |  |  |
 | `externalService` _[ExternalServiceSpec](#externalservicespec)_ | ExternalService defines external service configuration |  |  |
 | `nodeAffinityPreset` _[NodeAffinityPresetSpec](#nodeaffinitypresetspec)_ | NodeAffinityPreset defines node affinity preset for this UnitSet |  |  |
 | `podAntiAffinityPreset` _string_ | PodAntiAffinityPreset defines pod anti-affinity preset |  |  |
 | `podMonitor` _[PodMonitorInfo](#podmonitorinfo)_ | PodMonitor defines pod monitor information for this UnitSet |  |  |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#resourcerequirements-v1-core)_ | Resources defines resource requirements |  |  |
+| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core)_ | Resources defines resource requirements |  |  |
 | `secret` _[SecretInfo](#secretinfo)_ | Secret defines secret information for this UnitSet |  |  |
 | `storages` _[StorageSpec](#storagespec) array_ | Storages defines storage configuration for this UnitSet |  |  |
 | `type` _string_ | Type specifies the type of the UnitSet |  |  |
@@ -478,7 +478,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#condition-v1-meta) array_ | Conditions represent the latest available observations of a UnitSet's current state |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#condition-v1-meta) array_ | Conditions represent the latest available observations of a UnitSet's current state |  |  |
 | `externalService` _[ExternalServiceStatus](#externalservicestatus)_ | ExternalService represents the status of external service for this UnitSet |  |  |
 | `inUpdate` _boolean_ | InUpdate indicates whether the UnitSet is currently being updated |  |  |
 | `readyUnits` _integer_ | ReadyUnits is the number of ready units in the UnitSet |  |  |
@@ -501,8 +501,8 @@ _Appears in:_
 | `startup` _boolean_ | Startup indicates whether the unit should be started automatically |  |  |
 | `configTemplateName` _string_ | ConfigTemplateName is the name of the config template |  |  |
 | `configValueName` _string_ | ConfigValueName is the name of the config value |  |  |
-| `volumeClaimTemplates` _[PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#persistentvolumeclaim-v1-core) array_ | VolumeClaimTemplates is a list of claims that pods are allowed to reference |  |  |
-| `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#podtemplatespec-v1-core)_ | Template is the object that describes the pod that will be created |  |  |
+| `volumeClaimTemplates` _[PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaim-v1-core) array_ | VolumeClaimTemplates is a list of claims that pods are allowed to reference |  |  |
+| `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podtemplatespec-v1-core)_ | Template is the object that describes the pod that will be created |  |  |
 
 #### UpdateStrategySpec
 
