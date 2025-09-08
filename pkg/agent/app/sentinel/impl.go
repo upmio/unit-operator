@@ -81,7 +81,7 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	}
 
 	// 2. Check if master host is already set correctly
-	if req.GetMasterHost() == instance.Spec.Source.Host {
+	if req.GetMasterHost() == instance.Spec.Source.AnnounceHost {
 		successMsg := fmt.Sprintf("the source node host of redis replication[%s] in namespace[%s] is already %s, no update needed",
 			req.GetRedisReplicationName(), req.GetNamespace(), req.GetMasterHost())
 		return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", successMsg)
@@ -90,7 +90,7 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	// 3. Find the master host in replica set and swap
 	found := false
 	for index, node := range instance.Spec.Replica {
-		if req.GetMasterHost() == node.Host {
+		if req.GetMasterHost() == node.AnnounceHost {
 			msg := fmt.Sprintf("found node host %s in replica set, will update", req.GetMasterHost())
 			s.logger.Info(msg)
 			if err := s.recorder.SendNormalEventToUnit(req.GetSelfUnitName(), req.GetNamespace(), "Failover", msg); err != nil {

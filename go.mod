@@ -15,14 +15,14 @@ require (
 	github.com/kelseyhightower/memkv v0.1.1
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.0
 	github.com/robfig/cron v1.2.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.4
-	github.com/upmio/compose-operator v0.0.0-20250808064152-778e3cf74a0d
+	github.com/upmio/compose-operator v1.1.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.69.2
