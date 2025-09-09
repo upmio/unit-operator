@@ -22,7 +22,7 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.4
-	github.com/upmio/compose-operator v1.1.1-0.20250908073919-1d69b2ea8788
+	github.com/upmio/compose-operator v1.1.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.69.2
