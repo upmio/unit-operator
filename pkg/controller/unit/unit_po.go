@@ -26,7 +26,9 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 
 	pod := &v1.Pod{}
 	err := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, pod)
-	if apierrors.IsNotFound(err) {
+
+	if apierrors.IsNotFound(err) || pod.DeletionTimestamp != nil {
+
 		// if not found, generate from template
 		pod, _ = convert2Pod(unit)
 
