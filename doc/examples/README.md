@@ -4,7 +4,7 @@ This directory contains practical examples for using the Unit Operator to deploy
 
 ## 📁 Example Structure
 
-```
+```text
 examples/
 ├── unitsets/                    # UnitSet deployment examples
 │   ├── mysql-community-rpl_semi_sync-unitset.yaml
@@ -62,16 +62,19 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ### 1. UnitSet Deployments
 
 #### MySQL Community Edition
+
 - **File**: `mysql-community-rpl_semi_sync-unitset.yaml`
 - **Features**: 3-node cluster, semi-sync replication, persistent storage
 - **Use Case**: Production MySQL deployment
 
 #### PostgreSQL Streaming Replication
+
 - **File**: `postgresql-replication-unitset.yaml`
 - **Features**: 3-node cluster, streaming replication, emptyDir storage
 - **Use Case**: Production PostgreSQL deployment
 
 #### ProxySQL Configuration
+
 - **File**: `proxysql-clone-unitset.yaml`
 - **Features**: Single ProxySQL instance, clone from existing MySQL
 - **Use Case**: Database proxy and load balancing
@@ -79,21 +82,25 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ### 2. Database Operations
 
 #### MySQL Backup Operations
+
 - **File**: `operations/mysql-backup.yaml`
 - **Features**: Logical and physical backup examples
 - **Use Case**: Regular database backups
 
 #### PostgreSQL Backup Operations
+
 - **File**: `operations/postgresql-backup.yaml`
 - **Features**: Physical backup with compression
 - **Use Case**: PostgreSQL backup strategies
 
 #### Configuration Changes
+
 - **File**: `operations/config-changes.yaml`
 - **Features**: Runtime configuration updates
 - **Use Case**: Performance tuning and configuration management
 
 #### Database Cloning
+
 - **File**: `operations/clone-operations.yaml`
 - **Features**: Clone databases between instances
 - **Use Case**: Database duplication and testing
@@ -101,11 +108,13 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ### 3. Replication Setup
 
 #### MySQL Replication Modes
+
 - **File**: `replication/mysql-replication.yaml`
 - **Features**: Async, semi-sync, and group replication
 - **Use Case**: Different MySQL replication topologies
 
 #### PostgreSQL Replication
+
 - **File**: `replication/postgresql-replication.yaml`
 - **Features**: Streaming replication configuration
 - **Use Case**: PostgreSQL high availability
@@ -113,16 +122,19 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ### 4. Monitoring and Observability
 
 #### Prometheus Monitoring
+
 - **File**: `monitoring/service-monitor.yaml`
 - **Features**: ServiceMonitor for Prometheus
 - **Use Case**: Database metrics collection
 
 #### Alerting Rules
+
 - **File**: `monitoring/prometheus-rules.yaml`
 - **Features**: Alert rules for database health
 - **Use Case**: Proactive monitoring
 
 #### Grafana Dashboards
+
 - **File**: `monitoring/grafana-dashboard.yaml`
 - **Features**: Pre-built Grafana dashboards
 - **Use Case**: Database performance visualization
@@ -130,16 +142,19 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ### 5. Advanced Configurations
 
 #### TLS Configuration
+
 - **File**: `advanced/tls-configuration.yaml`
 - **Features**: TLS encryption for database connections
 - **Use Case**: Secure database communication
 
 #### Resource Scaling
+
 - **File**: `advanced/resource-scaling.yaml`
 - **Features**: Horizontal and vertical scaling examples
 - **Use Case**: Performance optimization
 
 #### Disaster Recovery
+
 - **File**: `advanced/disaster-recovery.yaml`
 - **Features**: Backup and restore procedures
 - **Use Case**: Business continuity planning
@@ -245,6 +260,7 @@ spec:
 ## 📝 Example Templates
 
 ### Secret Template
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -260,6 +276,7 @@ type: Opaque
 ```
 
 ### ConfigMap Template
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -273,6 +290,7 @@ data:
 ```
 
 ### UnitSet Template
+
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
@@ -333,12 +351,6 @@ Always check for the latest examples when deploying new clusters.
 
 ---
 
-<div align="center">
-  <p>
-    <img src="https://img.icons8.com/color/48/000000/kubernetes.png" alt="Kubernetes" width="24" height="24">
-    <img src="https://img.icons8.com/color/48/000000/database.png" alt="Database" width="24" height="24">
-    <img src="https://img.icons8.com/color/48/000000/code.png" alt="Code" width="24" height="24">
-  </p>
-  <p><strong>Unit Operator Examples</strong></p>
-  <p>Practical examples for database deployment and management</p>
-</div>
+![Kubernetes](https://img.icons8.com/color/48/000000/kubernetes.png) ![Database](https://img.icons8.com/color/48/000000/database.png) ![Code](https://img.icons8.com/color/48/000000/code.png)
+
+Practical examples for database deployment and management

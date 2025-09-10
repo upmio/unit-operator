@@ -1,8 +1,8 @@
-## Unit Operator Helm Chart
+# Unit Operator Helm Chart
 
 This chart deploys the Unit Operator to Kubernetes (v1.29+) and OpenShift (v4.14+) clusters.
 
-### TL;DR
+## TL;DR
 
 ```sh
 # Add the Helm repository (prefer released versions over main)
@@ -15,13 +15,13 @@ helm install unit-operator unit-operator/unit-operator \
   --create-namespace
 ```
 
-### Prerequisites
+## Prerequisites
 
 - Kubernetes ≥ 1.29 or OpenShift ≥ 4.14
 - `helm` v3 installed and available
 - Permissions to create CRDs, RBAC, and ServiceAccounts in the target namespace
 
-### Overview
+## Overview
 
 By default, the Unit Operator is installed into the `upm-system` namespace.
 
