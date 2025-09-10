@@ -20,7 +20,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: Application Runtime
     containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
-    createdAt: "2025-09-10T06:15:00Z"
+    createdAt: "2025-09-10T06:19:06Z"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"
@@ -31,7 +31,7 @@ metadata:
     operatorframework.io/suggested-namespace: upm-system
     operators.operatorframework.io/builder: operator-sdk-v1.39.2
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: unit-operator.v1.0.0
+  name: unit-operator.v1.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -339,7 +339,7 @@ spec:
   provider:
     name: upmio
     url: https://github.com/upmio/
-  version: 1.0.0
+  version: 1.1.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1
