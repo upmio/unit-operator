@@ -24,7 +24,8 @@ const (
 	ValidatingWebhookConfigurationName = "unit-operator-validating-webhook-configuration"
 
 	// DefaultWebhookCertDir The name of the directory containing the TLS certificates
-	DefaultWebhookCertDir = "/run/secrets/unit-operator/webhook"
+	//DefaultWebhookCertDir = "/run/secrets/unit-operator/webhook"
+	DefaultWebhookCertDir = "/tmp/k8s-webhook-server/serving-certs"
 
 	// CaSecretName is the name of the secret which is hosting the Operator CA
 	CaSecretName = "unit-operator-ca-secret" // #nosec

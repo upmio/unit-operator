@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -22,7 +21,6 @@ import (
 	"github.com/upmio/unit-operator/pkg/vars"
 	upmioWebhook "github.com/upmio/unit-operator/pkg/webhook/v1alpha2"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -210,17 +208,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
-	if err != nil {
-		setupLog.Error(err, "unable to create Kubernetes client")
-		os.Exit(1)
-	}
+	//kubeClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
+	//if err != nil {
+	//	setupLog.Error(err, "unable to create Kubernetes client")
+	//	os.Exit(1)
+	//}
 
-	webhookServer := mgr.GetWebhookServer().(*webhook.DefaultServer)
-	if err := certs.EnsurePKI(context.TODO(), kubeClient, webhookServer.Options.CertDir); err != nil {
-		setupLog.Error(err, "unable to ensure PKI")
-		os.Exit(1)
-	}
+	//webhookServer := mgr.GetWebhookServer().(*webhook.DefaultServer)
+	//if err := certs.EnsurePKI(context.TODO(), kubeClient, webhookServer.Options.CertDir); err != nil {
+	//	setupLog.Error(err, "unable to ensure PKI")
+	//	os.Exit(1)
+	//}
 
 	if err = (&unitset.UnitSetReconciler{
 		Client:   mgr.GetClient(),
