@@ -79,26 +79,4 @@ webhooks:
     resources:
     - unitsets
   sideEffects: None
-  - v1
-  clientConfig:
-    service:
-      name: {{ include "unit-operator.fullname" . }}-webhook-service
-      namespace: {{ $.Release.Namespace }}
-      path: /mutate-upm-syntropycloud-io-v1alpha1-redisreplication
-    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.tls.crt }}
-    caBundle: {{ .Values.webhook.tls.crt }}
-    {{- end }}
-  failurePolicy: Fail
-  name: mredisreplication.kb.io
-  rules:
-  - apiGroups:
-    - upm.syntropycloud.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - redisreplications
-  sideEffects: None
 {{- end }}
