@@ -3,7 +3,17 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[]'
-    capabilities: Basic Install
+    capabilities: Full Lifecycle
+    categories: Application Runtime
+    containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "true"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    operatorframework.io/suggested-namespace: upm-system
   name: unit-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -15,6 +25,11 @@ spec:
       kind: GrpcCall
       name: grpccalls.upm.syntropycloud.io
       version: v1alpha1
+    - description: Project is the Schema for the projects API
+      displayName: Project
+      kind: Project
+      name: projects.upm.syntropycloud.io
+      version: v1alpha2
     - description: Unit is the Schema for the units API
       displayName: Unit
       kind: Unit
@@ -32,7 +47,49 @@ spec:
     mediatype: ""
   install:
     spec:
-      deployments: null
+      deployments:
+      - name: controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/component: controller
+              app.kubernetes.io/instance: unit-operator
+              app.kubernetes.io/name: unit-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: controller
+                app.kubernetes.io/instance: unit-operator
+                app.kubernetes.io/name: unit-operator
+                app.kubernetes.io/version: v1.1.0
+            spec:
+              containers:
+              - image: quay.io/upmio/unit-operator:v1.1.0
+                imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: "2"
+                    memory: 4G
+                  requests:
+                    cpu: "1"
+                    memory: 2G
+              serviceAccountName: unit-manager
+              terminationGracePeriodSeconds: 10
     strategy: ""
   installModes:
   - supported: false
@@ -50,13 +107,17 @@ spec:
   - PosrgreSQL
   - Kafka
   links:
-  - name: Unit Operator
-    url: https://unit-operator.domain
+  - name: upmio
+    url: https://github.com/upmio/
   maintainers:
   - email: chenxiinn@gmail.com
     name: chenxiinn
   maturity: alpha
+  minKubeVersion: 1.26.1
   provider:
-    name: upm
-    url: upm.io
+    name: upmio
+    url: https://github.com/upmio/
+  relatedImages:
+  - image: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
+    name: unit-operator
   version: 0.0.0

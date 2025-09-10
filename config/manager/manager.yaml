@@ -1,3 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/instance: unit-operator
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/version: v1.1.0
+  name: system
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,23 +15,31 @@ metadata:
   namespace: system
   labels:
     app.kubernetes.io/name: unit-operator
-    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/instance: unit-operator
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/version: v1.1.0
+    app: unit-operator
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app.kubernetes.io/name: unit-operator
+      app.kubernetes.io/instance: unit-operator
+      app.kubernetes.io/component: controller
+  replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        app.kubernetes.io/name: unit-operator
+        app.kubernetes.io/instance: unit-operator
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/version: v1.1.0
     spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: controller-manager
       containers:
       - name: manager
-        image: controller:latest
+        image: quay.io/upmio/unit-operator:v1.1.0
         imagePullPolicy: IfNotPresent
         args:
         - "--leader-elect"
@@ -45,8 +63,8 @@ spec:
           periodSeconds: 10
         resources:
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 2
+            memory: 4G
           requests:
-            cpu: 10m
-            memory: 64Mi
+            cpu: 1
+            memory: 2G

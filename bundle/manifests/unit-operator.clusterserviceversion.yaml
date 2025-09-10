@@ -2,16 +2,61 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[]'
-    capabilities: Basic Install
-    createdAt: "2025-08-07T07:01:14Z"
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "upm.syntropycloud.io/v1alpha2",
+          "kind": "Project",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "unit-operator"
+            },
+            "name": "project-sample"
+          },
+          "spec": null
+        }
+      ]
+    capabilities: Full Lifecycle
+    categories: Application Runtime
+    containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
+    createdAt: "2025-09-10T02:48:02Z"
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "true"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    operatorframework.io/suggested-namespace: upm-system
     operators.operatorframework.io/builder: operator-sdk-v1.39.2
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: unit-operator.v2.0.0
+  name: unit-operator.v1.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
-  customresourcedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: GrpcCall is the Schema for the grpccalls API
+      displayName: Grpc Call
+      kind: GrpcCall
+      name: grpccalls.upm.syntropycloud.io
+      version: v1alpha1
+    - description: Project is the Schema for the projects API
+      displayName: Project
+      kind: Project
+      name: projects.upm.syntropycloud.io
+      version: v1alpha2
+    - description: Unit is the Schema for the units API
+      displayName: Unit
+      kind: Unit
+      name: units.upm.syntropycloud.io
+      version: v1alpha2
+    - description: UnitSet is the Schema for the unitsets API
+      displayName: Unit Set
+      kind: UnitSet
+      name: unitsets.upm.syntropycloud.io
+      version: v1alpha2
   description: Unit Operator - Database and Middleware Operator for Kubernetes
   displayName: unit-operator
   icon:
@@ -19,7 +64,254 @@ spec:
     mediatype: ""
   install:
     spec:
-      deployments: []
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - cert-manager.io
+          resources:
+          - certificates
+          - issuers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          - namespaces
+          - nodes
+          - persistentvolumeclaims
+          - persistentvolumes
+          - pods
+          - podtemplates
+          - secrets
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - podmonitors
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - upm.syntropycloud.io
+          resources:
+          - grpccalls
+          - projects
+          - redisreplications
+          - units
+          - unitsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - upm.syntropycloud.io
+          resources:
+          - grpccalls/finalizers
+          - projects/finalizers
+          - units/finalizers
+          - unitsets/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - upm.syntropycloud.io
+          resources:
+          - grpccalls/status
+          - projects/status
+          - units/status
+          - unitsets/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        serviceAccountName: unit-operator-controller-manager
+      deployments:
+      - label:
+          app: unit-operator
+          app.kubernetes.io/component: controller
+          app.kubernetes.io/instance: unit-operator
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: unit-operator
+          app.kubernetes.io/version: v1.1.0
+        name: unit-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/component: controller
+              app.kubernetes.io/instance: unit-operator
+              app.kubernetes.io/name: unit-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: controller
+                app.kubernetes.io/instance: unit-operator
+                app.kubernetes.io/name: unit-operator
+                app.kubernetes.io/version: v1.1.0
+            spec:
+              containers:
+              - args:
+                - --leader-elect
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=127.0.0.1:8080
+                image: quay.io/upmio/unit-operator:v1.1.0
+                imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: "2"
+                    memory: 4G
+                  requests:
+                    cpu: "1"
+                    memory: 2G
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: unit-operator-controller-manager
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: unit-operator-controller-manager
     strategy: deployment
   installModes:
   - supported: false
@@ -37,13 +329,152 @@ spec:
   - PosrgreSQL
   - Kafka
   links:
-  - name: Unit Operator
-    url: https://unit-operator.domain
+  - name: upmio
+    url: https://github.com/upmio/
   maintainers:
   - email: chenxiinn@gmail.com
     name: chenxiinn
   maturity: alpha
+  minKubeVersion: 1.26.1
   provider:
-    name: upm
-    url: upm.io
-  version: 2.0.0
+    name: upmio
+    url: https://github.com/upmio/
+  version: 1.0.0
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    conversionCRDs:
+    - projects.upm.syntropycloud.io
+    - units.upm.syntropycloud.io
+    - unitsets.upm.syntropycloud.io
+    deploymentName: unit-operator-controller-manager
+    generateName: cprojectsunitsunitsets.kb.io
+    sideEffects: None
+    targetPort: 9443
+    type: ConversionWebhook
+    webhookPath: /convert
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: mproject.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - projects
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-upm-syntropycloud-io-v1alpha2-project
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: munit.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - units
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-upm-syntropycloud-io-v1alpha2-unit
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: munitset.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - unitsets
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-upm-syntropycloud-io-v1alpha2-unitset
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vproject.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - projects
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-upm-syntropycloud-io-v1alpha2-project
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vunit.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - units
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-upm-syntropycloud-io-v1alpha2-unit
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: unit-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vunitset.kb.io
+    rules:
+    - apiGroups:
+      - upm.syntropycloud.io
+      apiVersions:
+      - v1alpha2
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - unitsets
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-upm-syntropycloud-io-v1alpha2-unitset

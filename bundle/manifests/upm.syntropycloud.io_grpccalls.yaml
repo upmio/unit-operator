@@ -1,0 +1,144 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.0
+  creationTimestamp: null
+  name: grpccalls.upm.syntropycloud.io
+spec:
+  group: upm.syntropycloud.io
+  names:
+    kind: GrpcCall
+    listKind: GrpcCallList
+    plural: grpccalls
+    shortNames:
+    - gc
+    singular: grpccall
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.result
+      name: RESULT
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: GrpcCall is the Schema for the grpccalls API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              GrpcCallSpec defines the desired behavior of a GrpcCall custom resource.
+              Each GrpcCall instance represents a single request to a unit-agent running in a unit pod.
+            properties:
+              action:
+                description: Action specifies which gRPC method should be called on
+                  the unit-agent.
+                enum:
+                - logical-backup
+                - physical-backup
+                - restore
+                - gtid-purge
+                - set-variable
+                - clone
+                type: string
+              parameters:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                description: |-
+                  Parameters provides a flexible map of key-value pairs used as arguments
+                  to the gRPC call. The exact keys depend on the action type.
+                  For example: {"BACKUP_MODE": "physical", "S3_BUCKET": "my-bucket"}
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              targetUnit:
+                description: |-
+                  TargetUnit is the name of the target Unit custom resource.
+                  This identifies which unit's agent the request should be sent to.
+                type: string
+              ttlSecondsAfterFinished:
+                description: |-
+                  ttlSecondsAfterFinished limits the lifetime of a Grpc Call that has finished
+                  execution (either Complete or Failed). If this field is set,
+                  ttlSecondsAfterFinished after the Grpc Call finishes, it is eligible to be
+                  automatically deleted.
+                format: int32
+                type: integer
+              type:
+                description: |-
+                  Type specifies the type of the target unit (e.g., mysql, proxysql, postgresql).
+                  This helps the operator determine how to format and route the request.
+                enum:
+                - mysql
+                - postgresql
+                - proxysql
+                type: string
+            required:
+            - action
+            - parameters
+            - targetUnit
+            - ttlSecondsAfterFinished
+            - type
+            type: object
+          status:
+            description: |-
+              GrpcCallStatus defines the observed state of a GrpcCall.
+              It records the execution result and related information returned
+              by the unit-agent after invoking the specified gRPC action.
+            properties:
+              completionTime:
+                description: CompletionTime is the timestamp when the gRPC call completed.
+                format: date-time
+                type: string
+              message:
+                description: |-
+                  Message contains additional context about the result,
+                  such as error details, logs, or debug output.
+                type: string
+              result:
+                description: |-
+                  Result indicates the final outcome of the gRPC call.
+                  Valid values: "Success", "Failed".
+                enum:
+                - Success
+                - Failed
+                type: string
+              startTime:
+                description: StartTime is the timestamp when the controller started
+                  processing the gRPC call.
+                format: date-time
+                type: string
+            required:
+            - message
+            - result
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
