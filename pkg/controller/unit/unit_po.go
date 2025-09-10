@@ -27,7 +27,7 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 	pod := &v1.Pod{}
 	err := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, pod)
 
-	if apierrors.IsNotFound(err) || pod.DeletionTimestamp != nil {
+	if apierrors.IsNotFound(err) {
 
 		// if not found, generate from template
 		pod, _ = convert2Pod(unit)
@@ -41,6 +41,10 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 
 	} else if err != nil {
 		return err
+	}
+
+	if !pod.DeletionTimestamp.IsZero() {
+		return fmt.Errorf("Pod [%s] is marked for deleted", pod.Name)
 	}
 
 	// update mem,cpu,image,env or node_affinity fail will trigger recreate pod

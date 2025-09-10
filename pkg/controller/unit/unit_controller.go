@@ -92,6 +92,12 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 		}, err
 	}
 
+	if r.checkPodIsMarkedForDeleted(ctx, req, unit) {
+		return ctrl.Result{
+			RequeueAfter: 3 * time.Second,
+		}, nil
+	}
+
 	retErr = r.reconcileUnit(ctx, req, unit)
 
 	defer func() {
@@ -209,6 +215,17 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 	}
 
 	return nil
+}
+
+func (r *UnitReconciler) checkPodIsMarkedForDeleted(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) bool {
+	pod, _, _, _ := r.unitManagedResources(ctx, req, unit)
+
+	if pod != nil && !pod.DeletionTimestamp.IsZero() {
+		klog.Infof("Pod [%s] is marked for deleted", pod.Name)
+		return true
+	}
+
+	return false
 }
 
 func (r *UnitReconciler) patchUnit(ctx context.Context, old, _new *upmiov1alpha2.Unit) (*upmiov1alpha2.Unit, error) {

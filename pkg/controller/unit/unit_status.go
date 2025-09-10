@@ -34,7 +34,7 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if pod != nil {
+	if pod != nil && pod.DeletionTimestamp.IsZero() {
 		unit.Status.HostIP = pod.Status.HostIP
 		unit.Status.PodIPs = pod.Status.PodIPs
 
