@@ -1,0 +1,104 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "unit-operator.fullname" . }}-mutating-webhook-configuration
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- if .Values.webhook.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ $.Release.Namespace }}/{{ include "unit-operator.fullname" . }}-serving-cert
+  {{- end }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "unit-operator.fullname" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-upm-syntropycloud-io-v1alpha2-project
+    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.tls.crt }}
+    caBundle: {{ .Values.webhook.tls.crt }}
+    {{- end }}
+  failurePolicy: Fail
+  name: mproject.kb.io
+  rules:
+  - apiGroups:
+    - upm.syntropycloud.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - projects
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "unit-operator.fullname" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-upm-syntropycloud-io-v1alpha2-unit
+    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.tls.crt }}
+    caBundle: {{ .Values.webhook.tls.crt }}
+    {{- end }}
+  failurePolicy: Fail
+  name: munit.kb.io
+  rules:
+  - apiGroups:
+    - upm.syntropycloud.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - units
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "unit-operator.fullname" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-upm-syntropycloud-io-v1alpha2-unitset
+    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.tls.crt }}
+    caBundle: {{ .Values.webhook.tls.crt }}
+    {{- end }}
+  failurePolicy: Fail
+  name: munitset.kb.io
+  rules:
+  - apiGroups:
+    - upm.syntropycloud.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - unitsets
+  sideEffects: None
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "unit-operator.fullname" . }}-webhook-service
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-upm-syntropycloud-io-v1alpha1-redisreplication
+    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.tls.crt }}
+    caBundle: {{ .Values.webhook.tls.crt }}
+    {{- end }}
+  failurePolicy: Fail
+  name: mredisreplication.kb.io
+  rules:
+  - apiGroups:
+    - upm.syntropycloud.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - redisreplications
+  sideEffects: None
+{{- end }}

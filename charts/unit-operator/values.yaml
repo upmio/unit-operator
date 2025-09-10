@@ -40,6 +40,25 @@ healthCheckPort: 20152
 crds:
   enabled: true
 
+## Webhook configuration
+##
+webhook:
+  ## @param webhook.enabled Enable admission webhook
+  ##
+  enabled: true
+  ## @param webhook.port Webhook server port
+  ##
+  port: 9443
+  ## @param webhook.certManager.enabled Use cert-manager to manage TLS certificates
+  ##
+  certManager:
+    enabled: true
+  ## @param webhook.tls.crt TLS certificate (base64 encoded)
+  ##
+  tls:
+    crt: ""
+    key: ""
+
 rbac:
   # Specifies whether rbac should be created
   create: true

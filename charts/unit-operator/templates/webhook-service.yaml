@@ -1,0 +1,15 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "unit-operator.fullname" . }}-webhook-service
+  namespace: {{ $.Release.Namespace }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: webhook
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: {{ .Values.webhook.port }}
+  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+{{- end }}
