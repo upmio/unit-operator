@@ -72,7 +72,7 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - mountPath: /run/secrets/unit-operator/webhook
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: webhook-certificates
               readOnly: true
       volumes:
@@ -80,4 +80,4 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: unit-operator-webhook-cert
+            secretName: {{ include "unit-operator.fullname" . }}-webhook-server-certs
