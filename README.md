@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/upmio/unit-operator)](https://github.com/upmio/unit-operator/releases)
 [![Stars](https://img.shields.io/github/stars/upmio/unit-operator)](https://github.com/upmio/unit-operator)
 
-![Unit Operator](./doc/unit-operator.svg)
+![Unit Operator](./doc/unit-operator-icon.png)
 
 A Kubernetes-based extension suite focused on extending pod management capabilities such as deployment, publishing, operations, and availability protection.
 
