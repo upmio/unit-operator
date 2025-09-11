@@ -20,7 +20,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: Application Runtime
     containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
-    createdAt: "2025-09-10T06:19:06Z"
+    createdAt: "2025-09-11T02:29:19Z"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"
@@ -249,6 +249,12 @@ spec:
                 - --leader-elect
                 - --health-probe-bind-address=:8081
                 - --metrics-bind-address=127.0.0.1:8080
+                env:
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
                 image: quay.io/upmio/unit-operator:v1.1.0
                 imagePullPolicy: IfNotPresent
                 livenessProbe:

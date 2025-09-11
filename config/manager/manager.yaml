@@ -39,6 +39,12 @@ spec:
       serviceAccountName: controller-manager
       containers:
       - name: manager
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
         image: quay.io/upmio/unit-operator:v1.1.0
         imagePullPolicy: IfNotPresent
         args:
