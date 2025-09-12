@@ -65,6 +65,7 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	s.logger.With(
 		"namespace", req.GetNamespace(),
 		"master_host", req.GetMasterHost(),
+		"master_port", req.GetMasterPort(),
 		"unit_name", req.GetSelfUnitName(),
 		"redis_replication_name", req.GetRedisReplicationName(),
 	).Info("receive update redis replication request")
@@ -81,17 +82,17 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	}
 
 	// 2. Check if master host is already set correctly
-	if req.GetMasterHost() == instance.Spec.Source.AnnounceHost {
-		successMsg := fmt.Sprintf("the source node host of redis replication[%s] in namespace[%s] is already %s, no update needed",
-			req.GetRedisReplicationName(), req.GetNamespace(), req.GetMasterHost())
+	if req.GetMasterHost() == instance.Spec.Source.AnnounceHost && req.GetMasterPort() == int64(instance.Spec.Source.AnnouncePort) {
+		successMsg := fmt.Sprintf("the source node of redis replication[%s] in namespace[%s] is already %s:%d, no update needed",
+			req.GetRedisReplicationName(), req.GetNamespace(), req.GetMasterHost(), req.GetMasterPort())
 		return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover", successMsg)
 	}
 
 	// 3. Find the master host in replica set and swap
 	found := false
 	for index, node := range instance.Spec.Replica {
-		if req.GetMasterHost() == node.AnnounceHost {
-			msg := fmt.Sprintf("found node host %s in replica set, will update", req.GetMasterHost())
+		if req.GetMasterHost() == node.AnnounceHost && req.GetMasterPort() == int64(node.AnnouncePort) {
+			msg := fmt.Sprintf("found node host %s:%d in replica, will update", req.GetMasterHost(), req.GetMasterPort())
 			s.logger.Info(msg)
 			if err := s.recorder.SendNormalEventToUnit(req.GetSelfUnitName(), req.GetNamespace(), "Failover", msg); err != nil {
 				s.logger.Errorf("failed to send normal event: %v", err)
@@ -104,7 +105,7 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 
 	if !found {
 		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
-			fmt.Sprintf("cannot find host %s in redis replication", req.GetMasterHost()), nil)
+			fmt.Sprintf("cannot find host %s:%d in redis replication", req.GetMasterHost(), req.GetMasterPort()), nil)
 	}
 
 	// 4. Update the redis replication resource

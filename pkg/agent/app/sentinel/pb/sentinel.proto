@@ -7,7 +7,9 @@ message UpdateRedisReplicationRequest {
   string redis_replication_name = 1;
   string namespace = 2;
   string master_host = 3;
-  string self_unit_name = 4;
+  int64 master_port = 4;
+  string self_unit_name = 5;
+
 }
 
 message Response {

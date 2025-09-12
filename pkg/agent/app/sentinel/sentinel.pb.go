@@ -26,7 +26,8 @@ type UpdateRedisReplicationRequest struct {
 	RedisReplicationName string                 `protobuf:"bytes,1,opt,name=redis_replication_name,json=redisReplicationName,proto3" json:"redis_replication_name,omitempty"`
 	Namespace            string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	MasterHost           string                 `protobuf:"bytes,3,opt,name=master_host,json=masterHost,proto3" json:"master_host,omitempty"`
-	SelfUnitName         string                 `protobuf:"bytes,4,opt,name=self_unit_name,json=selfUnitName,proto3" json:"self_unit_name,omitempty"`
+	MasterPort           int64                  `protobuf:"varint,4,opt,name=master_port,json=masterPort,proto3" json:"master_port,omitempty"`
+	SelfUnitName         string                 `protobuf:"bytes,5,opt,name=self_unit_name,json=selfUnitName,proto3" json:"self_unit_name,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -80,6 +81,13 @@ func (x *UpdateRedisReplicationRequest) GetMasterHost() string {
 		return x.MasterHost
 	}
 	return ""
+}
+
+func (x *UpdateRedisReplicationRequest) GetMasterPort() int64 {
+	if x != nil {
+		return x.MasterPort
+	}
+	return 0
 }
 
 func (x *UpdateRedisReplicationRequest) GetSelfUnitName() string {
@@ -137,13 +145,15 @@ var File_pkg_agent_app_sentinel_pb_sentinel_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDesc = "" +
 	"\n" +
-	"(pkg/agent/app/sentinel/pb/sentinel.proto\x12\bsentinel\"\xba\x01\n" +
+	"(pkg/agent/app/sentinel/pb/sentinel.proto\x12\bsentinel\"\xdb\x01\n" +
 	"\x1dUpdateRedisReplicationRequest\x124\n" +
 	"\x16redis_replication_name\x18\x01 \x01(\tR\x14redisReplicationName\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1f\n" +
 	"\vmaster_host\x18\x03 \x01(\tR\n" +
-	"masterHost\x12$\n" +
-	"\x0eself_unit_name\x18\x04 \x01(\tR\fselfUnitName\"$\n" +
+	"masterHost\x12\x1f\n" +
+	"\vmaster_port\x18\x04 \x01(\x03R\n" +
+	"masterPort\x12$\n" +
+	"\x0eself_unit_name\x18\x05 \x01(\tR\fselfUnitName\"$\n" +
 	"\bResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage2j\n" +
 	"\x11SentinelOperation\x12U\n" +
