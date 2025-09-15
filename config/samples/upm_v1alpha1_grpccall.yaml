@@ -244,3 +244,4 @@ spec:
     key: timeout
     value: 1000
     password: password
+  ttlSecondsAfterFinished: 10000

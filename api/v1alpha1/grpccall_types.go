@@ -20,7 +20,7 @@ import (
 
 // UnitType defines the type of unit this GrpcCall will interact with.
 // Currently supported types are "mysql", "proxysql" and "postgresql".
-// +kubebuilder:validation:Enum=mysql;postgresql;proxysql
+// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel
 type UnitType string
 
 const (

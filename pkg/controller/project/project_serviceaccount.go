@@ -153,7 +153,7 @@ func (r *ProjectReconciler) reconcileRoleBinding(ctx context.Context, req ctrl.R
 			rb.Labels = project.Labels
 		}
 		rb.Labels[upmiov1alpha2.LabelProjectOwner] = vars.ManagerNamespace
-		
+
 		err = r.Create(ctx, &rb)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err

@@ -91,6 +91,8 @@ spec:
                 - mysql
                 - postgresql
                 - proxysql
+                - redis
+                - redis-sentinel
                 type: string
             required:
             - action
