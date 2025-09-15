@@ -32,6 +32,12 @@ const (
 
 	// ProxysqlType represents a ProxySQL unit.
 	ProxysqlType UnitType = "proxysql"
+
+	// RedisType represents a Redis unit.
+	RedisType UnitType = "redis"
+
+	// SentinelType represents a Redis Sentinel unit.
+	SentinelType UnitType = "redis-sentinel"
 )
 
 // Action defines the specific operation to be sent to the unit-agent.

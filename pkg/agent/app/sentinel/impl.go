@@ -11,10 +11,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -62,13 +64,13 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisReplicationRequest) (*Response, error) {
-	s.logger.With(
-		"namespace", req.GetNamespace(),
-		"master_host", req.GetMasterHost(),
-		"master_port", req.GetMasterPort(),
-		"unit_name", req.GetSelfUnitName(),
-		"redis_replication_name", req.GetRedisReplicationName(),
-	).Info("receive update redis replication request")
+	common.LogRequestSafely(s.logger, "redis sentinel update redis replication", map[string]interface{}{
+		"namespace":              req.GetNamespace(),
+		"master_host":            req.GetMasterHost(),
+		"master_port":            req.GetMasterPort(),
+		"unit_name":              req.GetSelfUnitName(),
+		"redis_replication_name": req.GetRedisReplicationName(),
+	})
 
 	instance := &composev1alpha1.RedisReplication{}
 
@@ -116,6 +118,26 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 
 	return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
 		"update redis replication successfully")
+}
+
+func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
+	common.LogRequestSafely(s.logger, "redis sentinel set variable", map[string]interface{}{
+		"key":      req.GetKey(),
+		"value":    req.GetValue(),
+		"password": req.GetPassword(),
+	})
+
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:26379",
+	})
+
+	masterName := "mymaster"
+	if err := client.Do(ctx, "SENTINEL", "SET", masterName, req.GetKey(), req.GetValue()).Err(); err != nil {
+		log.Fatalf("修改 Sentinel 参数失败: %v", err)
+	}
+	fmt.Println("成功设置 Sentinel: down-after-milliseconds=10000")
+
+	return nil, nil
 }
 
 func RegistryGrpcApp() {

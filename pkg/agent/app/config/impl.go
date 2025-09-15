@@ -81,7 +81,7 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) SyncConfig(ctx context.Context, req *SyncConfigRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "sync config clone", map[string]interface{}{
+	common.LogRequestSafely(s.logger, "sync config", map[string]interface{}{
 		"key":              req.GetKey(),
 		"namespace":        req.GetNamespace(),
 		"configmap":        req.GetValueConfigmapName(),
@@ -161,12 +161,12 @@ func (s *service) SyncConfig(ctx context.Context, req *SyncConfigRequest) (*Resp
 }
 
 func (s *service) RewriteConfig(ctx context.Context, req *RewriteConfigRequest) (*Response, error) {
-	s.logger.With(
-		"key", req.GetKey(),
-		"namespace", req.GetNamespace(),
-		"value", req.GetValue(),
-		"configmap", req.GetConfigmapName(),
-	).Info("receive rewrite config request")
+	common.LogRequestSafely(s.logger, "rewrite config", map[string]interface{}{
+		"key":       req.GetKey(),
+		"namespace": req.GetNamespace(),
+		"value":     req.GetKey(),
+		"configmap": req.GetConfigmapName(),
+	})
 
 	configMapObj, err := s.clientSet.CoreV1().ConfigMaps(req.GetNamespace()).Get(ctx, req.GetConfigmapName(), metav1.GetOptions{})
 	if err != nil {

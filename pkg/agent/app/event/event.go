@@ -3,6 +3,7 @@ package event
 import (
 	"context"
 	"fmt"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -38,13 +39,13 @@ func (s *service) getUnitInstance(name, namespace string) (*unitv1alpha2.Unit, e
 
 // sendEventToUnit sends an event to a unit with the specified event type
 func (s *service) sendEventToUnit(name, namespace, reason, msg, eventType string) error {
-	s.logger.With(
-		"name", name,
-		"namespace", namespace,
-		"message", msg,
-		"reason", reason,
-		"event_type", eventType,
-	).Info("sending event to unit")
+	common.LogRequestSafely(s.logger, "send event to unit", map[string]interface{}{
+		"name":       name,
+		"namespace":  namespace,
+		"message":    msg,
+		"reason":     reason,
+		"event_type": eventType,
+	})
 
 	// Get unit instance
 	instance, err := s.getUnitInstance(name, namespace)

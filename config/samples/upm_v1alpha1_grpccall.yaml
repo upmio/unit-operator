@@ -225,3 +225,22 @@ spec:
     section: "admin"
     username: root
     password: password
+
+---
+
+#redis set variable sample
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  labels:
+    app.kubernetes.io/name: unit-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: grpccall-sample
+spec:
+  targetUnit: rfobqhas-redis-f83-0
+  type: redis
+  action: set-variable
+  parameters:
+    key: timeout
+    value: 1000
+    password: password

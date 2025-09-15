@@ -8,6 +8,8 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
+	"github.com/upmio/unit-operator/pkg/agent/app/redis"
+	"github.com/upmio/unit-operator/pkg/agent/app/sentinel"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -108,6 +110,28 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 			newReq = func() proto.Message { return &proxysql.SetVariableRequest{} }
 			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
 				return pc.SetVariable(ctx, msg.(*proxysql.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+	case upmv1alpha1.RedisType:
+		rc := c.Redis()
+		switch instance.Spec.Action {
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &redis.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+				return rc.SetVariable(ctx, msg.(*redis.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+	case upmv1alpha1.SentinelType:
+		sc := c.Sentinel()
+		switch instance.Spec.Action {
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &sentinel.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+				return sc.SetVariable(ctx, msg.(*sentinel.SetVariableRequest))
 			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)

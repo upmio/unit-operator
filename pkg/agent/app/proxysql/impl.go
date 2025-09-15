@@ -81,13 +81,13 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
-	s.logger.With(
-		"key", req.GetKey(),
-		"value", req.GetValue(),
-		"section", req.GetSection(),
-		"username", req.GetUsername(),
-		"password", req.GetPassword(),
-	).Info("receive proxysql set variable request")
+	common.LogRequestSafely(s.logger, "proxysql set variable", map[string]interface{}{
+		"key":      req.GetKey(),
+		"value":    req.GetValue(),
+		"section":  req.GetSection(),
+		"username": req.GetUsername(),
+		"password": req.GetPassword(),
+	})
 
 	// 1. Check service status
 	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {

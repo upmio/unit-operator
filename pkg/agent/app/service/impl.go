@@ -85,6 +85,8 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) StartService(_ context.Context, _ *ServiceRequest) (*ServiceResponse, error) {
+	common.LogRequestSafely(s.logger, "start service", map[string]interface{}{})
+
 	// 1. Get process information
 	pi, err := s.getProcessInfo()
 	if err != nil {
@@ -105,6 +107,8 @@ func (s *service) StartService(_ context.Context, _ *ServiceRequest) (*ServiceRe
 }
 
 func (s *service) StopService(_ context.Context, _ *ServiceRequest) (*ServiceResponse, error) {
+	common.LogRequestSafely(s.logger, "stop service", map[string]interface{}{})
+
 	// 1. Get process information
 	pi, err := s.getProcessInfo()
 	if err != nil {
@@ -125,6 +129,7 @@ func (s *service) StopService(_ context.Context, _ *ServiceRequest) (*ServiceRes
 }
 
 func (s *service) GetServiceStatus(_ context.Context, _ *ServiceRequest) (*ServiceStatusResponse, error) {
+
 	// 1. Get process information
 	pi, err := s.getProcessInfo()
 	if err != nil {
@@ -140,6 +145,8 @@ func (s *service) GetServiceStatus(_ context.Context, _ *ServiceRequest) (*Servi
 }
 
 func (s *service) RestartService(_ context.Context, _ *ServiceRequest) (*ServiceResponse, error) {
+	common.LogRequestSafely(s.logger, "restart service", map[string]interface{}{})
+
 	// 1. Get process information
 	pi, err := s.getProcessInfo()
 	if err != nil {
@@ -165,6 +172,7 @@ func (s *service) RestartService(_ context.Context, _ *ServiceRequest) (*Service
 }
 
 func (s *service) CheckServiceStatus(ctx context.Context, _ *ServiceRequest) (*ServiceResponse, error) {
+
 	statusResp, err := s.GetServiceStatus(ctx, &ServiceRequest{})
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newServiceResponse, "failed to get service status", err)

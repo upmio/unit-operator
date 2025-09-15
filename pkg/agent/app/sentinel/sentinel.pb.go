@@ -97,6 +97,66 @@ func (x *UpdateRedisReplicationRequest) GetSelfUnitName() string {
 	return ""
 }
 
+type SetVariableRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetVariableRequest) Reset() {
+	*x = SetVariableRequest{}
+	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetVariableRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetVariableRequest) ProtoMessage() {}
+
+func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetVariableRequest.ProtoReflect.Descriptor instead.
+func (*SetVariableRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SetVariableRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetVariableRequest) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *SetVariableRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
 type Response struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -106,7 +166,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -118,7 +178,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -131,7 +191,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescGZIP(), []int{1}
+	return file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Response) GetMessage() string {
@@ -153,11 +213,16 @@ const file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDesc = "" +
 	"masterHost\x12\x1f\n" +
 	"\vmaster_port\x18\x04 \x01(\x03R\n" +
 	"masterPort\x12$\n" +
-	"\x0eself_unit_name\x18\x05 \x01(\tR\fselfUnitName\"$\n" +
+	"\x0eself_unit_name\x18\x05 \x01(\tR\fselfUnitName\"X\n" +
+	"\x12SetVariableRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
+	"\bpassword\x18\x05 \x01(\tR\bpassword\"$\n" +
 	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2j\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xab\x01\n" +
 	"\x11SentinelOperation\x12U\n" +
-	"\x16UpdateRedisReplication\x12'.sentinel.UpdateRedisReplicationRequest\x1a\x12.sentinel.ResponseB7Z5github.com/upmio/unit-operator/pkg/agent/app/sentinelb\x06proto3"
+	"\x16UpdateRedisReplication\x12'.sentinel.UpdateRedisReplicationRequest\x1a\x12.sentinel.Response\x12?\n" +
+	"\vSetVariable\x12\x1c.sentinel.SetVariableRequest\x1a\x12.sentinel.ResponseB7Z5github.com/upmio/unit-operator/pkg/agent/app/sentinelb\x06proto3"
 
 var (
 	file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescOnce sync.Once
@@ -171,16 +236,19 @@ func file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDescData
 }
 
-var file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pkg_agent_app_sentinel_pb_sentinel_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pkg_agent_app_sentinel_pb_sentinel_proto_goTypes = []any{
 	(*UpdateRedisReplicationRequest)(nil), // 0: sentinel.UpdateRedisReplicationRequest
-	(*Response)(nil),                      // 1: sentinel.Response
+	(*SetVariableRequest)(nil),            // 1: sentinel.SetVariableRequest
+	(*Response)(nil),                      // 2: sentinel.Response
 }
 var file_pkg_agent_app_sentinel_pb_sentinel_proto_depIdxs = []int32{
 	0, // 0: sentinel.SentinelOperation.UpdateRedisReplication:input_type -> sentinel.UpdateRedisReplicationRequest
-	1, // 1: sentinel.SentinelOperation.UpdateRedisReplication:output_type -> sentinel.Response
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	1, // 1: sentinel.SentinelOperation.SetVariable:input_type -> sentinel.SetVariableRequest
+	2, // 2: sentinel.SentinelOperation.UpdateRedisReplication:output_type -> sentinel.Response
+	2, // 3: sentinel.SentinelOperation.SetVariable:output_type -> sentinel.Response
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -197,7 +265,7 @@ func file_pkg_agent_app_sentinel_pb_sentinel_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDesc), len(file_pkg_agent_app_sentinel_pb_sentinel_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

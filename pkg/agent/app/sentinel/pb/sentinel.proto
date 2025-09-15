@@ -12,10 +12,17 @@ message UpdateRedisReplicationRequest {
 
 }
 
+message SetVariableRequest {
+  string key = 1;
+  string value = 2;
+  string password = 5;
+}
+
 message Response {
   string message = 1;
 }
 
 service SentinelOperation {
   rpc UpdateRedisReplication (UpdateRedisReplicationRequest) returns (Response);
+  rpc SetVariable (SetVariableRequest) returns (Response);
 }

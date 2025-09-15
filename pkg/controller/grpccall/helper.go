@@ -8,6 +8,8 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
+	"github.com/upmio/unit-operator/pkg/agent/app/redis"
+	"github.com/upmio/unit-operator/pkg/agent/app/sentinel"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +55,16 @@ func (c *Client) Postgresql() postgresql.PostgresqlOperationClient {
 // Proxysql sdk
 func (c *Client) Proxysql() proxysql.ProxysqlOperationClient {
 	return proxysql.NewProxysqlOperationClient(c.conn)
+}
+
+// Redis sdk
+func (c *Client) Redis() redis.RedisOperationClient {
+	return redis.NewRedisOperationClient(c.conn)
+}
+
+// Sentinel sdk
+func (c *Client) Sentinel() sentinel.SentinelOperationClient {
+	return sentinel.NewSentinelOperationClient(c.conn)
 }
 
 // gatherUnitAgentEndpoint retrieves and returns the host and port for the unit-agent container.

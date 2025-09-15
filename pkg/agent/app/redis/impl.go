@@ -48,7 +48,7 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "redis sentinel set variable", map[string]interface{}{
+	common.LogRequestSafely(s.logger, "redis set variable", map[string]interface{}{
 		"key":      req.GetKey(),
 		"value":    req.GetValue(),
 		"password": req.GetPassword(),
