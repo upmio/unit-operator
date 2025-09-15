@@ -20,6 +20,7 @@ import (
 
 	"github.com/upmio/unit-operator/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -54,6 +55,14 @@ func (r *projectAdmission) Default(ctx context.Context, obj runtime.Object) erro
 	//projectlog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
+
+	project := obj.(*v1alpha2.Project)
+
+	if project.Annotations == nil {
+		project.Annotations = make(map[string]string)
+		klog.Infof("[WEBHOOK LOG] [default] name: [%s] initialize annotation", project.Name)
+	}
+
 	return nil
 }
 
