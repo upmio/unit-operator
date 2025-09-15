@@ -79,19 +79,172 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("[reconcileSecret] create secret:[%s/%s] error: [%v]", req.Name, secretName, err.Error())
 		}
+
 	} else if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("[reconcileSecret] get secret:[%s/%s] error: [%v]", req.Name, secretName, err.Error())
 	} else {
 		// Secret exists: validate AES key (must be 32-char hex) and self-heal if needed
 		current, ok := needSecret.Data[defaultAESSecretKey]
-		if !ok || !isValidHex32(current) || string(current) != project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] {
-			if needSecret.Data == nil {
-				needSecret.Data = make(map[string][]byte)
+		// no aes secret key
+		if !ok {
+			// project with annotation
+			pCurrent, pOk := project.Annotations[upmiov1alpha2.AnnotationAesSecretKey]
+			if pOk {
+				if isValidHex32([]byte(pCurrent)) {
+					if needSecret.Data == nil {
+						needSecret.Data = make(map[string][]byte)
+					}
+
+					needSecret.Data[defaultAESSecretKey] = []byte(project.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
+					if updErr := r.Update(ctx, &needSecret); updErr != nil {
+						return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+					}
+				} else {
+					data, err := generateAES256Key()
+					if err != nil {
+						return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
+					}
+
+					if needSecret.Data == nil {
+						needSecret.Data = make(map[string][]byte)
+					}
+
+					needSecret.Data[defaultAESSecretKey] = data
+					if updErr := r.Update(ctx, &needSecret); updErr != nil {
+						return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+					}
+
+					if project.Annotations == nil {
+						project.Annotations = make(map[string]string)
+					}
+
+					project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+					updateProjectErr := r.Update(ctx, project)
+					if updateProjectErr != nil {
+						return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+					}
+				}
+			} else if !pOk {
+				data, err := generateAES256Key()
+				if err != nil {
+					return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
+				}
+
+				if needSecret.Data == nil {
+					needSecret.Data = make(map[string][]byte)
+				}
+
+				needSecret.Data[defaultAESSecretKey] = data
+				if updErr := r.Update(ctx, &needSecret); updErr != nil {
+					return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+				}
+
+				if project.Annotations == nil {
+					project.Annotations = make(map[string]string)
+				}
+
+				project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+				updateProjectErr := r.Update(ctx, project)
+				if updateProjectErr != nil {
+					return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+				}
 			}
 
-			needSecret.Data[defaultAESSecretKey] = []byte(project.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
-			if updErr := r.Update(ctx, &needSecret); updErr != nil {
-				return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+		} else if ok && !isValidHex32(current) {
+			pCurrent, pOk := project.Annotations[upmiov1alpha2.AnnotationAesSecretKey]
+			if pOk {
+				if isValidHex32([]byte(pCurrent)) {
+					if needSecret.Data == nil {
+						needSecret.Data = make(map[string][]byte)
+					}
+
+					needSecret.Data[defaultAESSecretKey] = []byte(project.Annotations[upmiov1alpha2.AnnotationAesSecretKey])
+					if updErr := r.Update(ctx, &needSecret); updErr != nil {
+						return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+					}
+				} else {
+					data, err := generateAES256Key()
+					if err != nil {
+						return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
+					}
+
+					if needSecret.Data == nil {
+						needSecret.Data = make(map[string][]byte)
+					}
+
+					needSecret.Data[defaultAESSecretKey] = data
+					if updErr := r.Update(ctx, &needSecret); updErr != nil {
+						return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+					}
+
+					if project.Annotations == nil {
+						project.Annotations = make(map[string]string)
+					}
+
+					project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+					updateProjectErr := r.Update(ctx, project)
+					if updateProjectErr != nil {
+						return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+					}
+				}
+			} else if !pOk {
+				data, err := generateAES256Key()
+				if err != nil {
+					return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
+				}
+
+				if needSecret.Data == nil {
+					needSecret.Data = make(map[string][]byte)
+				}
+
+				needSecret.Data[defaultAESSecretKey] = data
+				if updErr := r.Update(ctx, &needSecret); updErr != nil {
+					return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+				}
+
+				if project.Annotations == nil {
+					project.Annotations = make(map[string]string)
+				}
+
+				project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+				updateProjectErr := r.Update(ctx, project)
+				if updateProjectErr != nil {
+					return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+				}
+			}
+		} else {
+			if !isValidHex32(current) {
+				data, err := generateAES256Key()
+				if err != nil {
+					return fmt.Errorf("[reconcileSecret] generateAES256Key error: [%v]", err.Error())
+				}
+
+				if needSecret.Data == nil {
+					needSecret.Data = make(map[string][]byte)
+				}
+
+				needSecret.Data[defaultAESSecretKey] = data
+				if updErr := r.Update(ctx, &needSecret); updErr != nil {
+					return fmt.Errorf("[reconcileSecret] update secret:[%s/%s] error: [%v]", req.Name, secretName, updErr)
+				}
+
+				if project.Annotations == nil {
+					project.Annotations = make(map[string]string)
+				}
+
+				project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(data)
+				updateProjectErr := r.Update(ctx, project)
+				if updateProjectErr != nil {
+					return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+				}
+			} else {
+				if project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] == "" {
+					project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(needSecret.Data[defaultAESSecretKey])
+					updateProjectErr := r.Update(ctx, project)
+					if updateProjectErr != nil {
+						return fmt.Errorf("[reconcileSecret] update project:[%s] error: [%s]", req.Name, updateProjectErr.Error())
+					}
+				}
 			}
 		}
 	}
