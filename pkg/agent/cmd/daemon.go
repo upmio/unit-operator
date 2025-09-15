@@ -6,6 +6,7 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
+	"github.com/upmio/unit-operator/pkg/agent/app/redis"
 	"github.com/upmio/unit-operator/pkg/agent/app/sentinel"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
@@ -69,6 +70,9 @@ var daemonCmd = &cobra.Command{
 		}
 
 		switch unitType {
+		case "redis":
+			redis.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry redis grpc app")
 		case "redis-sentinel":
 			sentinel.RegistryGrpcApp()
 			zap.L().Named("[INIT]").Sugar().Infof("registry sentinel grpc app")
