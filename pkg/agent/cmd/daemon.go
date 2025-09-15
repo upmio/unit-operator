@@ -62,12 +62,13 @@ var daemonCmd = &cobra.Command{
 		}()
 
 		unitType := os.Getenv("UNIT_TYPE")
-		zap.L().Named("[INIT]").Sugar().Infof("get env UNIT_TYPE=%s", unitType)
+		zap.L().Named("[INIT]").Sugar().Infof("get env UNIT_TYPE %s", unitType)
 
 		if err := util.ValidateAndSetAESKey(); err != nil {
 			zap.L().Named("[INIT]").Sugar().Error(err)
 			return err
 		}
+		zap.L().Named("[INIT]").Sugar().Infof("get env %s successfullyx", util.AESKeyEnvVar)
 
 		switch unitType {
 		case "redis":

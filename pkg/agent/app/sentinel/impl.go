@@ -7,11 +7,11 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	"github.com/upmio/unit-operator/pkg/agent/app/event"
+	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// this import  needs to be done otherwise the mysql driver don't work
@@ -30,6 +30,8 @@ type service struct {
 	recorder      event.IEventRecorder
 	UnimplementedSentinelOperationServer
 	logger *zap.SugaredLogger
+
+	slm slm.ServiceLifecycleServer
 }
 
 // Common helper methods
@@ -51,6 +53,8 @@ func (s *service) Config() error {
 	}
 
 	s.composeClient = c
+	s.slm = app.GetGrpcApp("service").(slm.ServiceLifecycleServer)
+
 	s.logger = zap.L().Named("[SENTINEL]").Sugar()
 	return nil
 }
@@ -127,17 +131,31 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 		"password": req.GetPassword(),
 	})
 
+	// 1. Check service status
+	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
+		return common.LogAndReturnError(s.logger, newSentinelResponse, "service status check failed", err)
+	}
+
+	// 2. Create connection
 	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:26379",
+		Addr:     "localhost:26379",
+		Password: req.GetPassword(),
 	})
+
+	defer func() {
+		if err := client.Close(); err != nil {
+			s.logger.Errorf("failed to close connection: %v", err)
+		}
+	}()
+
+	// 3. Execute set variable
 
 	masterName := "mymaster"
 	if err := client.Do(ctx, "SENTINEL", "SET", masterName, req.GetKey(), req.GetValue()).Err(); err != nil {
-		log.Fatalf("修改 Sentinel 参数失败: %v", err)
+		return common.LogAndReturnError(s.logger, newSentinelResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)
 	}
-	fmt.Println("成功设置 Sentinel: down-after-milliseconds=10000")
 
-	return nil, nil
+	return common.LogAndReturnSuccess(s.logger, newSentinelResponse, fmt.Sprintf("set variable %s=%s successfully", req.GetKey(), req.GetValue()))
 }
 
 func RegistryGrpcApp() {
