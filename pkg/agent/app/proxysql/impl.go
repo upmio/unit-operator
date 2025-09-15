@@ -94,8 +94,13 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 		return common.LogAndReturnError(s.logger, newProxysqlResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newProxysqlResponse, "decrypt password failed", err)
+	}
+
 	// 2. Create database connection
-	db, err := s.createProxySQLDB(ctx, req.GetUsername(), req.GetPassword())
+	db, err := s.createProxySQLDB(ctx, req.GetUsername(), password)
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newProxysqlResponse, "database connection failed", err)
 	}

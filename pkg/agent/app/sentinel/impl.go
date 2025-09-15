@@ -136,14 +136,19 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 		return common.LogAndReturnError(s.logger, newSentinelResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newSentinelResponse, "decrypt password failed", err)
+	}
+
 	// 2. Create connection
-	client := redis.NewClient(&redis.Options{
+	c := redis.NewClient(&redis.Options{
 		Addr:     "localhost:26379",
-		Password: req.GetPassword(),
+		Password: password,
 	})
 
 	defer func() {
-		if err := client.Close(); err != nil {
+		if err := c.Close(); err != nil {
 			s.logger.Errorf("failed to close connection: %v", err)
 		}
 	}()
@@ -151,7 +156,7 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	// 3. Execute set variable
 
 	masterName := "mymaster"
-	if err := client.Do(ctx, "SENTINEL", "SET", masterName, req.GetKey(), req.GetValue()).Err(); err != nil {
+	if err := c.Do(ctx, "SENTINEL", "SET", masterName, req.GetKey(), req.GetValue()).Err(); err != nil {
 		return common.LogAndReturnError(s.logger, newSentinelResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)
 	}
 

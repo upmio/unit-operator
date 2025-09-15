@@ -112,6 +112,11 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "decrypt password failed", err)
+	}
+
 	var cmd *exec.Cmd
 
 	if req.GetS3Storage() != nil {
@@ -153,7 +158,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			"-X",
 			"stream",
 		)
-		cmd.Env = append(cmd.Environ(), fmt.Sprintf("PGPASSWORD=%s", req.GetPassword()))
+		cmd.Env = append(cmd.Environ(), fmt.Sprintf("PGPASSWORD=%s", password))
 
 		s.logger.Info("starting pg_basebackup command...")
 		output, err := cmd.Output()
@@ -235,7 +240,12 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "service status check failed", err)
 	}
 
-	_, err := exec.LookPath("pg_dumpall")
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "decrypt password failed", err)
+	}
+
+	_, err = exec.LookPath("pg_dumpall")
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, "pg_dumpall command is not installed or not in PATH", nil)
 	}
@@ -251,7 +261,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 			"-h",
 			"127.0.0.1",
 		)
-		cmd.Env = append(cmd.Environ(), fmt.Sprintf("PGPASSWORD=%s", req.GetPassword()))
+		cmd.Env = append(cmd.Environ(), fmt.Sprintf("PGPASSWORD=%s", password))
 	default:
 		return common.LogAndReturnError(s.logger, newPostgresqlResponse, fmt.Sprintf("logical backup mode '%s' is not supported", req.GetLogicalBackupMode()), nil)
 	}

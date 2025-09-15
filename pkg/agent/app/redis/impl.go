@@ -59,10 +59,15 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 		return common.LogAndReturnError(s.logger, newRedisResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newRedisResponse, "decrypt password failed", err)
+	}
+
 	// 2. Create connection
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
-		Password: req.GetPassword(),
+		Password: password,
 		DB:       0,
 	})
 
@@ -73,7 +78,7 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	}()
 
 	// 3. Execute set variable
-	err := client.Do(ctx, "CONFIG", "SET", req.GetKey(), req.GetValue()).Err()
+	err = client.Do(ctx, "CONFIG", "SET", req.GetKey(), req.GetValue()).Err()
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newRedisResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)
 	}

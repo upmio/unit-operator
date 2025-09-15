@@ -135,7 +135,11 @@ func (s *service) Clone(ctx context.Context, req *CloneRequest) (*Response, erro
 	}
 
 	// 2. Create database connection
-	db, err := s.newMysqlDB(ctx, req.GetUsername(), req.GetPassword(), req.GetSocketFile())
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt password failed", err)
+	}
+	db, err := s.newMysqlDB(ctx, req.GetUsername(), password, req.GetSocketFile())
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
@@ -177,7 +181,7 @@ LOOP:
 		select {
 		case <-ticker.C:
 			// close the old connection, use new connection to query
-			newDb, err := s.newMysqlDB(ctx, req.GetUsername(), req.GetPassword(), req.GetSocketFile())
+			newDb, err := s.newMysqlDB(ctx, req.GetUsername(), password, req.GetSocketFile())
 			if err != nil {
 				s.logger.Warnf("failed to create new database connection: %v", err)
 				continue LOOP
@@ -232,6 +236,11 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt password failed", err)
+	}
+
 	var cmd *exec.Cmd
 
 	switch req.GetPhysicalBackupTool() {
@@ -247,7 +256,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 				fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 				fmt.Sprintf("--socket=%s", req.GetSocketFile()),
 				fmt.Sprintf("--user=%s", req.GetUsername()),
-				fmt.Sprintf("--password=%s", req.GetPassword()),
+				fmt.Sprintf("--password=%s", password),
 				fmt.Sprintf("--extra-lsndir=%s", "/tmp/s3_tmp_dir"),
 				fmt.Sprintf("--target-dir=%s", "/tmp/s3_tmp_dir"),
 				"--backup",
@@ -310,7 +319,12 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
-	_, err := exec.LookPath("mysqldump")
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt password failed", err)
+	}
+
+	_, err = exec.LookPath("mysqldump")
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "mysqldump command is not installed or not in PATH", nil)
 	}
@@ -323,7 +337,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 			"mysqldump",
 			fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 			fmt.Sprintf("--user=%s", req.GetUsername()),
-			fmt.Sprintf("--password=%s", req.GetPassword()),
+			fmt.Sprintf("--password=%s", password),
 			fmt.Sprintf("--socket=%s", req.GetSocketFile()),
 			"--single-transaction",
 			"--set-gtid-purged=OFF",
@@ -335,7 +349,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 			"mysqldump",
 			fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 			fmt.Sprintf("--user=%s", req.GetUsername()),
-			fmt.Sprintf("--password=%s", req.GetPassword()),
+			fmt.Sprintf("--password=%s", password),
 			fmt.Sprintf("--socket=%s", req.GetSocketFile()),
 			"--single-transaction",
 			"--set-gtid-purged=OFF",
@@ -346,7 +360,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 			"mysqldump",
 			fmt.Sprintf("--defaults-file=%s", req.GetConfFile()),
 			fmt.Sprintf("--user=%s", req.GetUsername()),
-			fmt.Sprintf("--password=%s", req.GetPassword()),
+			fmt.Sprintf("--password=%s", password),
 			fmt.Sprintf("--socket=%s", req.GetSocketFile()),
 			"--single-transaction",
 			"--set-gtid-purged=OFF",
@@ -464,6 +478,11 @@ func (s *service) GtidPurge(ctx context.Context, req *GtidPurgeRequest) (*Respon
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt password failed", err)
+	}
+
 	// 2. Get data directory environment variable
 	dataDirValue, err := getEnvVarOrError(dataDirKey)
 	if err != nil {
@@ -505,7 +524,7 @@ func (s *service) GtidPurge(ctx context.Context, req *GtidPurgeRequest) (*Respon
 	s.logger.Info(gtidStr)
 
 	// 4. Create database connection
-	db, err := s.newMysqlDB(ctx, req.GetUsername(), req.GetPassword(), req.GetSocketFile())
+	db, err := s.newMysqlDB(ctx, req.GetUsername(), password, req.GetSocketFile())
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
@@ -643,8 +662,13 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "service status check failed", err)
 	}
 
+	password, err := common.GetPlainTextPassword(req.GetPassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt password failed", err)
+	}
+
 	// 2. Create database connection
-	db, err := s.newMysqlDB(ctx, req.GetUsername(), req.GetPassword(), req.GetSocketFile())
+	db, err := s.newMysqlDB(ctx, req.GetUsername(), password, req.GetSocketFile())
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "database connection failed", err)
 	}
