@@ -5,7 +5,7 @@ metadata:
     alm-examples: '[]'
     capabilities: Full Lifecycle
     categories: Application Runtime
-    containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
+    containerImage: quay.io/upmio/unit-operator@sha256:c5bc15f68130ce26b1b5060344793c6a076e72bd9bb99f9be41a47dab435ffa5
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"
@@ -47,49 +47,7 @@ spec:
     mediatype: image/png
   install:
     spec:
-      deployments:
-      - name: controller-manager
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app.kubernetes.io/component: controller
-              app.kubernetes.io/instance: unit-operator
-              app.kubernetes.io/name: unit-operator
-          strategy: {}
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/component: controller
-                app.kubernetes.io/instance: unit-operator
-                app.kubernetes.io/name: unit-operator
-                app.kubernetes.io/version: v1.1.0
-            spec:
-              containers:
-              - image: quay.io/upmio/unit-operator:v1.1.0
-                imagePullPolicy: IfNotPresent
-                livenessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 8081
-                  initialDelaySeconds: 15
-                  periodSeconds: 20
-                name: manager
-                readinessProbe:
-                  httpGet:
-                    path: /readyz
-                    port: 8081
-                  initialDelaySeconds: 5
-                  periodSeconds: 10
-                resources:
-                  limits:
-                    cpu: "2"
-                    memory: 4G
-                  requests:
-                    cpu: "1"
-                    memory: 2G
-              serviceAccountName: controller-manager
-              terminationGracePeriodSeconds: 10
+      deployments: null
     strategy: ""
   installModes:
   - supported: false
@@ -107,17 +65,16 @@ spec:
   - PosrgreSQL
   - Kafka
   links:
-  - name: upmio
-    url: https://github.com/upmio/
+  - name: Documentation
+    url: https://github.com/upmio/unit-operator
   maintainers:
   - email: chenxiinn@gmail.com
     name: chenxiinn
   maturity: alpha
   minKubeVersion: 1.26.1
   provider:
-    name: upmio
-    url: https://github.com/upmio/
+    name: Syntropy Pte. Ltd.
   relatedImages:
-  - image: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
+  - image: quay.io/upmio/unit-operator@sha256:c5bc15f68130ce26b1b5060344793c6a076e72bd9bb99f9be41a47dab435ffa5
     name: unit-operator
   version: 0.0.0

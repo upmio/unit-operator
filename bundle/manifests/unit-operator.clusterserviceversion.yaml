@@ -19,8 +19,8 @@ metadata:
       ]
     capabilities: Full Lifecycle
     categories: Application Runtime
-    containerImage: quay.io/upmio/unit-operator@sha256:17c800fff4b18cb45b69a14a4cd61721d7c2ef6f9e42c5575056bb4abab59cf5
-    createdAt: "2025-09-15T05:48:16Z"
+    containerImage: quay.io/upmio/unit-operator@sha256:c5bc15f68130ce26b1b5060344793c6a076e72bd9bb99f9be41a47dab435ffa5
+    createdAt: "2025-09-16T08:11:47Z"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"
@@ -335,16 +335,15 @@ spec:
   - PosrgreSQL
   - Kafka
   links:
-  - name: upmio
-    url: https://github.com/upmio/
+  - name: Documentation
+    url: https://github.com/upmio/unit-operator
   maintainers:
   - email: chenxiinn@gmail.com
     name: chenxiinn
   maturity: alpha
   minKubeVersion: 1.26.1
   provider:
-    name: upmio
-    url: https://github.com/upmio/
+    name: Syntropy Pte. Ltd.
   version: 1.1.0
   webhookdefinitions:
   - admissionReviewVersions:
