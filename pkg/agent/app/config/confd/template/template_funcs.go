@@ -64,6 +64,8 @@ func newFuncMap() map[string]interface{} {
 	m["jsonArrayPrepend"] = UnmarshalJsonArrayPrependSomething
 	m["secretRead"] = ReadContentFromSecret
 	m["toFloat64"] = StrconvToFloat64
+	m["getPodLabelValueByKey"] = GetPodLabelValueByKey
+
 	return m
 }
 
@@ -331,4 +333,23 @@ func StrconvToFloat64(s string) (float64, error) {
 		return 0.0, err
 	}
 	return f, nil
+}
+
+func GetPodLabelValueByKey(name, namespace, labelKey string) (string, error) {
+	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	if err != nil {
+		return "", err
+	}
+
+	pod, err := clientSet.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	value, ok := pod.ObjectMeta.Labels[labelKey]
+	if !ok {
+		return "", fmt.Errorf("not found label %s in Pod %s/%s", labelKey, namespace, name)
+	}
+
+	return value, nil
 }
