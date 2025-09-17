@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends"
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
