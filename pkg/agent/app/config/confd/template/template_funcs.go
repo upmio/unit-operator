@@ -2,14 +2,12 @@ package template
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/conf"
-	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"os"
 	"path"
@@ -18,6 +16,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/upmio/unit-operator/pkg/agent/conf"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kelseyhightower/memkv"
 )
@@ -42,6 +44,7 @@ func newFuncMap() map[string]interface{} {
 	m["lookupIPV4"] = LookupIPV4
 	m["lookupIPV6"] = LookupIPV6
 	m["sha256sum"] = Hash256Sum
+	m["sha1sum"] = Hash1Sum
 	m["lookupSRV"] = LookupSRV
 	m["fileExists"] = util.IsFileExist
 	m["fileRead"] = ReadContentFromFile
@@ -239,6 +242,10 @@ func LookupIP(data string) []string {
 
 func Hash256Sum(data string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
+}
+
+func Hash1Sum(data string) string {
+	return fmt.Sprintf("%x", sha1.Sum([]byte(data)))
 }
 
 func LookupIPV6(data string) []string {
