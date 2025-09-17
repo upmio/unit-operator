@@ -65,7 +65,7 @@ func newFuncMap() map[string]interface{} {
 	m["secretRead"] = ReadContentFromSecret
 	m["toFloat64"] = StrconvToFloat64
 	m["getPodLabelValueByKey"] = GetPodLabelValueByKey
-
+	m["getPodAnnotationValueByKey"] = GetPodAnnotationValueByKey
 	return m
 }
 
@@ -335,7 +335,7 @@ func StrconvToFloat64(s string) (float64, error) {
 	return f, nil
 }
 
-func GetPodLabelValueByKey(name, namespace, labelKey string) (string, error) {
+func GetPodLabelValueByKey(name, namespace, key string) (string, error) {
 	clientSet, err := conf.GetConf().Kube.GetClientSet()
 	if err != nil {
 		return "", err
@@ -346,9 +346,28 @@ func GetPodLabelValueByKey(name, namespace, labelKey string) (string, error) {
 		return "", err
 	}
 
-	value, ok := pod.ObjectMeta.Labels[labelKey]
+	value, ok := pod.ObjectMeta.Labels[key]
 	if !ok {
-		return "", fmt.Errorf("not found label %s in Pod %s/%s", labelKey, namespace, name)
+		return "", fmt.Errorf("not found label %s in Pod %s/%s", key, namespace, name)
+	}
+
+	return value, nil
+}
+
+func GetPodAnnotationValueByKey(name, namespace, key string) (string, error) {
+	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	if err != nil {
+		return "", err
+	}
+
+	pod, err := clientSet.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	value, ok := pod.ObjectMeta.Annotations[key]
+	if !ok {
+		return "", fmt.Errorf("not found label %s in Pod %s/%s", key, namespace, name)
 	}
 
 	return value, nil
