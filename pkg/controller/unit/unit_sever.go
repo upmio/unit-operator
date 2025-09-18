@@ -70,24 +70,32 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		klog.Infof("[reconcileUnitServer] unit:[%s] unit.spec.startup=true, will execute [start]",
 			req.NamespacedName.String())
 
-		var lastTimeMessage string
-		var startErr error
+		resp, startErr := internalAgent.ServiceLifecycleManagement(
+			vars.UnitAgentHostType,
+			upmiov1alpha2.UnitsetHeadlessSvcName(unit),
+			agentHost,
+			unit.Namespace,
+			"2214",
+			"start")
 
+		if startErr != nil {
+			klog.Errorf("[reconcileUnitServer] unit:[%s] EXECUTE [start] error:[%s]",
+				req.NamespacedName.String(), startErr.Error())
+
+			return fmt.Errorf("fail to start unit: message:[%s], error:[%s]", resp, startErr.Error())
+		}
+
+		time.Sleep(2 * time.Second)
+
+		klog.Infof("[reconcileUnitServer] unit:[%s] EXECUTE [start] ok, will wait for pod running and ready, 5s/30s", req.String())
 		waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+			newPod := &v1.Pod{}
+			newPodErr := r.Get(ctx, req.NamespacedName, pod)
+			if newPodErr != nil {
+				return false, nil
+			}
 
-			lastTimeMessage, startErr = internalAgent.ServiceLifecycleManagement(
-				vars.UnitAgentHostType,
-				upmiov1alpha2.UnitsetHeadlessSvcName(unit),
-				agentHost,
-				unit.Namespace,
-				"2214",
-				"start")
-
-			if startErr != nil {
-
-				klog.Errorf("[reconcileUnitServer] unit:[%s] EXECUTE [start] error:[%s]",
-					req.NamespacedName.String(), startErr.Error())
-
+			if !podutil.IsRunningAndReady(newPod) {
 				return false, nil
 			}
 
@@ -95,14 +103,12 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		})
 
 		if waitErr != nil {
-			klog.Warningf("[start service] unit:[%s] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
-				req.String(), lastTimeMessage, startErr.Error())
+			klog.Warningf("[start service] unit:[%s] start up timeout, will trrigger [stop service] and then redo [start up]",
+				req.String())
 
-			r.Recorder.Eventf(unit, v1.EventTypeWarning, "StartUP",
-				"[start service] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
-				lastTimeMessage, startErr.Error())
+			r.Recorder.Eventf(unit, v1.EventTypeWarning, "StartUp", "[start up] timeout, will trrigger [stop] and then redo [start]")
 
-			resp, stopErr := internalAgent.ServiceLifecycleManagement(
+			stopMessage, stopErr := internalAgent.ServiceLifecycleManagement(
 				vars.UnitAgentHostType,
 				upmiov1alpha2.UnitsetHeadlessSvcName(unit),
 				agentHost,
@@ -111,7 +117,7 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 				"stop")
 
 			if stopErr != nil {
-				return fmt.Errorf("fail to stop unit: message:[%s], error:[%s]", resp, stopErr.Error())
+				return fmt.Errorf("fail to stop unit: message:[%s], error:[%s]", stopMessage, stopErr.Error())
 			}
 		}
 
