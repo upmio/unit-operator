@@ -200,7 +200,7 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 		return fmt.Errorf("failed to reconcile UnitConfig [%s], err: [%v]", req.NamespacedName, err.Error())
 	}
 
-	err = r.reconcileUnitServer(ctx, unit)
+	err = r.reconcileUnitServer(ctx, req, unit)
 	if err != nil {
 		klog.Errorf("failed to reconcile UnitServer [%s], err: [%v]", req.NamespacedName, err.Error())
 		return fmt.Errorf("failed to reconcile UnitServer [%s], err: [%v]", req.NamespacedName, err.Error())

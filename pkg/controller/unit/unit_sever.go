@@ -3,17 +3,20 @@ package unit
 import (
 	"context"
 	"fmt"
+	"time"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	internalAgent "github.com/upmio/unit-operator/pkg/client/unit-agent"
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, unit *upmiov1alpha2.Unit) error {
+func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
 	maintenanceValue, ok := unit.GetAnnotations()[upmiov1alpha2.AnnotationMaintenance]
 	if ok && maintenanceValue == "true" {
 		klog.Info("[reconcileUnitServer] unit is in maintenance mode, skip reconcile")
@@ -42,7 +45,6 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, unit *upmiov1a
 	}
 
 	if len(pod.Status.PodIPs) == 0 {
-		//r.EventRecorder.Eventf(unit, corev1.EventTypeWarning, ErrResourceExists, "unit lifecycle management failed: [no pod ip to use]")
 		return fmt.Errorf("unit lifecycle management failed: [no pod ip to use]")
 	}
 
@@ -60,17 +62,46 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, unit *upmiov1a
 			return nil
 		}
 
-		resp, err := internalAgent.ServiceLifecycleManagement(
-			vars.UnitAgentHostType,
-			upmiov1alpha2.UnitsetHeadlessSvcName(unit),
-			agentHost,
-			unit.Namespace,
-			"2214",
-			"start")
+		var lastTimeMessage string
+		var startErr error
 
-		if err != nil {
-			//r.EventRecorder.Eventf(unit, corev1.EventTypeWarning, ErrResourceExists, "fail to start unit: message:[%s], error:[%s]", resp, err.Error())
-			return fmt.Errorf("fail to start unit: message:[%s], error:[%s]", resp, err.Error())
+		waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+
+			lastTimeMessage, startErr = internalAgent.ServiceLifecycleManagement(
+				vars.UnitAgentHostType,
+				upmiov1alpha2.UnitsetHeadlessSvcName(unit),
+				agentHost,
+				unit.Namespace,
+				"2214",
+				"start")
+
+			if startErr != nil {
+				return false, nil
+			}
+
+			return true, nil
+		})
+
+		if waitErr != nil {
+
+			klog.Warningf("[start service] unit:[%s] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
+				req.String(), lastTimeMessage, startErr.Error())
+
+			r.Recorder.Eventf(unit, v1.EventTypeWarning, "SyncConfigFailed",
+				"[start service] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
+				lastTimeMessage, startErr.Error())
+
+			resp, stopErr := internalAgent.ServiceLifecycleManagement(
+				vars.UnitAgentHostType,
+				upmiov1alpha2.UnitsetHeadlessSvcName(unit),
+				agentHost,
+				unit.Namespace,
+				"2214",
+				"stop")
+
+			if stopErr != nil {
+				return fmt.Errorf("fail to stop unit: message:[%s], error:[%s]", resp, stopErr.Error())
+			}
 		}
 
 		return nil

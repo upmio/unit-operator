@@ -3,11 +3,12 @@ package unit_agent
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
-	"log"
-	"net"
 
 	"github.com/upmio/unit-operator/pkg/agent/app/config"
 	"github.com/upmio/unit-operator/pkg/agent/app/service"
@@ -16,9 +17,7 @@ import (
 func SyncConfig(agentHostType, unitsetHeadlessSvc, host, port, namespace, templateConfigmapName, valueConfigmapName, mainContainerName string, extendConfigmaps []string) (string, error) {
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
-	//klog.Infof("[SyncConfig] addr: [%s]", addr)
 
-	//conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		klog.Errorf("[SyncConfig] make connection err:[%s]", err.Error())
@@ -49,9 +48,7 @@ func SyncConfig(agentHostType, unitsetHeadlessSvc, host, port, namespace, templa
 func ServiceLifecycleManagement(agentHostType, unitsetHeadlessSvc, host, namespace, port, actionType string) (string, error) {
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
-	//klog.Infof("[ServiceLifecycleManagement] addr: [%s]", addr)
 
-	//conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		klog.Errorf("[ServiceLifecycleManagement] make connection err:[%s]", err.Error())
@@ -92,7 +89,6 @@ func GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, 
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
 
-	//conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)

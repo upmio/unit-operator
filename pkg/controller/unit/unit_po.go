@@ -44,7 +44,7 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 	}
 
 	if !pod.DeletionTimestamp.IsZero() {
-		return fmt.Errorf("Pod [%s] is marked for deleted", pod.Name)
+		return fmt.Errorf("pod [%s] is marked for deleted", pod.Name)
 	}
 
 	// update mem,cpu,image,env or node_affinity fail will trigger recreate pod
@@ -167,7 +167,7 @@ func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit 
 	tmpuint := unit.DeepCopy()
 	tmpuint.Spec.Startup = false
 
-	err := r.reconcileUnitServer(ctx, tmpuint)
+	err := r.reconcileUnitServer(ctx, req, tmpuint)
 	if err != nil && !apierrors.IsNotFound(err) {
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ErrResourceExists", "ignore: stop server fail [%s]", err.Error())
 		// return err
