@@ -24,6 +24,11 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		return nil
 	}
 
+	getUnitErr := r.Get(ctx, req.NamespacedName, unit)
+	if getUnitErr != nil {
+		return getUnitErr
+	}
+
 	pod := &v1.Pod{}
 	podNamespacedName := client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}
 	err := r.Get(ctx, podNamespacedName, pod)
@@ -39,7 +44,7 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 
 	// container [unit-agent] not ready, not support unit lifecycle management
 	if !podutil.IsContainerRunningAndReady(pod, vars.UnitAgentName) {
-		klog.Errorf("[reconcileUnitConfig] container [unit-agent] not ready, not support unit lifecycle management")
+		klog.Errorf("[reconcileUnitServer] container [unit-agent] not ready, not support unit lifecycle management")
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ResourceCheck", "container [unit-agent] not ready, not support unit lifecycle management")
 		return nil
 	}
@@ -62,6 +67,9 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 			return nil
 		}
 
+		klog.Infof("[reconcileUnitServer] unit:[%s] unit.spec.startup=true, will execute [start]",
+			req.NamespacedName.String())
+
 		var lastTimeMessage string
 		var startErr error
 
@@ -76,6 +84,10 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 				"start")
 
 			if startErr != nil {
+
+				klog.Errorf("[reconcileUnitServer] unit:[%s] EXECUTE [start] error:[%s]",
+					req.NamespacedName.String(), startErr.Error())
+
 				return false, nil
 			}
 
@@ -83,11 +95,10 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		})
 
 		if waitErr != nil {
-
 			klog.Warningf("[start service] unit:[%s] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
 				req.String(), lastTimeMessage, startErr.Error())
 
-			r.Recorder.Eventf(unit, v1.EventTypeWarning, "SyncConfigFailed",
+			r.Recorder.Eventf(unit, v1.EventTypeWarning, "StartUP",
 				"[start service] start up timeout, message:[%s], error:[%s], will trrigger [stop service] and then redo [start up]",
 				lastTimeMessage, startErr.Error())
 
@@ -103,6 +114,9 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 				return fmt.Errorf("fail to stop unit: message:[%s], error:[%s]", resp, stopErr.Error())
 			}
 		}
+
+		klog.Infof("[reconcileUnitServer] unit:[%s] execute [start] ok~ ",
+			req.NamespacedName.String())
 
 		return nil
 	}
