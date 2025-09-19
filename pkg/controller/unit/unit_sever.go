@@ -85,12 +85,22 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 			return fmt.Errorf("fail to start unit: message:[%s], error:[%s]", resp, startErr.Error())
 		}
 
-		time.Sleep(2 * time.Second)
+		var timeout int
+		var periodSeconds int
+		for _, one := range pod.Spec.Containers {
+			if one.Name == unit.MainContainerName() {
+				periodSeconds = int(one.ReadinessProbe.PeriodSeconds)
+				timeout = int(one.ReadinessProbe.PeriodSeconds*one.ReadinessProbe.SuccessThreshold + one.ReadinessProbe.TimeoutSeconds)
+				break
+			}
+		}
 
-		klog.Infof("[reconcileUnitServer] unit:[%s] EXECUTE [start] ok, will wait for pod running and ready, 5s/30s", req.String())
-		waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		klog.Infof("[reconcileUnitServer] unit:[%s] EXECUTE [start] ok, will wait for pod running and ready, [%d]s/[%d]s",
+			req.String(), periodSeconds, timeout)
+
+		waitErr := wait.PollUntilContextTimeout(ctx, time.Duration(periodSeconds)*time.Second, time.Duration(timeout)*time.Second, false, func(ctx context.Context) (bool, error) {
 			newPod := &v1.Pod{}
-			newPodErr := r.Get(ctx, req.NamespacedName, pod)
+			newPodErr := r.Get(ctx, req.NamespacedName, newPod)
 			if newPodErr != nil {
 				return false, nil
 			}
@@ -103,7 +113,7 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		})
 
 		if waitErr != nil {
-			klog.Warningf("[start service] unit:[%s] start up timeout, will trrigger [stop service] and then redo [start up]",
+			klog.Warningf("[reconcileUnitServer] [start service] unit:[%s] start up timeout, will trrigger [stop service] and then redo [start up]",
 				req.String())
 
 			r.Recorder.Eventf(unit, v1.EventTypeWarning, "StartUp", "[start up] timeout, will trrigger [stop] and then redo [start]")
@@ -119,6 +129,8 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 			if stopErr != nil {
 				return fmt.Errorf("fail to stop unit: message:[%s], error:[%s]", stopMessage, stopErr.Error())
 			}
+
+			return nil
 		}
 
 		klog.Infof("[reconcileUnitServer] unit:[%s] execute [start] ok~ ",
