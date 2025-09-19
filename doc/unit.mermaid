@@ -1,37 +1,24 @@
 sequenceDiagram
     participant User
     participant API Server
-    participant Webhook Server
-    participant Unit Controller
-    participant Servicemonitor Controller
-    participant Certmanager Controller
     participant PVC Controller
-    participant Configmap Controller
-    participant Service Controller
     participant Scheduler
     participant Kubelet
     participant Unit Agent
-    participant Metric Server
-
+    participant Unit Controller
+    
 
     User->>API Server: Create Unit
     API Server-->>User: Confirm creation
 
-    API Server->>Webhook Server: Mutate/Validate Unit
-    Note over Webhook Server,API Server: Admission only; no defaulting changes currently
-    Webhook Server-->>API Server: Admission allowed
-
     Unit Controller->>API Server: Listen to Unit changes
     API Server-->>Unit Controller: Notify new Unit creation
-
-    Note over Unit Controller: No Unit-level finalizers
-
-    Note over Unit Controller: Unit does not manage shared ConfigMap/Service
-    Note over Unit Controller: Shared ConfigMap/Service are created by UnitSet
 
     Unit Controller->>API Server: Create the pvc
     API Server->>PVC Controller: Notify new pvc creation
 
+    Unit Controller->>Unit Controller: Update unit status
+    
     Unit Controller->>API Server: Create Pod
 
     Scheduler->>API Server: Listen for unscheduled Pods
@@ -46,19 +33,11 @@ sequenceDiagram
     Kubelet->>API Server: Update Pod Status
 
     Unit Controller->>API Server: Listen to pod status
+    
+    Unit Controller->>Unit Controller: Update unit status
+    
+    Unit Controller->>Unit Agent: Load unit config
 
-    Unit Controller->Unit Agent: Load unit config
-
-    alt Prometheus monitoring enabled
-        User->>API Server: Apply ServiceMonitor (optional)
-        API Server->>Servicemonitor Controller: Notify new servicemonitor creation
-    end
-
-    Unit Controller->Unit Agent: Start the process
-
-    alt Metrics endpoint available
-        Unit Controller->>Metric Server: Get monitoring information
-        Metric Server->>Unit Controller: Return monitoring information
-    end
+    Unit Controller->>Unit Agent: Start the process
 
     Unit Controller->>Unit Controller: Update unit status
