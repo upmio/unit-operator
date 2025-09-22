@@ -120,7 +120,7 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 		}
 
 		// create
-		newPod, _ := convert2Pod(unit)
+		newPod, _ := r.convert2Pod(ctx, unit)
 
 		err = r.Create(ctx, newPod)
 		if err == nil {

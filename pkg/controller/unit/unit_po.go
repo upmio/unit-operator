@@ -34,7 +34,7 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 	if apierrors.IsNotFound(err) {
 
 		// if not found, generate from template
-		pod, _ = convert2Pod(unit)
+		pod, _ = r.convert2Pod(ctx, unit)
 
 		err = r.Create(ctx, pod)
 		if err != nil {
@@ -167,11 +167,6 @@ func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit 
 
 	r.Recorder.Eventf(unit, v1.EventTypeNormal, "ResourceCheck", "[%s] trigger regenerate pod: stop service -> delete pod -> regenerate pod", upgradeReason)
 
-	unitGetErr := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, unit)
-	if unitGetErr != nil {
-		return fmt.Errorf("[upgradePod] get unit error:[%s]", unitGetErr.Error())
-	}
-
 	// stop service
 	tmpUint := unit.DeepCopy()
 	tmpUint.Spec.Startup = false
@@ -207,7 +202,7 @@ func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit 
 	}
 
 	// create
-	pod, err = convert2Pod(unit)
+	pod, err = r.convert2Pod(ctx, unit)
 	if err != nil {
 		return fmt.Errorf("convert unit to pod error:[%s]", err.Error())
 	}
@@ -220,7 +215,12 @@ func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit 
 	return err
 }
 
-func convert2Pod(unit *upmiov1alpha2.Unit) (*v1.Pod, error) {
+func (r *UnitReconciler) convert2Pod(ctx context.Context, unit *upmiov1alpha2.Unit) (*v1.Pod, error) {
+	unitGetErr := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}, unit)
+	if unitGetErr != nil {
+		return nil, fmt.Errorf("[upgradePod] get unit error:[%s]", unitGetErr.Error())
+	}
+
 	ref := metav1.NewControllerRef(unit, controllerKind)
 	desiredLabels := getPodsLabelSet(unit)
 	//desiredFinalizers := getPodsFinalizers(&unit.Spec.Template)
@@ -432,7 +432,7 @@ func (r *UnitReconciler) podAutoRecovery(ctx context.Context, req ctrl.Request, 
 		}
 
 		// create
-		newPod, _ := convert2Pod(unit)
+		newPod, _ := r.convert2Pod(ctx, unit)
 
 		err = r.Create(ctx, newPod)
 		if err == nil {
