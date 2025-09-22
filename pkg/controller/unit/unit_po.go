@@ -152,15 +152,74 @@ func generatePatchPod(unit *upmiov1alpha2.Unit, curPod *v1.Pod) *v1.Pod {
 
 	for i := range unit.Spec.Template.Spec.Containers {
 		for j := range clone.Spec.Containers {
-			if unit.Spec.Template.Spec.Containers[i].Name != unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] &&
-				unit.Spec.Template.Spec.Containers[i].Name == clone.Spec.Containers[j].Name &&
-				clone.Spec.Containers[j].Image != unit.Spec.Template.Spec.Containers[i].Image {
-				clone.Spec.Containers[j].Image = unit.Spec.Template.Spec.Containers[i].Image
+			if unit.Spec.Template.Spec.Containers[i].Name == clone.Spec.Containers[j].Name {
+				// Update non-main container images
+				if unit.Spec.Template.Spec.Containers[i].Name != unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] &&
+					clone.Spec.Containers[j].Image != unit.Spec.Template.Spec.Containers[i].Image {
+					clone.Spec.Containers[j].Image = unit.Spec.Template.Spec.Containers[i].Image
+				}
+
+				// Sync environment variables for all containers (including main container)
+				// This ensures that environment variable changes are applied without pod recreation
+				if !envVarsEqual(unit.Spec.Template.Spec.Containers[i].Env, clone.Spec.Containers[j].Env) {
+					clone.Spec.Containers[j].Env = make([]v1.EnvVar, len(unit.Spec.Template.Spec.Containers[i].Env))
+					copy(clone.Spec.Containers[j].Env, unit.Spec.Template.Spec.Containers[i].Env)
+				}
+			}
+		}
+	}
+
+	// Sync environment variables for init containers
+	for i := range unit.Spec.Template.Spec.InitContainers {
+		for j := range clone.Spec.InitContainers {
+			if unit.Spec.Template.Spec.InitContainers[i].Name == clone.Spec.InitContainers[j].Name {
+				// Sync environment variables for init containers
+				if !envVarsEqual(unit.Spec.Template.Spec.InitContainers[i].Env, clone.Spec.InitContainers[j].Env) {
+					clone.Spec.InitContainers[j].Env = make([]v1.EnvVar, len(unit.Spec.Template.Spec.InitContainers[i].Env))
+					copy(clone.Spec.InitContainers[j].Env, unit.Spec.Template.Spec.InitContainers[i].Env)
+				}
 			}
 		}
 	}
 
 	return clone
+}
+
+// envVarsEqual compares two slices of EnvVar and returns true if they are equal
+func envVarsEqual(a, b []v1.EnvVar) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create maps for efficient comparison
+	aMap := make(map[string]v1.EnvVar)
+	bMap := make(map[string]v1.EnvVar)
+
+	for _, env := range a {
+		aMap[env.Name] = env
+	}
+
+	for _, env := range b {
+		bMap[env.Name] = env
+	}
+
+	// Check if all env vars in a exist in b with same values
+	for name, envA := range aMap {
+		envB, exists := bMap[name]
+		if !exists {
+			return false
+		}
+
+		if envA.Value != envB.Value {
+			return false
+		}
+
+		if !reflect.DeepEqual(envA.ValueFrom, envB.ValueFrom) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit, pod *v1.Pod, upgradeReason string) error {
@@ -282,6 +341,7 @@ func getPodsAnnotationSet(unit *upmiov1alpha2.Unit) labels.Set {
 
 // main container
 func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason string, needUpgrade bool) {
+	// Check main container for critical changes that require pod recreation
 	for _, unitContainer := range unit.Spec.Template.Spec.Containers {
 		for _, podContainer := range pod.Spec.Containers {
 
@@ -302,11 +362,38 @@ func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason stri
 					return "memory changed", true
 				}
 
-				// env
+				// env - only check for main container for critical changes that require restart
 				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) {
 					return "env changed", true
 				}
+			}
+		}
+	}
 
+	// Check all containers for environment variable consistency (including non-main containers)
+	// This is important to ensure all containers have consistent environment variables
+	for _, unitContainer := range unit.Spec.Template.Spec.Containers {
+		for _, podContainer := range pod.Spec.Containers {
+			if unitContainer.Name == podContainer.Name {
+				// For non-main containers, we still want to detect env changes
+				// but we can handle them via patch rather than recreation
+				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) && 
+					unitContainer.Name != unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] {
+					// For non-main containers, we'll let the patch mechanism handle env var updates
+					klog.Infof("Detected env var changes in non-main container %s, will be handled via patch", unitContainer.Name)
+				}
+			}
+		}
+	}
+
+	// Check init containers for environment variable consistency
+	for _, unitInitContainer := range unit.Spec.Template.Spec.InitContainers {
+		for _, podInitContainer := range pod.Spec.InitContainers {
+			if unitInitContainer.Name == podInitContainer.Name {
+				if !LoopCompareEnv(unitInitContainer.Env, podInitContainer.Env) {
+					// Init containers typically need restart for env changes
+					return "init container env changed", true
+				}
 			}
 		}
 	}
@@ -330,17 +417,30 @@ func LoopCompareEnv(unitEnvs, podEnvs []v1.EnvVar) bool {
 		return false
 	}
 
+	// If unit has no env vars but pod has some, they are different
+	if len(unitEnvs) == 0 && len(podEnvs) > 0 {
+		return false
+	}
+
+	// If unit has env vars but pod has none, they are different
+	if len(unitEnvs) > 0 && len(podEnvs) == 0 {
+		return false
+	}
+
+	// If both are empty, they are the same
+	if len(unitEnvs) == 0 && len(podEnvs) == 0 {
+		return true
+	}
+
 	// Compare only the env's in the unit.
 	// i：If it exists in unit but not in pod, return false
 	// ii：If it exists in unit and it exists in pod, but the value is not the same, then it returns false
 
-	findEnv := false
-
 	for i := range unitEnvs {
+		found := false
 		for j := range podEnvs {
 			if unitEnvs[i].Name == podEnvs[j].Name {
-
-				findEnv = true
+				found = true
 
 				if unitEnvs[i].Value != "" && unitEnvs[i].Value != podEnvs[j].Value {
 					klog.Infof("[LoopCompareEnv] [value] env name:%s, unit value:%s, pod value:%s", unitEnvs[i].Name, unitEnvs[i].Value, podEnvs[j].Value)
@@ -348,13 +448,28 @@ func LoopCompareEnv(unitEnvs, podEnvs []v1.EnvVar) bool {
 				} else if unitEnvs[i].ValueFrom != nil && !reflect.DeepEqual(unitEnvs[i].ValueFrom, podEnvs[j].ValueFrom) {
 					klog.Infof("[LoopCompareEnv] [valueFrom] env name:%s, unit valueFrom:%v, pod valueFrom:%v", unitEnvs[i].Name, unitEnvs[i].ValueFrom, podEnvs[j].ValueFrom)
 					return false
+				} else if unitEnvs[i].Value == "" && unitEnvs[i].ValueFrom == nil && podEnvs[j].Value != "" {
+					// Unit env has empty value but pod env has a value
+					klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod value:%s", unitEnvs[i].Name, podEnvs[j].Value)
+					return false
+				} else if unitEnvs[i].Value == "" && unitEnvs[i].ValueFrom == nil && podEnvs[j].ValueFrom != nil {
+					// Unit env has empty value but pod env has valueFrom
+					klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod has valueFrom:%v", unitEnvs[i].Name, podEnvs[j].ValueFrom)
+					return false
 				}
 
+				break
 			}
+		}
+
+		// If env from unit not found in pod, they are different
+		if !found {
+			klog.Infof("[LoopCompareEnv] env name:%s exists in unit but not found in pod", unitEnvs[i].Name)
+			return false
 		}
 	}
 
-	return findEnv
+	return true
 }
 
 func (r *UnitReconciler) waitUntilPodScheduled(ctx context.Context, podName, namespace string) (*v1.Pod, error) {
