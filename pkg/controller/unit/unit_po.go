@@ -24,9 +24,13 @@ import (
 
 func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
 
+	unitGetErr := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, unit)
+	if unitGetErr != nil {
+		return fmt.Errorf("[reconcilePod] get unit error:[%s]", unitGetErr.Error())
+	}
+
 	pod := &v1.Pod{}
 	err := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, pod)
-
 	if apierrors.IsNotFound(err) {
 
 		// if not found, generate from template
@@ -163,11 +167,16 @@ func (r *UnitReconciler) upgradePod(ctx context.Context, req ctrl.Request, unit 
 
 	r.Recorder.Eventf(unit, v1.EventTypeNormal, "ResourceCheck", "[%s] trigger regenerate pod: stop service -> delete pod -> regenerate pod", upgradeReason)
 
-	// stop service
-	tmpuint := unit.DeepCopy()
-	tmpuint.Spec.Startup = false
+	unitGetErr := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, unit)
+	if unitGetErr != nil {
+		return fmt.Errorf("[upgradePod] get unit error:[%s]", unitGetErr.Error())
+	}
 
-	err := r.reconcileUnitServer(ctx, req, tmpuint)
+	// stop service
+	tmpUint := unit.DeepCopy()
+	tmpUint.Spec.Startup = false
+
+	err := r.reconcileUnitServer(ctx, req, tmpUint)
 	if err != nil && !apierrors.IsNotFound(err) {
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ErrResourceExists", "ignore: stop server fail [%s]", err.Error())
 		// return err
@@ -227,8 +236,7 @@ func convert2Pod(unit *upmiov1alpha2.Unit) (*v1.Pod, error) {
 		},
 	}
 
-	podSpec := unit.Spec.Template.Spec.DeepCopy()
-	pod.Spec = *podSpec
+	unit.Spec.Template.Spec.DeepCopyInto(&pod.Spec)
 
 	return &pod, nil
 }
