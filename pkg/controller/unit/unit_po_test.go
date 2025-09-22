@@ -79,6 +79,13 @@ var _ = Describe("UnitPO Reconciler", func() {
 						Annotations: map[string]string{"template-annotation": "template-value"},
 					},
 					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{
+							{
+								Name:  "init-container",
+								Image: "busybox:init",
+								Env:   []corev1.EnvVar{{Name: "INIT_ENV", Value: "init_value"}},
+							},
+						},
 						Containers: []corev1.Container{
 							{
 								Name:  "main-container",
@@ -111,6 +118,13 @@ var _ = Describe("UnitPO Reconciler", func() {
 				},
 			},
 			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "init-container",
+						Image: "busybox:init",
+						Env:   []corev1.EnvVar{{Name: "INIT_ENV", Value: "init_value"}},
+					},
+				},
 				Containers: []corev1.Container{
 					{
 						Name:  "main-container",
@@ -281,11 +295,87 @@ var _ = Describe("UnitPO Reconciler", func() {
 			patchedPod := generatePatchPod(unit, pod)
 			Expect(patchedPod.Spec.Containers[0].Image).To(Equal("nginx:1.0.0"))
 		})
+
+		It("should sync environment variables for main container", func() {
+			unit.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
+				{Name: "NEW_ENV", Value: "new_value"},
+				{Name: "ENV1", Value: "updated_value"},
+			}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.Containers[0].Env).To(HaveLen(2))
+			Expect(patchedPod.Spec.Containers[0].Env[0].Name).To(Equal("NEW_ENV"))
+			Expect(patchedPod.Spec.Containers[0].Env[0].Value).To(Equal("new_value"))
+			Expect(patchedPod.Spec.Containers[0].Env[1].Name).To(Equal("ENV1"))
+			Expect(patchedPod.Spec.Containers[0].Env[1].Value).To(Equal("updated_value"))
+		})
+
+		It("should sync environment variables for non-main container", func() {
+			unit.Spec.Template.Spec.Containers[1].Env = []corev1.EnvVar{
+				{Name: "SIDECAR_ENV", Value: "sidecar_value"},
+			}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.Containers[1].Env).To(HaveLen(1))
+			Expect(patchedPod.Spec.Containers[1].Env[0].Name).To(Equal("SIDECAR_ENV"))
+			Expect(patchedPod.Spec.Containers[1].Env[0].Value).To(Equal("sidecar_value"))
+		})
+
+		It("should handle empty environment variables", func() {
+			unit.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{}
+			pod.Spec.Containers[0].Env = []corev1.EnvVar{{Name: "OLD_ENV", Value: "old_value"}}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.Containers[0].Env).To(HaveLen(0))
+		})
+
+		It("should sync environment variables with valueFrom", func() {
+			unit.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
+				{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+				}},
+			}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.Containers[0].Env).To(HaveLen(1))
+			Expect(patchedPod.Spec.Containers[0].Env[0].Name).To(Equal("POD_NAME"))
+			Expect(patchedPod.Spec.Containers[0].Env[0].ValueFrom).NotTo(BeNil())
+			Expect(patchedPod.Spec.Containers[0].Env[0].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.name"))
+		})
+
+		It("should sync environment variables for init containers", func() {
+			unit.Spec.Template.Spec.InitContainers[0].Env = []corev1.EnvVar{
+				{Name: "INIT_NEW_ENV", Value: "init_new_value"},
+				{Name: "INIT_ENV", Value: "updated_init_value"},
+			}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.InitContainers).To(HaveLen(1))
+			Expect(patchedPod.Spec.InitContainers[0].Env).To(HaveLen(2))
+			Expect(patchedPod.Spec.InitContainers[0].Env[0].Name).To(Equal("INIT_NEW_ENV"))
+			Expect(patchedPod.Spec.InitContainers[0].Env[0].Value).To(Equal("init_new_value"))
+			Expect(patchedPod.Spec.InitContainers[0].Env[1].Name).To(Equal("INIT_ENV"))
+			Expect(patchedPod.Spec.InitContainers[0].Env[1].Value).To(Equal("updated_init_value"))
+		})
+
+		It("should handle empty init container environment variables", func() {
+			unit.Spec.Template.Spec.InitContainers[0].Env = []corev1.EnvVar{}
+			pod.Spec.InitContainers[0].Env = []corev1.EnvVar{{Name: "OLD_INIT_ENV", Value: "old_init_value"}}
+
+			patchedPod := generatePatchPod(unit, pod)
+
+			Expect(patchedPod.Spec.InitContainers[0].Env).To(HaveLen(0))
+		})
 	})
 
 	Context("convert2Pod", func() {
 		It("should create pod from unit template", func() {
-			createdPod, err := convert2Pod(unit)
+			createdPod, err := reconciler.convert2Pod(ctx, unit)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdPod.Name).To(Equal(unit.Name))
 			Expect(createdPod.Namespace).To(Equal(unit.Namespace))
@@ -376,6 +466,24 @@ var _ = Describe("UnitPO Reconciler", func() {
 			Expect(reason).To(Equal("env changed"))
 		})
 
+		It("should detect env change in non-main container", func() {
+			unit.Spec.Template.Spec.Containers[1].Env = []corev1.EnvVar{{Name: "SIDECAR_ENV", Value: "expected"}}
+			pod.Spec.Containers[1].Env = []corev1.EnvVar{{Name: "SIDECAR_ENV", Value: "different"}}
+
+			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
+			Expect(needUpgrade).To(BeTrue())
+			Expect(reason).To(Equal("container sidecar env changed"))
+		})
+
+		It("should detect additional env in non-main container", func() {
+			unit.Spec.Template.Spec.Containers[1].Env = nil
+			pod.Spec.Containers[1].Env = []corev1.EnvVar{{Name: "EXTRA", Value: "value"}}
+
+			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
+			Expect(needUpgrade).To(BeTrue())
+			Expect(reason).To(Equal("container sidecar env changed"))
+		})
+
 		It("should detect node affinity failure", func() {
 			pod.Status.Phase = corev1.PodFailed
 			pod.Status.Reason = "NodeAffinity"
@@ -390,6 +498,106 @@ var _ = Describe("UnitPO Reconciler", func() {
 			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
 			Expect(needUpgrade).To(BeFalse())
 			Expect(reason).To(BeEmpty())
+		})
+
+		It("should detect env change in init container", func() {
+			unit.Spec.Template.Spec.InitContainers[0].Env = []corev1.EnvVar{{Name: "INIT_ENV", Value: "expected"}}
+			pod.Spec.InitContainers[0].Env = []corev1.EnvVar{{Name: "INIT_ENV", Value: "different"}}
+
+			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
+			Expect(needUpgrade).To(BeTrue())
+			Expect(reason).To(Equal("init container env changed"))
+		})
+
+		It("should detect additional env in init container", func() {
+			unit.Spec.Template.Spec.InitContainers[0].Env = nil
+			pod.Spec.InitContainers[0].Env = []corev1.EnvVar{{Name: "EXTRA_INIT", Value: "value"}}
+
+			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
+			Expect(needUpgrade).To(BeTrue())
+			Expect(reason).To(Equal("init container env changed"))
+		})
+
+		It("should detect missing env in init container", func() {
+			unit.Spec.Template.Spec.InitContainers[0].Env = []corev1.EnvVar{{Name: "REQUIRED_INIT", Value: "value"}}
+			pod.Spec.InitContainers[0].Env = nil
+
+			reason, needUpgrade := ifNeedUpgradePod(unit, pod)
+			Expect(needUpgrade).To(BeTrue())
+			Expect(reason).To(Equal("init container env changed"))
+		})
+	})
+
+	Context("envVarsEqual", func() {
+		It("should return true when env vars are identical", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "ENV2", Value: "value2"}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "ENV2", Value: "value2"}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should return false when env var counts differ", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "ENV2", Value: "value2"}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should return false when env var values differ", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", Value: "value2"}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should return false when env var names differ", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV2", Value: "value1"}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should handle valueFrom comparison correctly", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should detect different valueFrom configurations", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}}}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should handle mixed value and valueFrom", func() {
+			envVarsA := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
+			envVarsB := []corev1.EnvVar{{Name: "ENV1", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}}}
+
+			result := envVarsEqual(envVarsA, envVarsB)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should handle nil slices", func() {
+			result := envVarsEqual(nil, nil)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should handle empty slices", func() {
+			result := envVarsEqual([]corev1.EnvVar{}, []corev1.EnvVar{})
+			Expect(result).To(BeTrue())
+		})
+
+		It("should handle nil vs empty slice", func() {
+			result := envVarsEqual(nil, []corev1.EnvVar{})
+			Expect(result).To(BeTrue())
 		})
 	})
 
@@ -426,9 +634,38 @@ var _ = Describe("UnitPO Reconciler", func() {
 			Expect(result).To(BeFalse())
 		})
 
+		It("should detect extra env vars on pod", func() {
+			unitEnvs := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}}
+			podEnvs := []corev1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "EXTRA", Value: "value2"}}
+
+			result := LoopCompareEnv(unitEnvs, podEnvs)
+			Expect(result).To(BeFalse())
+		})
+
 		It("should handle nil env vars", func() {
 			result := LoopCompareEnv(nil, nil)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should handle empty env vars", func() {
+			result := LoopCompareEnv([]corev1.EnvVar{}, []corev1.EnvVar{})
+			Expect(result).To(BeTrue())
+		})
+
+		It("should handle unit env with empty value correctly", func() {
+			unitEnvs := []corev1.EnvVar{{Name: "ENV1", Value: ""}}
+			podEnvs := []corev1.EnvVar{{Name: "ENV1", Value: "some-value"}}
+
+			result := LoopCompareEnv(unitEnvs, podEnvs)
 			Expect(result).To(BeFalse())
+		})
+
+		It("should handle unit env with empty value and nil valueFrom", func() {
+			unitEnvs := []corev1.EnvVar{{Name: "ENV1", Value: "", ValueFrom: nil}}
+			podEnvs := []corev1.EnvVar{{Name: "ENV1", Value: "", ValueFrom: nil}}
+
+			result := LoopCompareEnv(unitEnvs, podEnvs)
+			Expect(result).To(BeTrue())
 		})
 	})
 

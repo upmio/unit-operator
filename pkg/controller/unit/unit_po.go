@@ -341,11 +341,15 @@ func getPodsAnnotationSet(unit *upmiov1alpha2.Unit) labels.Set {
 
 // main container
 func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason string, needUpgrade bool) {
-	// Check main container for critical changes that require pod recreation
+	mainContainerName := unit.Annotations[upmiov1alpha2.AnnotationMainContainerName]
+
 	for _, unitContainer := range unit.Spec.Template.Spec.Containers {
 		for _, podContainer := range pod.Spec.Containers {
+			if unitContainer.Name != podContainer.Name {
+				continue
+			}
 
-			if unitContainer.Name == podContainer.Name && podContainer.Name == unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] {
+			if unitContainer.Name == mainContainerName {
 				// main container image
 				if unitContainer.Image != podContainer.Image {
 					return "image changed", true
@@ -362,27 +366,18 @@ func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason stri
 					return "memory changed", true
 				}
 
-				// env - only check for main container for critical changes that require restart
+				// env - main container must restart to apply changes
 				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) {
 					return "env changed", true
 				}
-			}
-		}
-	}
-
-	// Check all containers for environment variable consistency (including non-main containers)
-	// This is important to ensure all containers have consistent environment variables
-	for _, unitContainer := range unit.Spec.Template.Spec.Containers {
-		for _, podContainer := range pod.Spec.Containers {
-			if unitContainer.Name == podContainer.Name {
-				// For non-main containers, we still want to detect env changes
-				// but we can handle them via patch rather than recreation
-				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) && 
-					unitContainer.Name != unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] {
-					// For non-main containers, we'll let the patch mechanism handle env var updates
-					klog.Infof("Detected env var changes in non-main container %s, will be handled via patch", unitContainer.Name)
+			} else {
+				// Any non-main container env drift requires recreation to keep pod in sync with Unit spec
+				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) {
+					return fmt.Sprintf("container %s env changed", unitContainer.Name), true
 				}
 			}
+
+			break
 		}
 	}
 
@@ -412,64 +407,59 @@ func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason stri
 
 // LoopCompareEnv compare two env slice
 func LoopCompareEnv(unitEnvs, podEnvs []v1.EnvVar) bool {
-
 	if (unitEnvs == nil) != (podEnvs == nil) {
 		return false
 	}
 
-	// If unit has no env vars but pod has some, they are different
-	if len(unitEnvs) == 0 && len(podEnvs) > 0 {
-		return false
-	}
-
-	// If unit has env vars but pod has none, they are different
-	if len(unitEnvs) > 0 && len(podEnvs) == 0 {
-		return false
-	}
-
-	// If both are empty, they are the same
 	if len(unitEnvs) == 0 && len(podEnvs) == 0 {
 		return true
 	}
 
-	// Compare only the env's in the unit.
-	// i：If it exists in unit but not in pod, return false
-	// ii：If it exists in unit and it exists in pod, but the value is not the same, then it returns false
+	matched := true
+
+	if len(unitEnvs) != len(podEnvs) {
+		klog.Infof("[LoopCompareEnv] env count mismatch, unit len:%d, pod len:%d", len(unitEnvs), len(podEnvs))
+		matched = false
+	}
+
+	podEnvMap := make(map[string]v1.EnvVar, len(podEnvs))
+	for _, podEnv := range podEnvs {
+		podEnvMap[podEnv.Name] = podEnv
+	}
 
 	for i := range unitEnvs {
-		found := false
-		for j := range podEnvs {
-			if unitEnvs[i].Name == podEnvs[j].Name {
-				found = true
+		podEnv, exists := podEnvMap[unitEnvs[i].Name]
+		if !exists {
+			klog.Infof("[LoopCompareEnv] env name:%s exists in unit but not found in pod", unitEnvs[i].Name)
+			matched = false
+			continue
+		}
 
-				if unitEnvs[i].Value != "" && unitEnvs[i].Value != podEnvs[j].Value {
-					klog.Infof("[LoopCompareEnv] [value] env name:%s, unit value:%s, pod value:%s", unitEnvs[i].Name, unitEnvs[i].Value, podEnvs[j].Value)
-					return false
-				} else if unitEnvs[i].ValueFrom != nil && !reflect.DeepEqual(unitEnvs[i].ValueFrom, podEnvs[j].ValueFrom) {
-					klog.Infof("[LoopCompareEnv] [valueFrom] env name:%s, unit valueFrom:%v, pod valueFrom:%v", unitEnvs[i].Name, unitEnvs[i].ValueFrom, podEnvs[j].ValueFrom)
-					return false
-				} else if unitEnvs[i].Value == "" && unitEnvs[i].ValueFrom == nil && podEnvs[j].Value != "" {
-					// Unit env has empty value but pod env has a value
-					klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod value:%s", unitEnvs[i].Name, podEnvs[j].Value)
-					return false
-				} else if unitEnvs[i].Value == "" && unitEnvs[i].ValueFrom == nil && podEnvs[j].ValueFrom != nil {
-					// Unit env has empty value but pod env has valueFrom
-					klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod has valueFrom:%v", unitEnvs[i].Name, podEnvs[j].ValueFrom)
-					return false
-				}
-
-				break
+		if unitEnvs[i].Value != "" && unitEnvs[i].Value != podEnv.Value {
+			klog.Infof("[LoopCompareEnv] [value] env name:%s, unit value:%s, pod value:%s", unitEnvs[i].Name, unitEnvs[i].Value, podEnv.Value)
+			matched = false
+		} else if unitEnvs[i].ValueFrom != nil && !reflect.DeepEqual(unitEnvs[i].ValueFrom, podEnv.ValueFrom) {
+			klog.Infof("[LoopCompareEnv] [valueFrom] env name:%s, unit valueFrom:%v, pod valueFrom:%v", unitEnvs[i].Name, unitEnvs[i].ValueFrom, podEnv.ValueFrom)
+			matched = false
+		} else if unitEnvs[i].Value == "" && unitEnvs[i].ValueFrom == nil {
+			if podEnv.Value != "" {
+				klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod value:%s", unitEnvs[i].Name, podEnv.Value)
+				matched = false
+			} else if podEnv.ValueFrom != nil {
+				klog.Infof("[LoopCompareEnv] [empty value] env name:%s, unit value is empty but pod has valueFrom:%v", unitEnvs[i].Name, podEnv.ValueFrom)
+				matched = false
 			}
 		}
 
-		// If env from unit not found in pod, they are different
-		if !found {
-			klog.Infof("[LoopCompareEnv] env name:%s exists in unit but not found in pod", unitEnvs[i].Name)
-			return false
-		}
+		delete(podEnvMap, unitEnvs[i].Name)
 	}
 
-	return true
+	for name := range podEnvMap {
+		klog.Infof("[LoopCompareEnv] env name:%s exists in pod but not found in unit", name)
+		matched = false
+	}
+
+	return matched
 }
 
 func (r *UnitReconciler) waitUntilPodScheduled(ctx context.Context, podName, namespace string) (*v1.Pod, error) {

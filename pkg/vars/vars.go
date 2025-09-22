@@ -2,6 +2,7 @@ package vars
 
 import (
 	"os"
+	"strings"
 
 	"k8s.io/klog/v2"
 )
@@ -19,10 +20,14 @@ var (
 func init() {
 	managerNamespace := os.Getenv("NAMESPACE")
 	if managerNamespace == "" {
-		klog.Fatalf("not found env: [NAMESPACE], can't start service...")
-	} else {
-		ManagerNamespace = managerNamespace
+		if strings.HasSuffix(os.Args[0], ".test") {
+			managerNamespace = ManagerNamespace
+			_ = os.Setenv("NAMESPACE", managerNamespace)
+		} else {
+			klog.Fatalf("not found env: [NAMESPACE], can't start service...")
+		}
 	}
+	ManagerNamespace = managerNamespace
 
 	ipFamily := os.Getenv("IP_FAMILY")
 	//if ipFamily == "" {
