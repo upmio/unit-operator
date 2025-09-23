@@ -19,7 +19,6 @@ package unit
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -375,6 +374,9 @@ var _ = Describe("UnitPO Reconciler", func() {
 
 	Context("convert2Pod", func() {
 		It("should create pod from unit template", func() {
+			// Create the unit in K8s first so convert2Pod can find it
+			Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+
 			createdPod, err := reconciler.convert2Pod(ctx, unit)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdPod.Name).To(Equal(unit.Name))
@@ -691,5 +693,3 @@ var _ = Describe("UnitPO Reconciler", func() {
 		//})
 	})
 })
-
-func TestUnitPO(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "UnitPO Suite") }

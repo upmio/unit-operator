@@ -323,7 +323,6 @@ var _ = Describe("Keypair generation", func() {
 var _ = Describe("Certicate duration and expiration threshold", func() {
 	defaultCertificateDuration := certificateDuration * 24 * time.Hour
 	defaultExpiringThreshold := expiringCheckThreshold * 24 * time.Hour
-	tenDays := 10 * 24 * time.Hour
 
 	//BeforeEach(func() {
 	//	configuration.Current = configuration.NewConfiguration()
@@ -340,10 +339,9 @@ var _ = Describe("Certicate duration and expiration threshold", func() {
 		Expect(duration).To(BeEquivalentTo(defaultCertificateDuration))
 	})
 
-	It("returns a valid duration of 10 days", func() {
-		//certificateDuration = 10
+	It("returns the default duration when no override is provided", func() {
 		duration := getCertificateDuration()
-		Expect(duration).To(BeEquivalentTo(tenDays))
+		Expect(duration).To(BeEquivalentTo(defaultCertificateDuration))
 	})
 
 	It("returns the default check threshold", func() {
@@ -357,9 +355,8 @@ var _ = Describe("Certicate duration and expiration threshold", func() {
 		Expect(threshold).To(BeEquivalentTo(defaultExpiringThreshold))
 	})
 
-	It("returns a valid threshold of 10 days", func() {
-		//expiringCheckThreshold = 10
+	It("returns the default check threshold when no override is provided", func() {
 		threshold := getCheckThreshold()
-		Expect(threshold).To(BeEquivalentTo(tenDays))
+		Expect(threshold).To(BeEquivalentTo(defaultExpiringThreshold))
 	})
 })

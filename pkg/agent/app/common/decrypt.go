@@ -10,7 +10,7 @@ func GetPlainTextPassword(password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	plaintext, err := util.AES_CTR_Decrypt(encrypt)
 	if err != nil {
 		return "", err

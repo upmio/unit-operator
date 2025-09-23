@@ -57,23 +57,23 @@ func TestFillEnvs(t *testing.T) {
 	fillEnvs(unit, unitset, mountEnvs, ports)
 
 	// Verify the results
-	if len(unit.Spec.Template.Spec.InitContainers[0].Env) != 4 {
-		t.Errorf("Expected 4 environment variables for init container, got %d", len(unit.Spec.Template.Spec.InitContainers[0].Env))
+	if len(unit.Spec.Template.Spec.InitContainers[0].Env) != 3 {
+		t.Errorf("Expected 3 environment variables for init container, got %d", len(unit.Spec.Template.Spec.InitContainers[0].Env))
 	}
 
-	if len(unit.Spec.Template.Spec.Containers[0].Env) != 4 {
-		t.Errorf("Expected 4 environment variables for container, got %d", len(unit.Spec.Template.Spec.Containers[0].Env))
+	if len(unit.Spec.Template.Spec.Containers[0].Env) != 3 {
+		t.Errorf("Expected 3 environment variables for container, got %d", len(unit.Spec.Template.Spec.Containers[0].Env))
 	}
 
 	// Check the environment variables are in the correct order
-	expectedEnvOrder := []string{"UNITSET_ENV", "MOUNT_ENV", "HTTP_PORT", "INIT_CONTAINER_ENV"}
+	expectedEnvOrder := []string{"UNITSET_ENV", "MOUNT_ENV", "INIT_CONTAINER_ENV"}
 	for i, env := range unit.Spec.Template.Spec.InitContainers[0].Env {
 		if env.Name != expectedEnvOrder[i] {
 			t.Errorf("Expected environment variable %s, got %s", expectedEnvOrder[i], env.Name)
 		}
 	}
 
-	expectedEnvOrder = []string{"UNITSET_ENV", "MOUNT_ENV", "HTTP_PORT", "CONTAINER_ENV"}
+	expectedEnvOrder = []string{"UNITSET_ENV", "MOUNT_ENV", "CONTAINER_ENV"}
 	for i, env := range unit.Spec.Template.Spec.Containers[0].Env {
 		if env.Name != expectedEnvOrder[i] {
 			t.Errorf("Expected environment variable %s, got %s", expectedEnvOrder[i], env.Name)

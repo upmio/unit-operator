@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -319,6 +320,9 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			Expect(createdService.Spec.Ports).To(HaveLen(2))
 			Expect(createdService.Labels[upmiov1alpha2.UnitsetName]).To(Equal(unitSet.Name))
 			Expect(createdService.Spec.Selector[upmiov1alpha2.UnitsetName]).To(Equal(unitSet.Name))
+
+			// Clean up to isolate subsequent specs
+			Expect(k8sClient.Delete(ctx, createdService)).To(Succeed())
 		})
 
 		It("Should skip external service when type is not configured", func() {
@@ -347,10 +351,9 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			Expect(serviceList.Items).To(BeEmpty())
 		})
 
-		It("Should skip external service when shared config is not configured", func() {
-			By("Updating UnitSet without shared config")
+		It("Should create external service even without shared config", func() {
+			By("Updating UnitSet without shared config override")
 			unitSet.Spec.ExternalService.Type = "NodePort"
-			//unitSet.Spec.SharedConfigName = ""
 			Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
 
 			By("Creating reconciler")
@@ -372,10 +375,16 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying no external service was created")
-			serviceList := &corev1.ServiceList{}
-			Expect(k8sClient.List(ctx, serviceList, client.InNamespace(namespace.Name))).To(Succeed())
-			Expect(serviceList.Items).To(BeEmpty())
+			By("Verifying external service was created")
+			createdService := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "test-unitset-service-svc",
+				Namespace: namespace.Name,
+			}, createdService)).To(Succeed())
+			Expect(createdService.Spec.Type).To(Equal(corev1.ServiceTypeNodePort))
+
+			// Clean up to avoid leaking resources across specs
+			Expect(k8sClient.Delete(ctx, createdService)).To(Succeed())
 		})
 
 		It("Should handle different external service types", func() {
@@ -386,8 +395,12 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 				By(fmt.Sprintf("Testing service type: %s", svcType))
 
 				// Update UnitSet for this test
-				unitSet.Spec.ExternalService.Type = svcType
-				Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
+				current := &upmiov1alpha2.UnitSet{}
+				nn := types.NamespacedName{Name: unitSet.Name, Namespace: unitSet.Namespace}
+				Expect(k8sClient.Get(ctx, nn, current)).To(Succeed())
+				current.Spec.ExternalService.Type = svcType
+				Expect(k8sClient.Update(ctx, current)).To(Succeed())
+				unitSet = current
 
 				By("Creating reconciler")
 				reconciler := &UnitSetReconciler{
@@ -556,7 +569,7 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			Expect(serviceList.Items).To(BeEmpty())
 		})
 
-		It("Should skip unit services when shared config is not configured", func() {
+		It("Should create unit services even without shared config", func() {
 			By("Updating UnitSet without shared config")
 			unitSet.Spec.UnitService.Type = "ClusterIP"
 			//unitSet.Spec.SharedConfigName = ""
@@ -581,10 +594,16 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying no unit services were created")
+			By("Verifying unit services were created")
 			serviceList := &corev1.ServiceList{}
 			Expect(k8sClient.List(ctx, serviceList, client.InNamespace(namespace.Name))).To(Succeed())
-			Expect(serviceList.Items).To(BeEmpty())
+			Expect(serviceList.Items).To(HaveLen(int(unitSet.Spec.Units)))
+
+			// Clean up for isolation
+			for i := range serviceList.Items {
+				service := &serviceList.Items[i]
+				Expect(k8sClient.Delete(ctx, service)).To(Succeed())
+			}
 		})
 
 		It("Should handle concurrent unit service creation", func() {
@@ -678,8 +697,12 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 				By(fmt.Sprintf("Testing service type: %s", svcType))
 
 				// Update UnitSet for this test
-				unitSet.Spec.UnitService.Type = svcType
-				Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
+				current := &upmiov1alpha2.UnitSet{}
+				nn := types.NamespacedName{Name: unitSet.Name, Namespace: unitSet.Namespace}
+				Expect(k8sClient.Get(ctx, nn, current)).To(Succeed())
+				current.Spec.UnitService.Type = svcType
+				Expect(k8sClient.Update(ctx, current)).To(Succeed())
+				unitSet = current
 
 				By("Creating reconciler")
 				reconciler := &UnitSetReconciler{
@@ -878,12 +901,24 @@ var _ = Describe("UnitSet Service Reconciler", func() {
 
 	It("Should record and reuse nodePorts for NodePort services", func() {
 		By("Configuring UnitSet with NodePort unit service")
-		unitSet.Spec.UnitService.Type = "NodePort"
-		Expect(k8sClient.Update(ctx, unitSet)).To(Succeed())
+		current := &upmiov1alpha2.UnitSet{}
+		nn := types.NamespacedName{Name: unitSet.Name, Namespace: unitSet.Namespace}
+		err := k8sClient.Get(ctx, nn, current)
+		if apierrors.IsNotFound(err) {
+			base := unitSet.DeepCopy()
+			base.Spec.UnitService.Type = "NodePort"
+			Expect(k8sClient.Create(ctx, base)).To(Succeed())
+			unitSet = base
+		} else {
+			Expect(err).NotTo(HaveOccurred())
+			current.Spec.UnitService.Type = "NodePort"
+			Expect(k8sClient.Update(ctx, current)).To(Succeed())
+			unitSet = current
+		}
 
 		By("Reconciling to create NodePort services and record nodePorts")
 		reconciler := &UnitSetReconciler{Client: k8sClient, Scheme: scheme.Scheme}
-		err := reconciler.reconcileUnitService(ctx,
+		err = reconciler.reconcileUnitService(ctx,
 			ctrl.Request{NamespacedName: types.NamespacedName{Name: unitSet.Name, Namespace: namespace.Name}},
 			unitSet,
 			testPorts,

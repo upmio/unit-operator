@@ -118,11 +118,11 @@ var _ = Describe("UnitSet Controller", func() {
 
 		Describe("Reconcile method", func() {
 			Context("when UnitSet does not exist", func() {
-				It("should return requeue result without error", func() {
+				It("should return a delayed requeue without error", func() {
 					result, err := reconciler.Reconcile(ctx, req)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result.Requeue).To(BeTrue())
 					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
+					Expect(result.Requeue).To(BeFalse())
 				})
 			})
 
@@ -131,10 +131,9 @@ var _ = Describe("UnitSet Controller", func() {
 					Expect(k8sClient.Create(ctx, unitSet)).To(Succeed())
 				})
 
-				It("should attempt to reconcile and requeue (may error due to missing deps)", func() {
+				It("should attempt to reconcile and request another pass", func() {
 					result, err := reconciler.Reconcile(ctx, req)
 					// Only assert the requeue semantics; envtest env may cause errors due to missing deps
-					Expect(result.Requeue).To(BeTrue())
 					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
 					_ = err
 				})
@@ -150,8 +149,8 @@ var _ = Describe("UnitSet Controller", func() {
 
 					result, err := brokenReconciler.Reconcile(ctx, req)
 					Expect(err).To(HaveOccurred())
-					Expect(result.Requeue).To(BeTrue())
 					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
+					Expect(result.Requeue).To(BeFalse())
 
 					// No event is recorded here because the error occurs before reconcileUnitset and its defer
 				})

@@ -81,16 +81,22 @@ func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) 
 		return nil, fmt.Errorf("S3 storage configuration is required")
 	}
 
-	var endpoint string
-	if strings.Contains(s3Config.GetEndpoint(), "http://") {
-		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "http://")
-	} else if strings.Contains(s3Config.GetEndpoint(), "https://") {
-		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "https://")
+	endpoint := s3Config.GetEndpoint()
+	secure := false
+	if strings.HasPrefix(endpoint, "https://") {
+		secure = true
+		endpoint = strings.TrimPrefix(endpoint, "https://")
+	} else if strings.HasPrefix(endpoint, "http://") {
+		endpoint = strings.TrimPrefix(endpoint, "http://")
+	}
+
+	if endpoint == "" {
+		return nil, fmt.Errorf("S3 endpoint must be provided")
 	}
 
 	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
-		Secure: false,
+		Secure: secure,
 	})
 }
 

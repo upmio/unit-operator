@@ -330,7 +330,9 @@ func (r *UnitSetReconciler) reconcileUnitService(
 			if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
 				// merge observed nodePorts into maps
 				mu.Lock()
-				loadBalancerIPMap[unitName] = created.Status.LoadBalancer.Ingress[0].IP
+				if len(created.Status.LoadBalancer.Ingress) > 0 {
+					loadBalancerIPMap[unitName] = created.Status.LoadBalancer.Ingress[0].IP
+				}
 				mu.Unlock()
 			}
 		}

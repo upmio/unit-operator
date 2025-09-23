@@ -48,6 +48,12 @@ extend1: abc
 extend2: def
 save 0 [aaa bbb ccc]
 save 1 [eee fff ggg]
+key-0
+key-1
+key-2
+key-3
+key-4
+key-5
 `,
 		content: `default:
   test: xxxxxx

@@ -28,6 +28,10 @@ const (
 	dirMode  = 0755
 )
 
+func shouldChown() bool {
+	return os.Geteuid() == 0
+}
+
 // TemplateResource is the representation of a parsed template resource.
 type TemplateResource struct {
 	Dest        string
@@ -118,8 +122,10 @@ func (t *TemplateResource) createStageFile() error {
 			return fmt.Errorf("create %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
 		}
 
-		if err := os.Chown(filepath.Dir(t.Dest), uid, gid); err != nil {
-			return fmt.Errorf("chown %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
+		if shouldChown() {
+			if err := os.Chown(filepath.Dir(t.Dest), uid, gid); err != nil {
+				return fmt.Errorf("chown %s directory fail, error: %v ", filepath.Dir(t.Dest), err)
+			}
 		}
 	}
 
@@ -180,8 +186,10 @@ func (t *TemplateResource) createStageFile() error {
 	if err := os.Chmod(temp.Name(), t.FileMode); err != nil {
 		fmt.Printf("failed to chmod temp file: %v\n", err)
 	}
-	if err := os.Chown(temp.Name(), t.Uid, t.Gid); err != nil {
-		fmt.Printf("failed to chown temp file: %v\n", err)
+	if shouldChown() {
+		if err := os.Chown(temp.Name(), t.Uid, t.Gid); err != nil {
+			fmt.Printf("failed to chown temp file: %v\n", err)
+		}
 	}
 	t.StageFile = temp
 	return nil
@@ -227,8 +235,10 @@ func (t *TemplateResource) sync() error {
 				}
 				err := os.WriteFile(t.Dest, contents, t.FileMode)
 				// make sure owner and group match the temp file, in case the file was created with WriteFile
-				if chownErr := os.Chown(t.Dest, t.Uid, t.Gid); chownErr != nil {
-					fmt.Printf("failed to chown dest file: %v\n", chownErr)
+				if shouldChown() {
+					if chownErr := os.Chown(t.Dest, t.Uid, t.Gid); chownErr != nil {
+						fmt.Printf("failed to chown dest file: %v\n", chownErr)
+					}
 				}
 				if err != nil {
 					return err
