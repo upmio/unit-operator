@@ -108,7 +108,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	}
 
 	unitset.Status.Units = len(units)
-	inTaskUnit := ""
+	//inTaskUnit := ""
 	unitset.Status.ReadyUnits = 0
 	if len(units) != 0 {
 		for _, one := range units {
@@ -124,13 +124,13 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 
 	if len(units) != 0 {
 		for _, one := range units {
-			if one.Status.Task != "" {
-				if inTaskUnit == "" {
-					inTaskUnit = one.Name
-				} else {
-					inTaskUnit = inTaskUnit + "," + one.Name
-				}
-			}
+			//if one.Status.Task != "" {
+			//	if inTaskUnit == "" {
+			//		inTaskUnit = one.Name
+			//	} else {
+			//		inTaskUnit = inTaskUnit + "," + one.Name
+			//	}
+			//}
 
 			for _, pvc := range one.Status.PersistentVolumeClaim {
 				for _, expect := range unitset.Spec.Storages {
@@ -199,13 +199,13 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		}
 	}
 
-	if inTaskUnit != "" {
-		unitset.Status.InUpdate = inTaskUnit
-	} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
-		unitset.Status.InUpdate = ""
-	} else {
-		unitset.Status.InUpdate = ""
-	}
+	//if inTaskUnit != "" {
+	//	unitset.Status.InUpdate = inTaskUnit
+	//} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
+	//	unitset.Status.InUpdate = ""
+	//} else {
+	//	unitset.Status.InUpdate = ""
+	//}
 
 	//if equality.Semantic.DeepEqual(orig.Status, unitset.Status) {
 	//	return nil

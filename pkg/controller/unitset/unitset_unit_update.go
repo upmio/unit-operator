@@ -3,6 +3,9 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +20,53 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const updateStrategyRollingUpdate = "RollingUpdate"
+
+// These timings are variables so tests can adjust them to avoid lengthy sleeps.
+var (
+	unitUpdateGracePeriod = 12 * time.Second
+	unitReadyPollInterval = 10 * time.Second
+	unitReadyPollTimeout  = 90 * time.Second
+)
+
+func sortUnitNamesByOrdinal(units []string) []string {
+	sorted := make([]string, len(units))
+	copy(sorted, units)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		iOrdinal, iHasOrdinal := extractUnitOrdinal(sorted[i])
+		jOrdinal, jHasOrdinal := extractUnitOrdinal(sorted[j])
+
+		switch {
+		case iHasOrdinal && jHasOrdinal:
+			if iOrdinal != jOrdinal {
+				return iOrdinal > jOrdinal
+			}
+			return sorted[i] > sorted[j]
+		case iHasOrdinal:
+			return true
+		case jHasOrdinal:
+			return false
+		default:
+			return sorted[i] > sorted[j]
+		}
+	})
+	return sorted
+}
+
+func extractUnitOrdinal(unitName string) (int, bool) {
+	idx := strings.LastIndex(unitName, "-")
+	if idx == -1 || idx == len(unitName)-1 {
+		return 0, false
+	}
+
+	ordinal, err := strconv.Atoi(unitName[idx+1:])
+	if err != nil {
+		return 0, false
+	}
+
+	return ordinal, true
+}
 
 func (r *UnitSetReconciler) reconcileImageVersion(
 	ctx context.Context,
@@ -34,7 +84,7 @@ func (r *UnitSetReconciler) reconcileImageVersion(
 	templatePodTemplateNamespacedName := client.ObjectKey{Name: unitset.TemplatePodTemplateName(), Namespace: vars.ManagerNamespace}
 	err := r.Get(ctx, templatePodTemplateNamespacedName, &templatePodTemplate)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get template pod template [%s/%s]: %w", vars.ManagerNamespace, unitset.TemplatePodTemplateName(), err)
 	}
 
 	needUpdate := false
@@ -44,103 +94,345 @@ func (r *UnitSetReconciler) reconcileImageVersion(
 	}
 
 	if needUpdate {
+
 		volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
 
 		units, _ := unitset.UnitNames()
-		errs := []error{}
-		var wg sync.WaitGroup
-		var errsMutex sync.Mutex
-
-		for _, unit := range units {
-
-			wg.Add(1)
-			go func(unit string) {
-				defer wg.Done()
-
-				// get old
-				kUnit := upmiov1alpha2.Unit{}
-				err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, &kUnit)
-				if err != nil {
-					errsMutex.Lock()
-					errs = append(errs, err)
-					errsMutex.Unlock()
-					return
-				}
-
-				// merge
-				newUnit := mergePodTemplate(ctx, req, kUnit, unitset, podTemplate, ports, volumeMounts, volumes, envVars, pvcs)
-
-				// update
-				err = r.Update(ctx, &newUnit)
-				if err != nil {
-					errsMutex.Lock()
-					errs = append(errs, err)
-					errsMutex.Unlock()
-					return
-				}
-
-				time.Sleep(12 * time.Second)
-
-				// wait for unit ready, and update annotation
-				waitErr := wait.PollUntilContextTimeout(ctx, 10*time.Second, 90*time.Second, true, func(ctx context.Context) (bool, error) {
-
-					newKUnit := &upmiov1alpha2.Unit{}
-					err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, newKUnit)
-					if err != nil {
-						return false, nil
-					}
-
-					if newKUnit.Status.Phase != upmiov1alpha2.UnitReady {
-						return false, nil
-					}
-
-					return true, nil
-
-				})
-
-				if waitErr != nil {
-					errsMutex.Lock()
-					errs = append(errs, fmt.Errorf("wait unit ready [%s] fail: %s", unit, waitErr.Error()))
-					errsMutex.Unlock()
-					return
-				}
-
-				// update annotation
-				newUnit.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
-				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					return r.Update(ctx, &newUnit)
-				})
-
-				if err != nil {
-					errsMutex.Lock()
-					errs = append(errs, fmt.Errorf("update unit annotation [%s] fail: %s", unit, err.Error()))
-					errsMutex.Unlock()
-					return
-				}
-
-			}(unit)
-
-		}
-		wg.Wait()
-
-		err = utilerrors.NewAggregate(errs)
-		if err != nil {
-			return fmt.Errorf("reconcileImageVersion error:[%s]", err.Error())
+		if len(units) == 0 {
+			return nil
 		}
 
+		units = sortUnitNamesByOrdinal(units)
+
+		updateUnit := func(unit string) error {
+			return r.updateUnitImageVersion(ctx, req, unitset, podTemplate, ports, volumeMounts, volumes, envVars, pvcs, unit)
+		}
+
+		var (
+			updateErr    error
+			upgradeReady bool
+		)
+		if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
+			upgradeReady, updateErr = r.performRollingUpdate(ctx, req, unitset, units, updateUnit)
+		} else {
+			updateErr = r.performParallelUpdate(ctx, units, updateUnit)
+			upgradeReady = updateErr == nil
+		}
+
+		if updateErr != nil {
+			return fmt.Errorf("reconcileImageVersion failed: %w", updateErr)
+		}
+
+		if !upgradeReady {
+			return nil
+		}
+
+		// Update the old version pod template only after all units are successfully updated
 		oldVersionPodTemplate := v1.PodTemplate{}
 		oldVersionPodTemplateNamespacedName := client.ObjectKey{Name: unitset.PodTemplateName(), Namespace: req.Namespace}
 		err = r.Get(ctx, oldVersionPodTemplateNamespacedName, &oldVersionPodTemplate)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get old version pod template [%s/%s]: %w", req.Namespace, unitset.PodTemplateName(), err)
 		}
 
 		oldVersionPodTemplate.Template = *templatePodTemplate.Template.DeepCopy()
 
 		err = r.Update(ctx, &oldVersionPodTemplate)
 		if err != nil {
-			return fmt.Errorf("[reconcileImageVersion] update podtemplate:[%s/%s] err:[%s]", req.Namespace, unitset.PodTemplateName(), err.Error())
+			return fmt.Errorf("failed to update pod template [%s/%s]: %w", req.Namespace, unitset.PodTemplateName(), err)
 		}
+	}
+
+	return nil
+}
+
+// performRollingUpdate handles rolling update with state tracking
+func (r *UnitSetReconciler) performRollingUpdate(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	units []string,
+	updateUnit func(string) error) (bool, error) {
+
+	units = sortUnitNamesByOrdinal(units)
+
+	// Check current upgrade state
+	currentUpgradeUnit := unitset.Status.InUpdate
+
+	// If no upgrade in progress, start with the first unit
+	if currentUpgradeUnit == "" {
+		if len(units) == 0 {
+			return true, nil
+		}
+		currentUpgradeUnit = units[0]
+
+		// Update UnitSet status to mark upgrade start
+		if err := r.updateInUpdateStatus(ctx, req, unitset, currentUpgradeUnit); err != nil {
+			return false, fmt.Errorf("failed to start upgrade for unit [%s]: %w", currentUpgradeUnit, err)
+		}
+	}
+
+	// Find the current unit in the sorted list
+	currentIndex := -1
+	for i, unit := range units {
+		if unit == currentUpgradeUnit {
+			currentIndex = i
+			break
+		}
+	}
+
+	// If current unit is not in the list, something is wrong
+	if currentIndex == -1 {
+		// Reset and start from beginning
+		currentUpgradeUnit = units[0]
+		currentIndex = 0
+		if err := r.updateInUpdateStatus(ctx, req, unitset, currentUpgradeUnit); err != nil {
+			return false, fmt.Errorf("failed to reset upgrade for unit [%s]: %w", currentUpgradeUnit, err)
+		}
+	}
+
+	// Check if current unit needs upgrade
+	needsUpgrade, err := r.checkUnitNeedsUpgrade(ctx, req, unitset, currentUpgradeUnit)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if unit [%s] needs upgrade: %w", currentUpgradeUnit, err)
+	}
+
+	if needsUpgrade {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			return false, fmt.Errorf("rolling update cancelled while upgrading unit [%s]: %w", currentUpgradeUnit, ctx.Err())
+		default:
+		}
+
+		// Upgrade current unit
+		if err := updateUnit(currentUpgradeUnit); err != nil {
+			return false, fmt.Errorf("rolling update failed for unit [%s]: %w", currentUpgradeUnit, err)
+		}
+	}
+
+	// Move to next unit
+	nextIndex := currentIndex + 1
+	if nextIndex < len(units) {
+		nextUnit := units[nextIndex]
+		if err := r.updateInUpdateStatus(ctx, req, unitset, nextUnit); err != nil {
+			return false, fmt.Errorf("failed to advance to next unit [%s]: %w", nextUnit, err)
+		}
+
+		// Requeue to continue with next unit via status update event
+		return false, nil
+	}
+
+	// All units processed, clear InUpdate status
+	if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
+		return false, fmt.Errorf("failed to clear upgrade status: %w", err)
+	}
+
+	return true, nil
+}
+
+// updateInUpdateStatus updates the InUpdate field in UnitSet status
+func (r *UnitSetReconciler) updateInUpdateStatus(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	unitName string) error {
+
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Get latest UnitSet
+		latest := &upmiov1alpha2.UnitSet{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitset.Name, Namespace: req.Namespace}, latest); err != nil {
+			return fmt.Errorf("failed to get latest unitset: %w", err)
+		}
+
+		// Update InUpdate status
+		latest.Status.InUpdate = unitName
+
+		// Update status
+		if err := r.Status().Update(ctx, latest); err != nil {
+			return fmt.Errorf("failed to update InUpdate status: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// checkUnitNeedsUpgrade checks if a unit needs to be upgraded
+func (r *UnitSetReconciler) checkUnitNeedsUpgrade(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	unitName string) (bool, error) {
+
+	// Get the unit
+	unit := &upmiov1alpha2.Unit{}
+	if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, unit); err != nil {
+		return false, fmt.Errorf("failed to get unit [%s]: %w", unitName, err)
+	}
+
+	// Check if unit version annotation matches unitset version
+	if unit.Annotations == nil {
+		return true, nil
+	}
+
+	currentVersion, exists := unit.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]
+	if !exists || currentVersion != unitset.Spec.Version {
+		return true, nil
+	}
+
+	// Check if unit is ready
+	//if unit.Status.Phase != upmiov1alpha2.UnitReady {
+	//	return true, nil
+	//}
+
+	return false, nil
+}
+
+//// performRollingUpdate handles rolling update strategy (one by one)
+//func (r *UnitSetReconciler) performRollingUpdate(ctx context.Context, units []string, updateUnit func(string) error) error {
+//	for i, unit := range units {
+//		// Check if context is cancelled before processing each unit
+//		select {
+//		case <-ctx.Done():
+//			return fmt.Errorf("rolling update cancelled at unit %d/%d [%s]: %w", i+1, len(units), unit, ctx.Err())
+//		default:
+//		}
+//
+//		if err := updateUnit(unit); err != nil {
+//			return fmt.Errorf("rolling update failed at unit %d/%d [%s]: %w", i+1, len(units), unit, err)
+//		}
+//	}
+//	return nil
+//}
+
+// performParallelUpdate handles parallel update strategy (all at once)
+func (r *UnitSetReconciler) performParallelUpdate(ctx context.Context, units []string, updateUnit func(string) error) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(units))
+
+	for _, unit := range units {
+		wg.Add(1)
+		go func(unit string) {
+			defer wg.Done()
+
+			if err := updateUnit(unit); err != nil {
+				errChan <- fmt.Errorf("parallel update failed for unit [%s]: %w", unit, err)
+			}
+		}(unit)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errChan)
+
+	// Collect all errors
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return utilerrors.NewAggregate(errs)
+	}
+
+	return nil
+}
+
+func (r *UnitSetReconciler) updateUnitImageVersion(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	podTemplate *v1.PodTemplate,
+	ports []v1.ContainerPort,
+	volumeMounts []v1.VolumeMount,
+	volumes []v1.Volume,
+	envVars []v1.EnvVar,
+	pvcs []v1.PersistentVolumeClaim,
+	unit string) error {
+
+	// get old unit
+	original := upmiov1alpha2.Unit{}
+	if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, &original); err != nil {
+		return fmt.Errorf("failed to get unit [%s/%s]: %w", req.Namespace, unit, err)
+	}
+
+	// merge desired template and update unit spec
+	updated := mergePodTemplate(ctx, req, original, unitset, podTemplate, ports, volumeMounts, volumes, envVars, pvcs)
+
+	// Use retry mechanism for unit update to handle conflicts
+	updateErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return r.Update(ctx, &updated)
+	})
+	if updateErr != nil {
+		return fmt.Errorf("failed to update unit [%s/%s]: %w", req.Namespace, unit, updateErr)
+	}
+
+	// Grace period for unit to start updating
+	if unitUpdateGracePeriod > 0 {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled during grace period for unit [%s]: %w", unit, ctx.Err())
+		case <-time.After(unitUpdateGracePeriod):
+		}
+	}
+
+	// Wait for unit to become ready with improved error handling
+	waitErr := wait.PollUntilContextTimeout(ctx, unitReadyPollInterval, unitReadyPollTimeout, true, func(ctx context.Context) (bool, error) {
+		current := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, current); err != nil {
+			// Return false to continue polling, don't fail immediately on transient errors
+			return false, nil
+		}
+
+		// Check if unit is in a failed state that won't recover
+		if current.Status.Phase == upmiov1alpha2.UnitFailed {
+			return false, fmt.Errorf("unit entered failed state")
+		}
+
+		if current.Status.Phase == upmiov1alpha2.UnitReady {
+			return true, nil
+		}
+
+		// Continue waiting for other phases (Pending, Creating, Starting, etc.)
+		return false, nil
+	})
+
+	if waitErr != nil {
+		// Get current unit status for better error context
+		current := &upmiov1alpha2.Unit{}
+		currentPhase := "unknown"
+
+		if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, current); err == nil {
+			currentPhase = string(current.Status.Phase)
+		}
+
+		// Determine if this is a timeout or a real failure
+		if strings.Contains(waitErr.Error(), "unit entered failed state") {
+			return fmt.Errorf("unit [%s] entered failed state (phase: %s): %w",
+				unit, currentPhase, waitErr)
+		}
+
+		// For timeout cases, provide more context but still fail
+		return fmt.Errorf("unit [%s] did not become ready within timeout %v (current phase: %s): %w",
+			unit, unitReadyPollTimeout, currentPhase, waitErr)
+	}
+
+	// Update annotation to mark the version
+	updateAnnotationErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, current); err != nil {
+			return fmt.Errorf("failed to get unit for annotation update: %w", err)
+		}
+
+		if current.Annotations == nil {
+			current.Annotations = map[string]string{}
+		}
+		current.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
+		return r.Update(ctx, current)
+	})
+
+	if updateAnnotationErr != nil {
+		return fmt.Errorf("failed to update version annotation for unit [%s]: %w", unit, updateAnnotationErr)
 	}
 
 	return nil

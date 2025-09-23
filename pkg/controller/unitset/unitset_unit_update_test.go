@@ -19,6 +19,7 @@ package unitset
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,17 +36,28 @@ import (
 
 var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 	var (
-		ctx                 context.Context
-		unitSet             *upmiov1alpha2.UnitSet
-		namespace           *corev1.Namespace
-		reconciler          *UnitSetReconciler
-		units               []*upmiov1alpha2.Unit
-		podTemplate         *corev1.PodTemplate
-		templatePodTemplate *corev1.PodTemplate
+		ctx                           context.Context
+		unitSet                       *upmiov1alpha2.UnitSet
+		namespace                     *corev1.Namespace
+		reconciler                    *UnitSetReconciler
+		units                         []*upmiov1alpha2.Unit
+		podTemplate                   *corev1.PodTemplate
+		templatePodTemplate           *corev1.PodTemplate
+		originalUnitUpdateGracePeriod time.Duration
+		originalUnitReadyPollInterval time.Duration
+		originalUnitReadyPollTimeout  time.Duration
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+
+		originalUnitUpdateGracePeriod = unitUpdateGracePeriod
+		originalUnitReadyPollInterval = unitReadyPollInterval
+		originalUnitReadyPollTimeout = unitReadyPollTimeout
+
+		unitUpdateGracePeriod = 0
+		unitReadyPollInterval = 10 * time.Millisecond
+		unitReadyPollTimeout = 2 * time.Second
 
 		// Create test namespace
 		namespace = &corev1.Namespace{
@@ -99,10 +111,10 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 		}
 
 		// Initialize units for testing
-		units = []*upmiov1alpha2.Unit{
-			createTestUnitForUpdate("test-unit-0", namespace.Name, "8.0.39"),
-			createTestUnitForUpdate("test-unit-1", namespace.Name, "8.0.39"),
-			createTestUnitForUpdate("test-unit-2", namespace.Name, "8.0.39"),
+		unitNames, _ := unitSet.UnitNames()
+		units = make([]*upmiov1alpha2.Unit, 0, len(unitNames))
+		for _, unitName := range unitNames {
+			units = append(units, createTestUnitForUpdate(unitName, namespace.Name, "8.0.39"))
 		}
 
 		// Label units so they are discovered by unitsBelongUnitset
@@ -151,6 +163,10 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 	AfterEach(func() {
 		// Best-effort cleanup; don't block suite on slow namespace termination
+		unitUpdateGracePeriod = originalUnitUpdateGracePeriod
+		unitReadyPollInterval = originalUnitReadyPollInterval
+		unitReadyPollTimeout = originalUnitReadyPollTimeout
+
 		_ = k8sClient.Delete(ctx, namespace)
 	})
 
@@ -660,7 +676,18 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			By("Creating ready units")
 			for _, unit := range units {
 				unit.Status.Phase = upmiov1alpha2.UnitReady
-				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = upmiov1alpha2.UnitReady
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
+				Eventually(func() (upmiov1alpha2.UnitPhase, error) {
+					current, err := getUnit(ctx, unit.Name, namespace.Name)
+					if err != nil {
+						return "", err
+					}
+					return current.Status.Phase, nil
+				}, 2*time.Second, 50*time.Millisecond).Should(Equal(upmiov1alpha2.UnitReady))
 			}
 
 			By("Reconciling image version")
@@ -671,10 +698,82 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 				},
 			}
 
-			// Note: This test would need to mock the wait.PollUntilContextTimeout function
-			// in a real scenario to avoid the 12-second sleep and 90-second wait
 			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, []corev1.ContainerPort{})
-			Expect(err).To(HaveOccurred()) // Expected to fail due to timeout in unit tests
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying units were updated to the new version")
+			for _, unit := range units {
+				updatedUnit, getErr := getUnit(ctx, unit.Name, namespace.Name)
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(updatedUnit.Spec.Template.Spec.Containers[0].Image).To(Equal("mysql:8.0.40"))
+				Expect(updatedUnit.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]).To(Equal(unitSet.Spec.Version))
+			}
+		})
+
+		It("Should stop at first unit when RollingUpdate unit fails to become ready", func() {
+			By("Creating prerequisites")
+			unitSet.Spec.UpdateStrategy.Type = "RollingUpdate"
+			Expect(k8sClient.Create(ctx, unitSet)).To(Succeed())
+			_ = k8sClient.Create(ctx, podTemplate)
+			_ = k8sClient.Create(ctx, templatePodTemplate)
+
+			By("Creating units with a pending first unit")
+			for i, unit := range units {
+				if i == 0 {
+					unit.Status.Phase = upmiov1alpha2.UnitRunning
+				} else {
+					unit.Status.Phase = upmiov1alpha2.UnitReady
+				}
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = unit.Status.Phase
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
+				expectedPhase := unit.Status.Phase
+				Eventually(func() (upmiov1alpha2.UnitPhase, error) {
+					current, err := getUnit(ctx, unit.Name, namespace.Name)
+					if err != nil {
+						return "", err
+					}
+					return current.Status.Phase, nil
+				}, 2*time.Second, 50*time.Millisecond).Should(Equal(expectedPhase))
+			}
+
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      unitSet.Name,
+					Namespace: namespace.Name,
+				},
+			}
+
+			err := reconciler.reconcileImageVersion(ctx, req, unitSet, podTemplate, []corev1.ContainerPort{})
+			Expect(err).NotTo(HaveOccurred())
+
+			latestUnitSet := &upmiov1alpha2.UnitSet{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			nextUnitIndex := len(units) - 2
+			if nextUnitIndex < 0 {
+				nextUnitIndex = 0
+			}
+			nextUnitName := units[nextUnitIndex].Name
+			Expect(latestUnitSet.Status.InUpdate).To(Equal(nextUnitName))
+
+			highestOrdinalUnit := units[len(units)-1]
+			highestUpdated, err := getUnit(ctx, highestOrdinalUnit.Name, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(highestUpdated.Spec.Template.Spec.Containers[0].Image).To(Equal("mysql:8.0.40"))
+			Expect(highestUpdated.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]).To(Equal(unitSet.Spec.Version))
+
+			By("Ensuring the next units have not been updated yet")
+			pendingUnit, getErr := getUnit(ctx, nextUnitName, namespace.Name)
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(pendingUnit.Spec.Template.Spec.Containers[0].Image).To(Equal("mysql:8.0.39"))
+			Expect(pendingUnit.Annotations[upmiov1alpha2.AnnotationMainContainerVersion]).To(Equal("8.0.39"))
+
+			By("Confirming the lowest ordinal unit is untouched")
+			lowestUnit, lowestErr := getUnit(ctx, units[0].Name, namespace.Name)
+			Expect(lowestErr).NotTo(HaveOccurred())
+			Expect(lowestUnit.Spec.Template.Spec.Containers[0].Image).To(Equal("mysql:8.0.39"))
 		})
 
 		It("Should skip reconciliation when templates are identical", func() {
