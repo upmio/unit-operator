@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
@@ -108,12 +109,16 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 	}
 
 	unitset.Status.Units = len(units)
-	//inTaskUnit := ""
+	inUpdateUnits := []string{}
 	unitset.Status.ReadyUnits = 0
 	if len(units) != 0 {
 		for _, one := range units {
 			if one.Status.Phase == upmiov1alpha2.UnitReady {
 				unitset.Status.ReadyUnits++
+			}
+
+			if strings.TrimSpace(one.Status.Task) != "" {
+				inUpdateUnits = append(inUpdateUnits, one.Name)
 			}
 		}
 	}
@@ -199,13 +204,11 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		}
 	}
 
-	//if inTaskUnit != "" {
-	//	unitset.Status.InUpdate = inTaskUnit
-	//} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
-	//	unitset.Status.InUpdate = ""
-	//} else {
-	//	unitset.Status.InUpdate = ""
-	//}
+	if len(inUpdateUnits) > 0 {
+		unitset.Status.InUpdate = strings.Join(inUpdateUnits, ",")
+	} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
+		unitset.Status.InUpdate = ""
+	}
 
 	//if equality.Semantic.DeepEqual(orig.Status, unitset.Status) {
 	//	return nil

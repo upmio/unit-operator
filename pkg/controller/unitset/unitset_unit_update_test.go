@@ -462,7 +462,11 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 						corev1.ResourceMemory: resource.MustParse("512Mi"),
 					},
 				}
-				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = upmiov1alpha2.UnitReady
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
 			}
 
 			By("Reconciling resources")
@@ -491,7 +495,11 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			By("Creating units with correct resources")
 			for _, unit := range units {
 				unit.Spec.Template.Spec.Containers[0].Resources = unitSet.Spec.Resources
-				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = upmiov1alpha2.UnitReady
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
 			}
 
 			By("Reconciling resources")
@@ -504,6 +512,71 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 			err := reconciler.reconcileResources(ctx, req, unitSet)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should update resources one unit at a time when using RollingUpdate", func() {
+			By("Creating UnitSet with RollingUpdate strategy")
+			unitSet.Spec.UpdateStrategy.Type = "RollingUpdate"
+			Expect(k8sClient.Create(ctx, unitSet)).To(Succeed())
+
+			By("Creating units with outdated resources")
+			for _, unit := range units {
+				unit.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("250m"),
+						corev1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("500m"),
+						corev1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+				}
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = upmiov1alpha2.UnitReady
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
+			}
+
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      unitSet.Name,
+					Namespace: namespace.Name,
+				},
+			}
+
+			sortedNames, _ := unitSet.UnitNames()
+			sortedNames = sortUnitNamesByOrdinal(sortedNames)
+
+			By("Reconciling resources - first unit should be updated")
+			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
+			highest := sortedNames[0]
+			next := sortedNames[1]
+			lowest := sortedNames[len(sortedNames)-1]
+
+			highestUnit, err := getUnit(ctx, highest, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(highestUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
+
+			nextUnit, err := getUnit(ctx, next, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nextUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(resource.MustParse("250m"))).To(Equal(0))
+
+			lowestUnit, err := getUnit(ctx, lowest, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lowestUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(resource.MustParse("250m"))).To(Equal(0))
+
+			By("Reconciling resources - second unit should now be updated")
+			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
+			secondUpdated, err := getUnit(ctx, next, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secondUpdated.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
+
+			By("Reconciling resources - final unit should now be updated")
+			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
+			finalUnit, err := getUnit(ctx, lowest, namespace.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(finalUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
 		})
 	})
 
@@ -855,7 +928,11 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 						corev1.ResourceMemory: resource.MustParse("256Mi"),
 					},
 				}
-				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+				Expect(k8sClient.Create(ctx, unit.DeepCopy())).To(Succeed())
+				createdUnit := &upmiov1alpha2.Unit{}
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: namespace.Name}, createdUnit)).To(Succeed())
+				createdUnit.Status.Phase = upmiov1alpha2.UnitReady
+				Expect(k8sClient.Status().Update(ctx, createdUnit)).To(Succeed())
 			}
 
 			By("Reconciling resources concurrently")

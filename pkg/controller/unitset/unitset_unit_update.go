@@ -2,6 +2,7 @@ package unitset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -29,6 +30,8 @@ var (
 	unitReadyPollInterval = 10 * time.Second
 	unitReadyPollTimeout  = 90 * time.Second
 )
+
+var errUnitFailedState = errors.New("unit entered failed state")
 
 func sortUnitNamesByOrdinal(units []string) []string {
 	sorted := make([]string, len(units))
@@ -376,45 +379,8 @@ func (r *UnitSetReconciler) updateUnitImageVersion(
 		}
 	}
 
-	// Wait for unit to become ready with improved error handling
-	waitErr := wait.PollUntilContextTimeout(ctx, unitReadyPollInterval, unitReadyPollTimeout, true, func(ctx context.Context) (bool, error) {
-		current := &upmiov1alpha2.Unit{}
-		if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, current); err != nil {
-			// Return false to continue polling, don't fail immediately on transient errors
-			return false, nil
-		}
-
-		// Check if unit is in a failed state that won't recover
-		if current.Status.Phase == upmiov1alpha2.UnitFailed {
-			return false, fmt.Errorf("unit entered failed state")
-		}
-
-		if current.Status.Phase == upmiov1alpha2.UnitReady {
-			return true, nil
-		}
-
-		// Continue waiting for other phases (Pending, Creating, Starting, etc.)
-		return false, nil
-	})
-
-	if waitErr != nil {
-		// Get current unit status for better error context
-		current := &upmiov1alpha2.Unit{}
-		currentPhase := "unknown"
-
-		if err := r.Get(ctx, client.ObjectKey{Name: unit, Namespace: req.Namespace}, current); err == nil {
-			currentPhase = string(current.Status.Phase)
-		}
-
-		// Determine if this is a timeout or a real failure
-		if strings.Contains(waitErr.Error(), "unit entered failed state") {
-			return fmt.Errorf("unit [%s] entered failed state (phase: %s): %w",
-				unit, currentPhase, waitErr)
-		}
-
-		// For timeout cases, provide more context but still fail
-		return fmt.Errorf("unit [%s] did not become ready within timeout %v (current phase: %s): %w",
-			unit, unitReadyPollTimeout, currentPhase, waitErr)
+	if err := r.waitForUnitReady(ctx, req, unit); err != nil {
+		return err
 	}
 
 	// Update annotation to mark the version
@@ -433,6 +399,40 @@ func (r *UnitSetReconciler) updateUnitImageVersion(
 
 	if updateAnnotationErr != nil {
 		return fmt.Errorf("failed to update version annotation for unit [%s]: %w", unit, updateAnnotationErr)
+	}
+
+	return nil
+}
+
+func (r *UnitSetReconciler) waitForUnitReady(ctx context.Context, req ctrl.Request, unitName string) error {
+	waitErr := wait.PollUntilContextTimeout(ctx, unitReadyPollInterval, unitReadyPollTimeout, true, func(ctx context.Context) (bool, error) {
+		current := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err != nil {
+			return false, nil
+		}
+
+		switch current.Status.Phase {
+		case upmiov1alpha2.UnitReady:
+			return true, nil
+		case upmiov1alpha2.UnitFailed:
+			return false, errUnitFailedState
+		default:
+			return false, nil
+		}
+	})
+
+	if waitErr != nil {
+		current := &upmiov1alpha2.Unit{}
+		currentPhase := "unknown"
+		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err == nil {
+			currentPhase = string(current.Status.Phase)
+		}
+
+		if errors.Is(waitErr, errUnitFailedState) {
+			return fmt.Errorf("unit [%s] entered failed state (phase: %s): %w", unitName, currentPhase, waitErr)
+		}
+
+		return fmt.Errorf("unit [%s] did not become ready within timeout %v (current phase: %s): %w", unitName, unitReadyPollTimeout, currentPhase, waitErr)
 	}
 
 	return nil
@@ -534,8 +534,6 @@ func mergePodTemplate(
 
 // reconcile resources request
 func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
-	//units, _ := unitset.UnitNames()
-
 	kUnits, err := r.unitsBelongUnitset(ctx, unitset)
 	if err != nil {
 		return fmt.Errorf("[reconcileResources] error getting units: [%s]", err.Error())
@@ -545,59 +543,139 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 		return nil
 	}
 
-	needUpdate := false
+	unitMap := make(map[string]*upmiov1alpha2.Unit, len(kUnits))
 	for _, unit := range kUnits {
-		// cpu memory
-		for i := range unit.Spec.Template.Spec.Containers {
-			if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
-				if unit.Spec.Template.Spec.Containers[i].Resources.Limits.Cpu().
-					Cmp(*unitset.Spec.Resources.Limits.Cpu()) != 0 ||
-					unit.Spec.Template.Spec.Containers[i].Resources.Limits.Memory().
-						Cmp(*unitset.Spec.Resources.Limits.Memory()) != 0 ||
-					unit.Spec.Template.Spec.Containers[i].Resources.Requests.Cpu().
-						Cmp(*unitset.Spec.Resources.Requests.Cpu()) != 0 ||
-					unit.Spec.Template.Spec.Containers[i].Resources.Requests.Memory().
-						Cmp(*unitset.Spec.Resources.Requests.Memory()) != 0 {
-					needUpdate = true
-				}
+		unitMap[unit.Name] = unit
+	}
+
+	unitNames, _ := unitset.UnitNames()
+	unitNames = sortUnitNamesByOrdinal(unitNames)
+
+	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
+		for _, unitName := range unitNames {
+			unit, exists := unitMap[unitName]
+			if !exists {
+				continue
 			}
+
+			if !needsResourceUpdate(unit, unitset) {
+				continue
+			}
+
+			if err := r.updateUnitResources(ctx, req, unitset, unitName); err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return nil
+	}
+
+	var (
+		wg   sync.WaitGroup
+		errs []error
+		mu   sync.Mutex
+	)
+
+	for _, unitName := range unitNames {
+		unit, exists := unitMap[unitName]
+		if !exists {
+			continue
+		}
+
+		if !needsResourceUpdate(unit, unitset) {
+			continue
+		}
+
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			if err := r.updateUnitResources(ctx, req, unitset, name); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(unitName)
+	}
+
+	wg.Wait()
+	if len(errs) > 0 {
+		return fmt.Errorf("[reconcileResources] error:[%s]", utilerrors.NewAggregate(errs))
+	}
+
+	return nil
+}
+
+func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) bool {
+	for i := range unit.Spec.Template.Spec.Containers {
+		if unit.Spec.Template.Spec.Containers[i].Name != unitset.Spec.Type {
+			continue
+		}
+
+		container := unit.Spec.Template.Spec.Containers[i]
+		desired := unitset.Spec.Resources
+
+		if container.Resources.Limits.Cpu().Cmp(*desired.Limits.Cpu()) != 0 {
+			return true
+		}
+
+		if container.Resources.Limits.Memory().Cmp(*desired.Limits.Memory()) != 0 {
+			return true
+		}
+
+		if container.Resources.Requests.Cpu().Cmp(*desired.Requests.Cpu()) != 0 {
+			return true
+		}
+
+		if container.Resources.Requests.Memory().Cmp(*desired.Requests.Memory()) != 0 {
+			return true
 		}
 	}
 
-	errs := []error{}
-	if needUpdate {
-		var wg sync.WaitGroup
-		for _, unit := range kUnits {
-			wg.Add(1)
-			go func(unit upmiov1alpha2.Unit) {
-				defer wg.Done()
+	return false
+}
 
-				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					newUnit := mergeResources(unit, unitset)
-					err = r.Update(ctx, &newUnit)
-					if err != nil {
-						//errs = append(errs, fmt.Errorf("[reconcileResources] update unit:[%s/%s] err:[%s]", req.Namespace, unit.Name, err.Error()))
-						return err
-					}
+func (r *UnitSetReconciler) updateUnitResources(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	unitName string) error {
 
-					return nil
-				})
-
-				//newUnit := mergeResources(unit, unitset)
-				//err = r.Update(ctx, &newUnit)
-				if err != nil {
-					errs = append(errs, fmt.Errorf("[reconcileResources] update unit:[%s/%s] err:[%s]", req.Namespace, unit.Name, err.Error()))
-					return
-				}
-
-			}(*unit)
+	updated := false
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err != nil {
+			return err
 		}
-		wg.Wait()
 
-		err = utilerrors.NewAggregate(errs)
-		if err != nil {
-			return fmt.Errorf("[reconcileResources] error:[%s]", err.Error())
+		if !needsResourceUpdate(current, unitset) {
+			return nil
 		}
+
+		updatedUnit := mergeResources(*current, unitset)
+		updated = true
+		return r.Update(ctx, &updatedUnit)
+	})
+
+	if err != nil {
+		return fmt.Errorf("[reconcileResources] update unit:[%s/%s] err:[%w]", req.Namespace, unitName, err)
+	}
+
+	if !updated {
+		return nil
+	}
+
+	if unitUpdateGracePeriod > 0 {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled during grace period for unit [%s]: %w", unitName, ctx.Err())
+		case <-time.After(unitUpdateGracePeriod):
+		}
+	}
+
+	if err := r.waitForUnitReady(ctx, req, unitName); err != nil {
+		return err
 	}
 
 	return nil
