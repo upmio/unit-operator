@@ -10,5 +10,8 @@
 !go.mod
 !go.sum
 
+# Re-include configuration files.
+!**/*.toml
+
 # Allow Dockerfile targets that rely on git metadata (e.g. version stamping).
 !.git
