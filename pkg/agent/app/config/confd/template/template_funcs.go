@@ -69,6 +69,7 @@ func newFuncMap() map[string]interface{} {
 	m["toFloat64"] = StrconvToFloat64
 	m["getPodLabelValueByKey"] = GetPodLabelValueByKey
 	m["getPodAnnotationValueByKey"] = GetPodAnnotationValueByKey
+	m["checkLabelExists"] = CheckLabelExists
 	return m
 }
 
@@ -378,4 +379,20 @@ func GetPodAnnotationValueByKey(name, namespace, key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func CheckLabelExists(name, namespace, key string) bool {
+	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	if err != nil {
+		return false
+	}
+
+	pod, err := clientSet.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+
+	_, ok := pod.ObjectMeta.Labels[key]
+
+	return ok
 }
