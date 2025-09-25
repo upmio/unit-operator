@@ -19,6 +19,9 @@ const (
 	AnnotationUnitServiceType     = "unit-operator/unit-service.type"
 	AnnotationExternalServiceType = "unit-operator/external-service.type"
 
+	AnnotationConfigTemplateVersion = "unit-operator/config-template.version"
+	AnnotationConfigValueVersion    = "unit-operator/config-value.version"
+
 	// AnnotationUnitServiceNodeportMapPrefix
 	// AnnotationUnitServiceNodeportMapSuffix
 	// annotation real name: unit-operator.unit-service.<port name>.nodeport.map
