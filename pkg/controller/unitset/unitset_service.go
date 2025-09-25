@@ -330,7 +330,7 @@ func (r *UnitSetReconciler) reconcileUnitService(
 			if gErr := r.Get(ctx, unitServiceNamespacedName, created); gErr == nil {
 				// merge observed nodePorts into maps
 				mu.Lock()
-				if len(created.Status.LoadBalancer.Ingress) > 0 {
+				if len(created.Status.LoadBalancer.Ingress) != 0 {
 					loadBalancerIPMap[unitName] = created.Status.LoadBalancer.Ingress[0].IP
 				}
 				mu.Unlock()
@@ -359,15 +359,14 @@ func (r *UnitSetReconciler) reconcileUnitService(
 		return err
 	}
 
-	if len(loadBalancerIPMap) > 0 {
+	if len(loadBalancerIPMap) != 0 {
 		orig := unitset.DeepCopy()
 		if unitset.Annotations == nil {
 			unitset.Annotations = map[string]string{}
 		}
 
 		b, _ := json.Marshal(loadBalancerIPMap)
-		if unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] !=
-			orig.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] {
+		if unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] != string(b) {
 			unitset.Annotations[upmiov1alpha2.AnnotationUnitServiceLoadBalancerIPMapSuffix] = string(b)
 			if _, pErr := r.patchUnitset(ctx, orig, unitset); pErr != nil {
 				return fmt.Errorf("patch unitset loadbalancer ip maps error:[%s]", pErr.Error())
