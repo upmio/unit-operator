@@ -131,7 +131,7 @@ type UnitStatus struct {
 // PvcInfo represents the current information/status of a persistent volume claim.
 type PvcInfo struct {
 
-	// Name name of a persistent volume claim.
+	// Name of a persistent volume claim.
 	// +optional
 	Name string `json:"name"`
 

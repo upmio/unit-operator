@@ -9,6 +9,8 @@ import (
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
@@ -108,11 +110,50 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 		unit.Status.PersistentVolumeClaim = pvcInfo
 	}
 
-	if equality.Semantic.DeepEqual(orig.Status, unit.Status) {
-		return nil
+	configTemplateCm := v1.ConfigMap{}
+	configTemplateCmErr := r.Get(ctx, client.ObjectKey{Name: unit.Spec.ConfigTemplateName, Namespace: req.Namespace}, &configTemplateCm)
+	if configTemplateCmErr != nil {
+		klog.Errorf("[reconcileUnitStatus] get configTemplate cm:[%s] failed: %s", unit.Spec.ConfigTemplateName, configTemplateCmErr.Error())
 	}
 
-	return r.Status().Update(ctx, unit)
+	configValueCm := v1.ConfigMap{}
+	configValueCmErr := r.Get(ctx, client.ObjectKey{Name: unit.Spec.ConfigValueName, Namespace: req.Namespace}, &configValueCm)
+	if configValueCmErr != nil {
+		return fmt.Errorf("[reconcileUnitStatus] get configValue cm:[%s] failed: %s", unit.Spec.ConfigValueName, configValueCmErr.Error())
+	}
+
+	newConfigSyncStatus := "True"
+	if unit.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion] != configTemplateCm.ResourceVersion ||
+		unit.Annotations[upmiov1alpha2.AnnotationConfigValueVersion] != configValueCm.ResourceVersion {
+		newConfigSyncStatus = "False"
+	}
+
+	if orig.Status.ConfigSyncStatus.Status != newConfigSyncStatus {
+		unit.Status.ConfigSyncStatus = upmiov1alpha2.ConfigSyncStatus{
+			LastTransitionTime: metaV1.Now(),
+			Status:             newConfigSyncStatus,
+		}
+	} else {
+		unit.Status.ConfigSyncStatus = orig.Status.ConfigSyncStatus
+	}
+
+	if hasUnitStatusChanged(orig.Status, unit.Status) {
+		return r.Status().Update(ctx, unit)
+	}
+
+	return nil
+}
+
+// hasStatusChanged 比较状态是否真正发生变化，忽略时间戳字段的差异
+func hasUnitStatusChanged(origStatus, newStatus upmiov1alpha2.UnitStatus) bool {
+	origCopy := origStatus.DeepCopy()
+	newCopy := newStatus.DeepCopy()
+
+	if origCopy.ConfigSyncStatus.Status == newCopy.ConfigSyncStatus.Status {
+		newCopy.ConfigSyncStatus.LastTransitionTime = origCopy.ConfigSyncStatus.LastTransitionTime
+	}
+
+	return !equality.Semantic.DeepEqual(origCopy, newCopy)
 }
 
 func (r *UnitReconciler) unitManagedResources(
