@@ -379,10 +379,6 @@ func (r *UnitSetReconciler) updateUnitImageVersion(
 		}
 	}
 
-	if err := r.waitForUnitReady(ctx, req, unit); err != nil {
-		return err
-	}
-
 	// Update annotation to mark the version
 	updateAnnotationErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		current := &upmiov1alpha2.Unit{}
@@ -552,23 +548,54 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 	unitNames = sortUnitNamesByOrdinal(unitNames)
 
 	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
-		for _, unitName := range unitNames {
-			unit, exists := unitMap[unitName]
-			if !exists {
-				continue
+		current := unitset.Status.InUpdate
+		if current == "" {
+			for _, unitName := range unitNames {
+				unit, exists := unitMap[unitName]
+				if !exists {
+					continue
+				}
+				if needsResourceUpdate(unit, unitset) {
+					if err := r.updateInUpdateStatus(ctx, req, unitset, unitName); err != nil {
+						return fmt.Errorf("failed to start resource update for unit [%s]: %w", unitName, err)
+					}
+					return nil
+				}
 			}
-
-			if !needsResourceUpdate(unit, unitset) {
-				continue
+			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
+				return fmt.Errorf("failed to clear resource update status: %w", err)
 			}
-
-			if err := r.updateUnitResources(ctx, req, unitset, unitName); err != nil {
-				return err
-			}
-
 			return nil
 		}
 
+		unit, exists := unitMap[current]
+		if !exists || !needsResourceUpdate(unit, unitset) {
+			next := ""
+			for i, name := range unitNames {
+				if name == current && i+1 < len(unitNames) {
+					for j := i + 1; j < len(unitNames); j++ {
+						nextUnit := unitMap[unitNames[j]]
+						if needsResourceUpdate(nextUnit, unitset) {
+							next = unitNames[j]
+							break
+						}
+					}
+					break
+				}
+			}
+			if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
+				return fmt.Errorf("failed to advance resource update status: %w", err)
+			}
+			return nil
+		}
+
+		if unit.Status.Phase != upmiov1alpha2.UnitReady {
+			return nil
+		}
+
+		if err := r.updateUnitResources(ctx, req, unitset, current); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -607,33 +634,22 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 	return nil
 }
 
-func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) bool {
-	for i := range unit.Spec.Template.Spec.Containers {
-		if unit.Spec.Template.Spec.Containers[i].Name != unitset.Spec.Type {
-			continue
+func (r *UnitSetReconciler) updateResourceInUpdateStatus(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	unitName string) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		latest := &upmiov1alpha2.UnitSet{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitset.Name, Namespace: req.Namespace}, latest); err != nil {
+			return fmt.Errorf("failed to get latest unitset: %w", err)
 		}
-
-		container := unit.Spec.Template.Spec.Containers[i]
-		desired := unitset.Spec.Resources
-
-		if container.Resources.Limits.Cpu().Cmp(*desired.Limits.Cpu()) != 0 {
-			return true
+		latest.Status.InUpdate = unitName
+		if err := r.Status().Update(ctx, latest); err != nil {
+			return fmt.Errorf("failed to update ResourceInUpdate status: %w", err)
 		}
-
-		if container.Resources.Limits.Memory().Cmp(*desired.Limits.Memory()) != 0 {
-			return true
-		}
-
-		if container.Resources.Requests.Cpu().Cmp(*desired.Requests.Cpu()) != 0 {
-			return true
-		}
-
-		if container.Resources.Requests.Memory().Cmp(*desired.Requests.Memory()) != 0 {
-			return true
-		}
-	}
-
-	return false
+		return nil
+	})
 }
 
 func (r *UnitSetReconciler) updateUnitResources(
@@ -641,41 +657,24 @@ func (r *UnitSetReconciler) updateUnitResources(
 	req ctrl.Request,
 	unitset *upmiov1alpha2.UnitSet,
 	unitName string) error {
-
 	updated := false
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		current := &upmiov1alpha2.Unit{}
 		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err != nil {
 			return err
 		}
-
 		if !needsResourceUpdate(current, unitset) {
 			return nil
 		}
-
 		updatedUnit := mergeResources(*current, unitset)
 		updated = true
 		return r.Update(ctx, &updatedUnit)
 	})
-
 	if err != nil {
 		return fmt.Errorf("[reconcileResources] update unit:[%s/%s] err:[%w]", req.Namespace, unitName, err)
 	}
-
 	if !updated {
 		return nil
-	}
-
-	if unitUpdateGracePeriod > 0 {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("context cancelled during grace period for unit [%s]: %w", unitName, ctx.Err())
-		case <-time.After(unitUpdateGracePeriod):
-		}
-	}
-
-	if err := r.waitForUnitReady(ctx, req, unitName); err != nil {
-		return err
 	}
 
 	return nil
@@ -860,4 +859,28 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 	}
 
 	return nil
+}
+
+func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) bool {
+	for i := range unit.Spec.Template.Spec.Containers {
+		if unit.Spec.Template.Spec.Containers[i].Name != unitset.Spec.Type {
+			continue
+		}
+		container := unit.Spec.Template.Spec.Containers[i]
+		desired := unitset.Spec.Resources
+
+		if container.Resources.Limits.Cpu().Cmp(*desired.Limits.Cpu()) != 0 {
+			return true
+		}
+		if container.Resources.Limits.Memory().Cmp(*desired.Limits.Memory()) != 0 {
+			return true
+		}
+		if container.Resources.Requests.Cpu().Cmp(*desired.Requests.Cpu()) != 0 {
+			return true
+		}
+		if container.Resources.Requests.Memory().Cmp(*desired.Requests.Memory()) != 0 {
+			return true
+		}
+	}
+	return false
 }
