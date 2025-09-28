@@ -87,21 +87,20 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 
 func convert2PVC(unit *upmiov1alpha2.Unit, persistentVolumeClaim v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
 
-	ref := metav1.NewControllerRef(unit, controllerKind)
+	//ref := metav1.NewControllerRef(unit, controllerKind)
 
 	claim := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       unit.Namespace,
-			Name:            upmiov1alpha2.PersistentVolumeClaimName(unit, persistentVolumeClaim.Name),
-			Labels:          make(map[string]string),
-			OwnerReferences: []metav1.OwnerReference{*ref},
+			Namespace: unit.Namespace,
+			Name:      upmiov1alpha2.PersistentVolumeClaimName(unit, persistentVolumeClaim.Name),
+			Labels:    make(map[string]string),
+			//OwnerReferences: []metav1.OwnerReference{*ref},
 		},
 
 		Spec: persistentVolumeClaim.Spec,
 	}
 
 	claim.Labels = unit.Labels
-	//claim.Labels[vars.LabelUnitName] = unit.Name
 
 	return claim, nil
 }
