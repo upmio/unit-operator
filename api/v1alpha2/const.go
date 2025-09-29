@@ -37,6 +37,7 @@ const (
 
 	LabelProjectOwner = "unit-operator/owner"
 	LabelNamespace    = "unit-operator/namespace"
+	LabelUnitsCount   = "unit-operator/unitset.units.count"
 
 	FinalizerUnitDelete      = "unit-operator/unit-delete"
 	FinalizerConfigMapDelete = "unit-operator/configmap-delete"

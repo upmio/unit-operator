@@ -285,6 +285,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 		}
 	}
 	unit.Labels[upmiov1alpha2.UnitsetName] = unitset.Name
+	unit.Labels[upmiov1alpha2.LabelUnitsCount] = strconv.Itoa(unitset.Spec.Units)
 
 	if len(unitset.Annotations) != 0 {
 		for k, v := range unitset.Annotations {

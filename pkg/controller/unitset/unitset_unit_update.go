@@ -821,6 +821,11 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 					needUpdate = true
 				}
 
+				if latest.Labels[upmiov1alpha2.LabelUnitsCount] != strconv.Itoa(unitset.Spec.Units) {
+					latest.Labels[upmiov1alpha2.LabelUnitsCount] = strconv.Itoa(unitset.Spec.Units)
+					needUpdate = true
+				}
+
 				// Merge labels from UnitSet
 				for k, v := range unitset.Labels {
 					if cur, ok := latest.Labels[k]; !ok || cur != v {
