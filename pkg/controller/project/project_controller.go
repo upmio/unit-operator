@@ -109,6 +109,11 @@ func (r *ProjectReconciler) reconcileProject(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
+	err = r.reconcileCA(ctx, req, project)
+	if err != nil {
+		return err
+	}
+
 	err = r.reconcileServiceAccount(ctx, req, project)
 	if err != nil {
 		return err

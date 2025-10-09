@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ProjectReconciler) reconcileCA(ctx context.Context, project *upmiov1alpha2.Project) error {
+func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, project *upmiov1alpha2.Project) error {
 	if !project.Spec.CA.Enabled {
 		return nil
 	}
