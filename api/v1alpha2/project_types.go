@@ -25,6 +25,49 @@ type ProjectSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// CA contains information about the Certificate Authority configuration.
+	// +optional
+	CA CAInfo `json:"ca,omitempty"`
+}
+
+// CAInfo contains information about the Certificate Authority configuration.
+type CAInfo struct {
+
+	// Enabled indicates whether the CA is enabled.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// CommonName is the common name for the CA certificate.
+	//+optional
+	CommonName string `json:"commonName,omitempty"`
+
+	// SecretName is the name of the Kubernetes secret storing the CA.
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+
+	// Duration is the validity period of the CA certificate.
+	// +optional
+	Duration string `json:"duration,omitempty"`
+
+	// RenewBefore is the time before expiration when the certificate should be renewed.
+	// +optional
+	RenewBefore string `json:"renewBefore,omitempty"`
+
+	// PrivateKey contains information about the CA's private key.
+	// +optional
+	PrivateKey PrivateKeyInfo `json:"privateKey,omitempty"`
+}
+
+// PrivateKeyInfo contains details about the private key used by the CA.
+type PrivateKeyInfo struct {
+
+	// Algorithm is the cryptographic algorithm used for the private key.
+	// +optional
+	Algorithm string `json:"algorithm,omitempty"`
+
+	// Size is the size of the private key in bits.
+	// +optional
+	Size int `json:"size,omitempty"`
 }
 
 // ProjectStatus defines the observed state of Project

@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
+
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmMetaApi "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
@@ -16,6 +20,90 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func (r *ProjectReconciler) reconcileCA(ctx context.Context, project *upmiov1alpha2.Project) error {
+	if !project.Spec.CA.Enabled {
+		return nil
+	}
+
+	ns := project.Name
+	caSpec := project.Spec.CA
+
+	// --- Step 1: ensure Issuer  ---
+	issuerName := project.Name + "-ca-issuer"
+	issuer := &cmapi.Issuer{}
+	err := r.Get(ctx, client.ObjectKey{Name: issuerName, Namespace: ns}, issuer)
+	if apierrors.IsNotFound(err) {
+		newIssuer := &cmapi.Issuer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      issuerName,
+				Namespace: ns,
+				//OwnerReferences: []metav1.OwnerReference{
+				//	*metav1.NewControllerRef(project, upmiov1alpha2.GroupVersion.WithKind("Project")),
+				//},
+			},
+			Spec: cmapi.IssuerSpec{
+				IssuerConfig: cmapi.IssuerConfig{
+					CA: &cmapi.CAIssuer{
+						SecretName: caSpec.SecretName,
+					},
+				},
+			},
+		}
+		if err := r.Create(ctx, newIssuer); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	// --- Step 2: ensure Certificate  ---
+	certName := project.Name + "-ca-cert"
+	cert := &cmapi.Certificate{}
+	err = r.Get(ctx, client.ObjectKey{Name: certName, Namespace: ns}, cert)
+	if apierrors.IsNotFound(err) {
+		duration, _ := time.ParseDuration(defaultIfEmpty(caSpec.Duration, "87600h"))     // default: 10 years
+		renewBefore, _ := time.ParseDuration(defaultIfEmpty(caSpec.RenewBefore, "720h")) // default: 30 days
+		newCert := &cmapi.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      certName,
+				Namespace: ns,
+				//OwnerReferences: []metav1.OwnerReference{
+				//	*metav1.NewControllerRef(project, upmiov1alpha2.GroupVersion.WithKind("Project")),
+				//},
+			},
+			Spec: cmapi.CertificateSpec{
+				SecretName:  caSpec.SecretName,
+				CommonName:  caSpec.CommonName,
+				IsCA:        true,
+				Duration:    &metav1.Duration{Duration: duration},
+				RenewBefore: &metav1.Duration{Duration: renewBefore},
+				PrivateKey: &cmapi.CertificatePrivateKey{
+					Algorithm: cmapi.PrivateKeyAlgorithm(caSpec.PrivateKey.Algorithm),
+					Size:      caSpec.PrivateKey.Size,
+				},
+				IssuerRef: cmMetaApi.ObjectReference{
+					Name: issuerName,
+					Kind: "Issuer",
+				},
+			},
+		}
+		if err := r.Create(ctx, newCert); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func defaultIfEmpty(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
 
 const (
 	defaultAESSecretKey = "AES_SECRET_KEY"
