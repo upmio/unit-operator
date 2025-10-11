@@ -30,7 +30,7 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 	caSpec := project.Spec.CA
 
 	// --- Step 1: ensure Issuer  ---
-	issuerName := project.Name + "-ca-issuer"
+	issuerName := fmt.Sprintf("%s-%s", project.Name, upmiov1alpha2.CertmanagerIssuerSuffix)
 	issuer := &cmapi.Issuer{}
 	err := r.Get(ctx, client.ObjectKey{Name: issuerName, Namespace: ns}, issuer)
 	if apierrors.IsNotFound(err) {
@@ -38,15 +38,10 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      issuerName,
 				Namespace: ns,
-				//OwnerReferences: []metav1.OwnerReference{
-				//	*metav1.NewControllerRef(project, upmiov1alpha2.GroupVersion.WithKind("Project")),
-				//},
 			},
 			Spec: cmapi.IssuerSpec{
 				IssuerConfig: cmapi.IssuerConfig{
-					CA: &cmapi.CAIssuer{
-						SecretName: caSpec.SecretName,
-					},
+					SelfSigned: nil,
 				},
 			},
 		}
@@ -58,19 +53,16 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 	}
 
 	// --- Step 2: ensure Certificate  ---
-	certName := project.Name + "-ca-cert"
+	certName := fmt.Sprintf("%s-%s", project.Name, upmiov1alpha2.CertmanagerCertificateSuffix)
 	cert := &cmapi.Certificate{}
 	err = r.Get(ctx, client.ObjectKey{Name: certName, Namespace: ns}, cert)
 	if apierrors.IsNotFound(err) {
-		duration, _ := time.ParseDuration(defaultIfEmpty(caSpec.Duration, "87600h"))     // default: 10 years
-		renewBefore, _ := time.ParseDuration(defaultIfEmpty(caSpec.RenewBefore, "720h")) // default: 30 days
+		duration, _ := time.ParseDuration(defaultIfEmpty(caSpec.Duration, "87600h"))      // default: 10 years
+		renewBefore, _ := time.ParseDuration(defaultIfEmpty(caSpec.RenewBefore, "2160h")) // default: 90 days
 		newCert := &cmapi.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      certName,
 				Namespace: ns,
-				//OwnerReferences: []metav1.OwnerReference{
-				//	*metav1.NewControllerRef(project, upmiov1alpha2.GroupVersion.WithKind("Project")),
-				//},
 			},
 			Spec: cmapi.CertificateSpec{
 				SecretName:  caSpec.SecretName,
