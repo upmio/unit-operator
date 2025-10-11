@@ -34,6 +34,8 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 	issuer := &cmapi.Issuer{}
 	err := r.Get(ctx, client.ObjectKey{Name: issuerName, Namespace: ns}, issuer)
 	if apierrors.IsNotFound(err) {
+
+		selfSignedIssuer := cmapi.SelfSignedIssuer{}
 		newIssuer := &cmapi.Issuer{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      issuerName,
@@ -41,7 +43,7 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 			},
 			Spec: cmapi.IssuerSpec{
 				IssuerConfig: cmapi.IssuerConfig{
-					SelfSigned: nil,
+					SelfSigned: &selfSignedIssuer,
 				},
 			},
 		}
