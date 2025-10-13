@@ -30,7 +30,7 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 	caSpec := project.Spec.CA
 
 	// --- Step 1: ensure Issuer  ---
-	issuerName := fmt.Sprintf("%s-%s", project.Name, upmiov1alpha2.CertmanagerIssuerSuffix)
+	issuerName := project.Name
 	issuer := &cmapi.Issuer{}
 	err := r.Get(ctx, client.ObjectKey{Name: issuerName, Namespace: ns}, issuer)
 	if apierrors.IsNotFound(err) {
@@ -55,7 +55,7 @@ func (r *ProjectReconciler) reconcileCA(ctx context.Context, req ctrl.Request, p
 	}
 
 	// --- Step 2: ensure Certificate  ---
-	certName := fmt.Sprintf("%s-%s", project.Name, upmiov1alpha2.CertmanagerCertificateSuffix)
+	certName := project.Name
 	cert := &cmapi.Certificate{}
 	err = r.Get(ctx, client.ObjectKey{Name: certName, Namespace: ns}, cert)
 	if apierrors.IsNotFound(err) {
