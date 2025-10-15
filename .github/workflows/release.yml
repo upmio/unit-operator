@@ -98,6 +98,12 @@ jobs:
           push: true
           tags: quay.io/upmio/unit-operator:${{ github.ref_name }}
           platforms: linux/amd64,linux/arm64
+      - name: Prepare release version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+      - name: Build and push bundle image
+        run: make bundle-build bundle-push
+      - name: Build and push catalog image
+        run: make catalog-build catalog-push
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
