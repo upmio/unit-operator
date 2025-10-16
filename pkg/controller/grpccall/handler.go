@@ -122,6 +122,16 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
 				return rc.SetVariable(ctx, msg.(*redis.SetVariableRequest))
 			}
+		case upmv1alpha1.BackupAction:
+			newReq = func() proto.Message { return &redis.BackupRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+				return rc.Backup(ctx, msg.(*redis.BackupRequest))
+			}
+		case upmv1alpha1.RestoreAction:
+			newReq = func() proto.Message { return &redis.RestoreRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+				return rc.Restore(ctx, msg.(*redis.RestoreRequest))
+			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
 		}

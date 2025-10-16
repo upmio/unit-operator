@@ -42,7 +42,7 @@ const (
 
 // Action defines the specific operation to be sent to the unit-agent.
 // Each action corresponds to a gRPC method exposed by the unit-agent.
-// +kubebuilder:validation:Enum=logical-backup;physical-backup;restore;gtid-purge;set-variable;clone
+// +kubebuilder:validation:Enum=logical-backup;physical-backup;restore;gtid-purge;set-variable;clone;backup
 type Action string
 
 const (
@@ -63,6 +63,9 @@ const (
 
 	// CloneAction instructs the agent to perform a clone operation from another instance.
 	CloneAction Action = "clone"
+
+	// BackupAction instructs the agent to perform a backup operation from another instance.
+	BackupAction Action = "backup"
 )
 
 // GrpcCallSpec defines the desired behavior of a GrpcCall custom resource.

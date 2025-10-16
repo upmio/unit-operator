@@ -60,6 +60,7 @@ spec:
                 - gtid-purge
                 - set-variable
                 - clone
+                - backup
                 type: string
               parameters:
                 additionalProperties:
