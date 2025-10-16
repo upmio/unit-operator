@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   creationTimestamp: null
   name: projects.upm.syntropycloud.io
 spec:
@@ -50,6 +50,41 @@ spec:
             type: object
           spec:
             description: ProjectSpec defines the desired state of Project
+            properties:
+              ca:
+                description: CA contains information about the Certificate Authority
+                  configuration.
+                properties:
+                  commonName:
+                    description: CommonName is the common name for the CA certificate.
+                    type: string
+                  duration:
+                    description: Duration is the validity period of the CA certificate.
+                    type: string
+                  enabled:
+                    description: Enabled indicates whether the CA is enabled.
+                    type: boolean
+                  privateKey:
+                    description: PrivateKey contains information about the CA's private
+                      key.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the cryptographic algorithm used
+                          for the private key.
+                        type: string
+                      size:
+                        description: Size is the size of the private key in bits.
+                        type: integer
+                    type: object
+                  renewBefore:
+                    description: RenewBefore is the time before expiration when the
+                      certificate should be renewed.
+                    type: string
+                  secretName:
+                    description: SecretName is the name of the Kubernetes secret storing
+                      the CA.
+                    type: string
+                type: object
             type: object
           status:
             description: ProjectStatus defines the observed state of Project

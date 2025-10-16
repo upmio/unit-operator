@@ -20,7 +20,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: Application Runtime
     containerImage: quay.io/upmio/unit-operator@sha256:c5bc15f68130ce26b1b5060344793c6a076e72bd9bb99f9be41a47dab435ffa5
-    createdAt: "2025-09-16T08:11:47Z"
+    createdAt: "2025-10-16T07:31:50Z"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"
@@ -69,8 +69,17 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
           - events
+          - namespaces
+          - nodes
+          - persistentvolumeclaims
+          - persistentvolumes
+          - pods
+          - podtemplates
+          - secrets
           - serviceaccounts
+          - services
           verbs:
           - create
           - delete
@@ -108,26 +117,6 @@ spec:
           - coordination.k8s.io
           resources:
           - leases
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          - namespaces
-          - nodes
-          - persistentvolumeclaims
-          - persistentvolumes
-          - pods
-          - podtemplates
-          - secrets
-          - services
           verbs:
           - create
           - delete
