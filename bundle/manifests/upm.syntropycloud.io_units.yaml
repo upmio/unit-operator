@@ -142,6 +142,12 @@ spec:
               nodeReady:
                 description: NodeReady is the state of node ready condition.
                 type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the most recent generation observed for this Unit. It corresponds to the
+                  Unit's generation, which is updated on mutation by the API Server.
+                format: int64
+                type: integer
               persistentVolumeClaim:
                 description: PersistentVolumeClaim represents the current information/status
                   of a persistent volume claim.

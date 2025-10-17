@@ -91,6 +91,10 @@ type UnitStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// ObservedGeneration is the most recent generation observed for this Unit. It corresponds to the
+	// Unit's generation, which is updated on mutation by the API Server.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// Phase is the current lifecycle phase of the unit.
 	// +optional
 	Phase UnitPhase `json:"phase"`

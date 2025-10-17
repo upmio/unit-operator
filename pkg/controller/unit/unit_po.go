@@ -63,6 +63,7 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 			orig.Status.HostIP = ""
 			orig.Status.PodIPs = nil
 			orig.Status.Task = reason
+			orig.Status.ObservedGeneration = unit.Generation
 
 			return r.Status().Update(ctx, orig)
 
@@ -78,9 +79,11 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 	}
 
 	// sync label, not image here
+	ifNeedUpdateObservedGeneration := false
 	patch, need, err := ifNeedPatchPod(unit, pod)
 
 	if need {
+		ifNeedUpdateObservedGeneration = true
 		err = r.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, patch))
 		if err == nil {
 			r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "patch pod [%s] ok~ (patch data: %s)", pod.Name, string(patch))
@@ -91,6 +94,13 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 
 	if err != nil {
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ErrResourceExists", "check patch pod fail:[%s]", err.Error())
+	}
+
+	if ifNeedUpdateObservedGeneration {
+		err := r.reconcileUnitObservedGeneration(ctx, req, unit)
+		if err != nil {
+			return fmt.Errorf("[update pvc] error: [%s]", err.Error())
+		}
 	}
 
 	return nil

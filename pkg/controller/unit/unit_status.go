@@ -10,6 +10,7 @@ import (
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -154,6 +155,24 @@ func hasUnitStatusChanged(origStatus, newStatus upmiov1alpha2.UnitStatus) bool {
 	}
 
 	return !equality.Semantic.DeepEqual(origCopy, newCopy)
+}
+
+func (r *UnitReconciler) reconcileUnitObservedGeneration(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: req.Namespace}, latest); err != nil {
+			return err
+		}
+
+		latest.Status.ObservedGeneration = latest.Generation
+		return r.Status().Update(ctx, latest)
+	})
+
+	if retryErr != nil {
+		return fmt.Errorf("update unit ObservedGeneration error: [%s]", retryErr.Error())
+	}
+
+	return nil
 }
 
 func (r *UnitReconciler) unitManagedResources(

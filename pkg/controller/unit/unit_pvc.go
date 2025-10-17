@@ -19,6 +19,8 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 		return nil
 	}
 
+	ifNeedUpdateObservedGeneration := false
+
 	for _, each := range unit.Spec.VolumeClaimTemplates {
 		pvcName := upmiov1alpha2.PersistentVolumeClaimName(unit, each.Name)
 		claim := &v1.PersistentVolumeClaim{}
@@ -71,16 +73,21 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 			newClaim := claim.DeepCopy()
 			newClaim.Spec.Resources.Requests = each.Spec.Resources.Requests
 
+			ifNeedUpdateObservedGeneration = true
+
 			err = r.Update(ctx, newClaim)
 			if err != nil {
 				return fmt.Errorf("update pvc:[%s] error:[%s]", claim.Name, err.Error())
-				//} else {
-				//r.EventRecorder.Eventf(unit, corev1.EventTypeNormal, SuccessUpdated, "update pvc [%s] ok~", pvcName)
 			}
 		}
 	}
 
-	//klog.Infof("reconcilePersistentVolumeClaims ok, unit name: [%s]", unit.Name)
+	if ifNeedUpdateObservedGeneration {
+		err := r.reconcileUnitObservedGeneration(ctx, req, unit)
+		if err != nil {
+			return fmt.Errorf("[update pvc] error: [%s]", err.Error())
+		}
+	}
 
 	return nil
 }
