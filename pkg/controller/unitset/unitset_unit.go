@@ -234,6 +234,18 @@ func fillUnitPersonalizedInfo(
 								unit, unit.Spec.Template.Spec.Volumes[i].Name),
 						}
 				}
+
+				if unit.Spec.Template.Spec.Volumes[i].Name == "certificate" {
+					certificateSecretName := fmt.Sprintf(
+						"%s-%s-%s",
+						unit.Name,
+						upmiov1alpha2.CertmanagerCertificateSuffix,
+						upmiov1alpha2.CertmanagerSecretNameSuffix)
+
+					unit.Spec.Template.Spec.Volumes[i].Secret = &v1.SecretVolumeSource{
+						SecretName: certificateSecretName,
+					}
+				}
 			}
 		}
 	}
@@ -754,14 +766,9 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 			Value: string(organizationsStr),
 		})
 
-		certificateSecretName := fmt.Sprintf(
-			"%s-%s-%s",
-			unitset.Name,
-			upmiov1alpha2.CertmanagerCertificateSuffix,
-			upmiov1alpha2.CertmanagerSecretNameSuffix)
-
+		// certificate volume SecretName not here, will be filled in Unit level
 		volume := v1.SecretVolumeSource{
-			SecretName: certificateSecretName,
+			SecretName: "",
 		}
 		volumes = append(volumes, v1.Volume{
 			Name: "certificate",

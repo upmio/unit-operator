@@ -527,6 +527,18 @@ func mergePodTemplate(
 								unit, unit.Spec.Template.Spec.Volumes[i].Name),
 						}
 				}
+
+				if unit.Spec.Template.Spec.Volumes[i].Name == "certificate" {
+					certificateSecretName := fmt.Sprintf(
+						"%s-%s-%s",
+						unit.Name,
+						upmiov1alpha2.CertmanagerCertificateSuffix,
+						upmiov1alpha2.CertmanagerSecretNameSuffix)
+
+					unit.Spec.Template.Spec.Volumes[i].Secret = &v1.SecretVolumeSource{
+						SecretName: certificateSecretName,
+					}
+				}
 			}
 		}
 	}
