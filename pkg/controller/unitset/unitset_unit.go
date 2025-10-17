@@ -2,6 +2,7 @@ package unitset
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -728,7 +729,40 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 		}...)
 	}
 
-	//klog.Infof("[fillVolumeClaimTemplatesGenerateVolumeMountsAndEnvs] env len:[%d]", len(envs))
+	if len(unitset.Spec.CertificateProfile.Organizations) != 0 && unitset.Spec.CertificateProfile.RootSecret != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  "CERT_MOUNT",
+			Value: "/CERT_MOUNT",
+		})
+
+		organizationsStr, _ := json.Marshal(unitset.Spec.CertificateProfile.Organizations)
+		envs = append(envs, v1.EnvVar{
+			Name:  "CERT_ORG",
+			Value: string(organizationsStr),
+		})
+
+		certificateSecretName := fmt.Sprintf(
+			"%s-%s-%s",
+			unitset.Name,
+			upmiov1alpha2.CertmanagerCertificateSuffix,
+			upmiov1alpha2.CertmanagerSecretNameSuffix)
+
+		volume := v1.SecretVolumeSource{
+			SecretName: certificateSecretName,
+		}
+		volumes = append(volumes, v1.Volume{
+			Name: "certificate",
+			VolumeSource: v1.VolumeSource{
+				Secret: &volume,
+			},
+		})
+
+		volumeMount = append(volumeMount, v1.VolumeMount{
+			Name:      "certificate",
+			ReadOnly:  true,
+			MountPath: "/CERT_MOUNT",
+		})
+	}
 
 	return volumeMount, volumes, envs, volumeClaimTemplates
 }
