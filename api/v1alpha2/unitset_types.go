@@ -230,6 +230,10 @@ type UnitSetStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// ObservedGeneration is the most recent generation observed for this UnitSet. It corresponds to the
+	// UnitSet's generation, which is updated on mutation by the API Server.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// Units the number of units
 	// +optional
 	Units int `json:"units,omitempty"`

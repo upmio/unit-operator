@@ -144,6 +144,11 @@ func (r *UnitSetReconciler) reconcileImageVersion(
 		if err != nil {
 			return fmt.Errorf("failed to update pod template [%s/%s]: %w", req.Namespace, unitset.PodTemplateName(), err)
 		}
+
+		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
+		if err != nil {
+			return fmt.Errorf("[reconcileImageVersion] update unitset status error:[%s]", err.Error())
+		}
 	}
 
 	return nil
@@ -596,6 +601,21 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 		if err := r.updateUnitResources(ctx, req, unitset, current); err != nil {
 			return err
 		}
+
+		allReady := true
+		for _, unitName := range unitNames {
+			unit, exists := unitMap[unitName]
+			if !exists || needsResourceUpdate(unit, unitset) || unit.Status.Phase != upmiov1alpha2.UnitReady {
+				allReady = false
+				break
+			}
+		}
+		if allReady {
+			err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
+			if err != nil {
+				return fmt.Errorf("[reconcileResources] update unitset status error:[%s]", err.Error())
+			}
+		}
 		return nil
 	}
 
@@ -604,6 +624,8 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 		errs []error
 		mu   sync.Mutex
 	)
+
+	ifNeedUpdateObservedGeneration := false
 
 	for _, unitName := range unitNames {
 		unit, exists := unitMap[unitName]
@@ -615,9 +637,12 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 			continue
 		}
 
+		ifNeedUpdateObservedGeneration = true
+
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
+
 			if err := r.updateUnitResources(ctx, req, unitset, name); err != nil {
 				mu.Lock()
 				errs = append(errs, err)
@@ -629,6 +654,14 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 	wg.Wait()
 	if len(errs) > 0 {
 		return fmt.Errorf("[reconcileResources] error:[%s]", utilerrors.NewAggregate(errs))
+	}
+
+	if ifNeedUpdateObservedGeneration {
+		// update observedGeneration of unitset status
+		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
+		if err != nil {
+			return fmt.Errorf("[reconcileResources] update unitset status error:[%s]", err.Error())
+		}
 	}
 
 	return nil
@@ -704,6 +737,7 @@ func (r *UnitSetReconciler) reconcileStorage(ctx context.Context, req ctrl.Reque
 	}
 
 	needUpdate := false
+	ifNeedUpdateObservedGeneration := false
 
 	// resource request
 	for _, unit := range kUnits {
@@ -722,6 +756,8 @@ func (r *UnitSetReconciler) reconcileStorage(ctx context.Context, req ctrl.Reque
 
 	errs := []error{}
 	if needUpdate {
+		ifNeedUpdateObservedGeneration = true
+
 		var wg sync.WaitGroup
 		for _, unit := range kUnits {
 			wg.Add(1)
@@ -750,6 +786,12 @@ func (r *UnitSetReconciler) reconcileStorage(ctx context.Context, req ctrl.Reque
 		err = utilerrors.NewAggregate(errs)
 		if err != nil {
 			return fmt.Errorf("[reconcileStorage] error:[%s]", err.Error())
+		}
+	}
+
+	if ifNeedUpdateObservedGeneration {
+		if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
+			return fmt.Errorf("[reconcileStorage] error: [%s]", err.Error())
 		}
 	}
 
@@ -791,6 +833,8 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 	errs := []error{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+
+	ifNeedUpdateObservedGeneration := false
 
 	for _, unit := range kUnits {
 		wg.Add(1)
@@ -846,6 +890,8 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 					return nil
 				}
 
+				ifNeedUpdateObservedGeneration = true
+
 				return r.Update(ctx, latest)
 			})
 
@@ -861,6 +907,13 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 
 	if agg := utilerrors.NewAggregate(errs); agg != nil {
 		return fmt.Errorf("[reconcileUnitLabelsAnnotations] error: [%s]", agg.Error())
+	}
+
+	if ifNeedUpdateObservedGeneration {
+		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
+		if err != nil {
+			return fmt.Errorf("[reconcileUnitLabelsAnnotations] error: [%s]", err.Error())
+		}
 	}
 
 	return nil

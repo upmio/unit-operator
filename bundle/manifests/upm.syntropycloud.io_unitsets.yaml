@@ -225,6 +225,12 @@ spec:
                 description: InUpdate used to mark if a mirror upgrade or resource
                   change is in progress
                 type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the most recent generation observed for this UnitSet. It corresponds to the
+                  UnitSet's generation, which is updated on mutation by the API Server.
+                format: int64
+                type: integer
               readyUnits:
                 description: ReadyUnits the number of ready units
                 type: integer

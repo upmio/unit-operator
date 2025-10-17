@@ -20,7 +20,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: Application Runtime
     containerImage: quay.io/upmio/unit-operator@sha256:c5bc15f68130ce26b1b5060344793c6a076e72bd9bb99f9be41a47dab435ffa5
-    createdAt: "2025-10-16T10:41:21Z"
+    createdAt: "2025-10-17T06:36:50Z"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "false"

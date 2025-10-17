@@ -28,16 +28,17 @@ func (r *UnitSetReconciler) reconcileUnit(
 	ports []v1.ContainerPort) error {
 
 	unitNames, unitNamesWithIndex := unitset.UnitNames()
-	klog.V(4).Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
+	klog.Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
 
 	// PVC name needs to be filled in during unit generation
 	volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
-	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumeMounts len:[%d],[%v]", req.String(), len(volumeMounts), volumeMounts)
-	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumes len:[%d],[%v]", req.String(), len(volumes), volumes)
-	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] envVars len:[%d],[%v]", req.String(), len(envVars), envVars)
-	klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] pvcs len:[%d],[%v]", req.String(), len(pvcs), pvcs)
+	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumeMounts len:[%d],[%v]", req.String(), len(volumeMounts), volumeMounts)
+	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumes len:[%d],[%v]", req.String(), len(volumes), volumes)
+	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] envVars len:[%d],[%v]", req.String(), len(envVars), envVars)
+	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] pvcs len:[%d],[%v]", req.String(), len(pvcs), pvcs)
 
 	errs := []error{}
+	ifNeedUpdateObservedGeneration := false
 	var wg sync.WaitGroup
 	var errsMutex sync.Mutex
 	for _, unitName := range unitNames {
@@ -59,6 +60,8 @@ func (r *UnitSetReconciler) reconcileUnit(
 				}
 
 				unit := fillUnitPersonalizedInfo(unitTemplate, unitset, unitNamesWithIndex, unitName)
+
+				ifNeedUpdateObservedGeneration = true
 
 				err = r.Create(ctx, unit)
 				if err != nil && !apierrors.IsAlreadyExists(err) {
@@ -95,6 +98,15 @@ func (r *UnitSetReconciler) reconcileUnit(
 		_, rmErr := r.removeUnits(ctx, unitset, kUnits)
 		if rmErr != nil {
 			return err
+		}
+		ifNeedUpdateObservedGeneration = true
+	}
+
+	if ifNeedUpdateObservedGeneration {
+		// update observedGeneration of unitset status
+		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
+		if err != nil {
+			return fmt.Errorf("[reconcileUnit] update unitset status error:[%s]", err.Error())
 		}
 	}
 

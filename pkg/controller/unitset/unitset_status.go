@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,6 +52,26 @@ func (r *UnitSetReconciler) reconcilePatchUnitset(ctx context.Context, req ctrl.
 
 	return nil
 }
+
+// update unitset status ObservedGeneration
+func (r *UnitSetReconciler) reconcileUnitsetObservedGeneration(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &upmiov1alpha2.UnitSet{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitset.Name, Namespace: req.Namespace}, latest); err != nil {
+			return err
+		}
+
+		latest.Status.ObservedGeneration = latest.Generation
+		return r.Status().Update(ctx, latest)
+	})
+
+	if retryErr != nil {
+		return fmt.Errorf("update unitset ObservedGeneration error: [%s]", retryErr.Error())
+	}
+
+	return nil
+}
+
 func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
 	orig := unitset.DeepCopy()
 
