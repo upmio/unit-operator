@@ -226,7 +226,8 @@ func fillUnitPersonalizedInfo(
 		if len(unit.Spec.Template.Spec.Volumes) != 0 {
 			for i := range unit.Spec.Template.Spec.Volumes {
 				// ignore secret
-				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" {
+				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
+					unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
 							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(

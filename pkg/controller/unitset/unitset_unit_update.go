@@ -518,8 +518,9 @@ func mergePodTemplate(
 	if len(unitset.Spec.Storages) != 0 {
 		if len(unit.Spec.Template.Spec.Volumes) != 0 {
 			for i := range unit.Spec.Template.Spec.Volumes {
-				// Non-secret
-				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" {
+				// Non-secret and certificate
+				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
+					unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
 							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
