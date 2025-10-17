@@ -81,6 +81,194 @@ func (x *SetVariableRequest) GetPassword() string {
 	return ""
 }
 
+type S3Storage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
+	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *S3Storage) Reset() {
+	*x = S3Storage{}
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *S3Storage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*S3Storage) ProtoMessage() {}
+
+func (x *S3Storage) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
+func (*S3Storage) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *S3Storage) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *S3Storage) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+func (x *S3Storage) GetAccessKey() string {
+	if x != nil {
+		return x.AccessKey
+	}
+	return ""
+}
+
+func (x *S3Storage) GetSecretKey() string {
+	if x != nil {
+		return x.SecretKey
+	}
+	return ""
+}
+
+type BackupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	S3Storage     *S3Storage             `protobuf:"bytes,2,opt,name=s3_storage,json=s3Storage,proto3" json:"s3_storage,omitempty"`
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupRequest) Reset() {
+	*x = BackupRequest{}
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRequest) ProtoMessage() {}
+
+func (x *BackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
+func (*BackupRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BackupRequest) GetBackupFile() string {
+	if x != nil {
+		return x.BackupFile
+	}
+	return ""
+}
+
+func (x *BackupRequest) GetS3Storage() *S3Storage {
+	if x != nil {
+		return x.S3Storage
+	}
+	return nil
+}
+
+func (x *BackupRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type RestoreRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	S3Storage     *S3Storage             `protobuf:"bytes,2,opt,name=s3_storage,json=s3Storage,proto3" json:"s3_storage,omitempty"`
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreRequest) Reset() {
+	*x = RestoreRequest{}
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreRequest) ProtoMessage() {}
+
+func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
+func (*RestoreRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RestoreRequest) GetBackupFile() string {
+	if x != nil {
+		return x.BackupFile
+	}
+	return ""
+}
+
+func (x *RestoreRequest) GetS3Storage() *S3Storage {
+	if x != nil {
+		return x.S3Storage
+	}
+	return nil
+}
+
+func (x *RestoreRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
 type Response struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -90,7 +278,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -102,7 +290,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -115,7 +303,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{1}
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Response) GetMessage() string {
@@ -133,11 +321,32 @@ const file_pkg_agent_app_redis_pb_redis_proto_rawDesc = "" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\"$\n" +
+	"\bpassword\x18\x05 \x01(\tR\bpassword\"}\n" +
+	"\tS3Storage\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
+	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
+	"\n" +
+	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
+	"\n" +
+	"secret_key\x18\x04 \x01(\tR\tsecretKey\"}\n" +
+	"\rBackupRequest\x12\x1f\n" +
+	"\vbackup_file\x18\x01 \x01(\tR\n" +
+	"backupFile\x12/\n" +
+	"\n" +
+	"s3_storage\x18\x02 \x01(\v2\x10.redis.S3StorageR\ts3Storage\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"~\n" +
+	"\x0eRestoreRequest\x12\x1f\n" +
+	"\vbackup_file\x18\x01 \x01(\tR\n" +
+	"backupFile\x12/\n" +
+	"\n" +
+	"s3_storage\x18\x02 \x01(\v2\x10.redis.S3StorageR\ts3Storage\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"$\n" +
 	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2K\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xaf\x01\n" +
 	"\x0eRedisOperation\x129\n" +
-	"\vSetVariable\x12\x19.redis.SetVariableRequest\x1a\x0f.redis.ResponseB4Z2github.com/upmio/unit-operator/pkg/agent/app/redisb\x06proto3"
+	"\vSetVariable\x12\x19.redis.SetVariableRequest\x1a\x0f.redis.Response\x12/\n" +
+	"\x06Backup\x12\x14.redis.BackupRequest\x1a\x0f.redis.Response\x121\n" +
+	"\aRestore\x12\x15.redis.RestoreRequest\x1a\x0f.redis.ResponseB4Z2github.com/upmio/unit-operator/pkg/agent/app/redisb\x06proto3"
 
 var (
 	file_pkg_agent_app_redis_pb_redis_proto_rawDescOnce sync.Once
@@ -151,19 +360,28 @@ func file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_redis_pb_redis_proto_rawDescData
 }
 
-var file_pkg_agent_app_redis_pb_redis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pkg_agent_app_redis_pb_redis_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pkg_agent_app_redis_pb_redis_proto_goTypes = []any{
 	(*SetVariableRequest)(nil), // 0: redis.SetVariableRequest
-	(*Response)(nil),           // 1: redis.Response
+	(*S3Storage)(nil),          // 1: redis.S3Storage
+	(*BackupRequest)(nil),      // 2: redis.BackupRequest
+	(*RestoreRequest)(nil),     // 3: redis.RestoreRequest
+	(*Response)(nil),           // 4: redis.Response
 }
 var file_pkg_agent_app_redis_pb_redis_proto_depIdxs = []int32{
-	0, // 0: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
-	1, // 1: redis.RedisOperation.SetVariable:output_type -> redis.Response
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: redis.BackupRequest.s3_storage:type_name -> redis.S3Storage
+	1, // 1: redis.RestoreRequest.s3_storage:type_name -> redis.S3Storage
+	0, // 2: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
+	2, // 3: redis.RedisOperation.Backup:input_type -> redis.BackupRequest
+	3, // 4: redis.RedisOperation.Restore:input_type -> redis.RestoreRequest
+	4, // 5: redis.RedisOperation.SetVariable:output_type -> redis.Response
+	4, // 6: redis.RedisOperation.Backup:output_type -> redis.Response
+	4, // 7: redis.RedisOperation.Restore:output_type -> redis.Response
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_redis_pb_redis_proto_init() }
@@ -177,7 +395,7 @@ func file_pkg_agent_app_redis_pb_redis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_redis_pb_redis_proto_rawDesc), len(file_pkg_agent_app_redis_pb_redis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -9,10 +9,31 @@ message SetVariableRequest {
   string password = 5;
 }
 
+message S3Storage {
+  string endpoint = 1;
+  string bucket = 2;
+  string access_key = 3;
+  string secret_key = 4;
+}
+
+message BackupRequest {
+  string backup_file = 1;
+  S3Storage s3_storage = 2;
+  string password = 3;
+}
+
+message RestoreRequest {
+  string backup_file = 1;
+  S3Storage s3_storage = 2;
+  string password = 3;
+}
+
 message Response {
   string message = 1;
 }
 
 service RedisOperation {
   rpc SetVariable (SetVariableRequest) returns (Response);
+  rpc Backup (BackupRequest) returns (Response);
+  rpc Restore (RestoreRequest) returns (Response);
 }
