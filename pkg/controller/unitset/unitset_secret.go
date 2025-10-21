@@ -26,6 +26,8 @@ func (r *UnitSetReconciler) reconcileUnitCertificates(
 	unitset *upmiov1alpha2.UnitSet,
 ) error {
 	units, _ := unitset.UnitNames()
+	namespace := unitset.GetNamespace()
+	unitsetName := unitset.GetName()
 	if len(units) == 0 {
 		return nil
 	}
@@ -115,7 +117,8 @@ func (r *UnitSetReconciler) reconcileUnitCertificates(
 					Spec: certmanagerV1.CertificateSpec{
 						IsCA: false,
 						DNSNames: []string{
-							unitName,
+							//unitName,
+							fmt.Sprintf("%s.%s-headless-svc.%s.svc.cluster.local", unitName, unitsetName, namespace),
 						},
 						Subject:    &x509Subject,
 						PrivateKey: &privateKey,
