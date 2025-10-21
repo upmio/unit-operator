@@ -222,29 +222,32 @@ func fillUnitPersonalizedInfo(
 	}
 
 	// emptyDir doesn't need pvc
-	if len(unitset.Spec.Storages) != 0 {
-		if len(unit.Spec.Template.Spec.Volumes) != 0 {
-			for i := range unit.Spec.Template.Spec.Volumes {
-				// ignore secret
-				if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
-					unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
-					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
-						&v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
-								unit, unit.Spec.Template.Spec.Volumes[i].Name),
-						}
-				}
-
-				if unit.Spec.Template.Spec.Volumes[i].Name == "certificate" {
-					certificateSecretName := fmt.Sprintf(
-						"%s-%s-%s",
-						unit.Name,
-						upmiov1alpha2.CertmanagerCertificateSuffix,
-						upmiov1alpha2.CertmanagerSecretNameSuffix)
-
-					unit.Spec.Template.Spec.Volumes[i].Secret = &v1.SecretVolumeSource{
-						SecretName: certificateSecretName,
+	if len(unitset.Spec.Storages) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
+		for i := range unit.Spec.Template.Spec.Volumes {
+			// ignore secret and certificate
+			if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
+				unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
+				unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
+					&v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
+							unit, unit.Spec.Template.Spec.Volumes[i].Name),
 					}
+			}
+		}
+
+	}
+
+	if len(unit.Spec.Template.Spec.Volumes) != 0 {
+		for i := range unit.Spec.Template.Spec.Volumes {
+			if unit.Spec.Template.Spec.Volumes[i].Name == "certificate" {
+				certificateSecretName := fmt.Sprintf(
+					"%s-%s-%s",
+					unit.Name,
+					upmiov1alpha2.CertmanagerCertificateSuffix,
+					upmiov1alpha2.CertmanagerSecretNameSuffix)
+
+				unit.Spec.Template.Spec.Volumes[i].Secret = &v1.SecretVolumeSource{
+					SecretName: certificateSecretName,
 				}
 			}
 		}
