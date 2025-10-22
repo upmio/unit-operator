@@ -74,10 +74,20 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 
 	extendConfigName := []string{}
 
+	var timeout int
+	var periodSeconds int
+	for _, one := range pod.Spec.Containers {
+		if one.Name == unit.MainContainerName() {
+			periodSeconds = int(one.ReadinessProbe.PeriodSeconds)
+			timeout = int(one.ReadinessProbe.PeriodSeconds*one.ReadinessProbe.SuccessThreshold + one.ReadinessProbe.TimeoutSeconds)
+			break
+		}
+	}
+
 	var lastTimeMessage string
 	var syncConfigErr error
 
-	waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Duration(periodSeconds)*time.Second, time.Duration(timeout)*time.Second, false, func(ctx context.Context) (bool, error) {
 
 		lastTimeMessage, syncConfigErr = internalAgent.SyncConfig(
 			vars.UnitAgentHostType,
@@ -91,7 +101,6 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 			extendConfigName)
 
 		if syncConfigErr != nil {
-			//return false,fmt.Errorf("sync unit config failed: message:[%s], error:[%s]", message, err.Error())
 			return false, nil
 		}
 
@@ -133,11 +142,11 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 		newPod, _ := r.convert2Pod(ctx, unit)
 
 		err = r.Create(ctx, newPod)
-		if err == nil {
-			r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessCreated", "[reconcileUnitConfig]: recreate pod [%s] ok", pod.Name)
+		if err != nil {
+			return fmt.Errorf("[reconcileUnitConfig]:wait for sync config timeout, recreate pod failed: %s", err.Error())
 		}
 
-		return err
+		return fmt.Errorf("[reconcileUnitConfig]: because sync config timeout, recreate pod ok, wait for next reconcile to sync config")
 	}
 
 	// sync ConfigTemplate and ConfigValue version to unit annotation
