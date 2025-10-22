@@ -34,5 +34,5 @@ func PrintVersion() {
 	fmt.Printf("%-12s: %s\n", "Git Branch", GITBRANCH)
 	fmt.Printf("%-12s: %s\n", "Git Commit", GITCOMMIT)
 	fmt.Printf("%-12s: %s\n", "Go Version", GOVERSION)
-	fmt.Printf("%s\n", bold("====================================\n"))
+	fmt.Printf("%s\n", bold("==================================\n"))
 }
