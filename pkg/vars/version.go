@@ -2,6 +2,8 @@ package vars
 
 import (
 	"fmt"
+
+	"github.com/fatih/color"
 )
 
 var (
@@ -17,36 +19,20 @@ var (
 	GOVERSION string
 )
 
-const (
-	//Version           = "1.1.0"
-	VersionPrerelease = ""
-)
+func PrintVersion() {
 
-type VersionInfo struct {
-	Version   string `json:"version"`
-	CommitId  string `json:"commit_id"`
-	BuildTime string `json:"build_time"`
-	GitBranch string `json:"git_branch"`
-	GoVersion string `json:"go_version"`
-}
-
-func GetVersion() string {
 	tempVer := "dev"
 	if VERSION != "" {
 		tempVer = VERSION
 	}
 
-	version := fmt.Sprintf(
-		"Version: %s\n"+
-			"Build Time: %s\n"+
-			"Git Branch: %s\n"+
-			"Git Commit: %s\n"+
-			"Go Version: %s\n",
-		tempVer,
-		BUILDTIME,
-		GITBRANCH,
-		GITCOMMIT,
-		GOVERSION)
+	bold := color.New(color.FgCyan, color.Bold).SprintFunc()
 
-	return version
+	fmt.Printf("\n%s\n", bold("=== Unit Operator Version Info ==="))
+	fmt.Printf("%-12s: %s\n", "Version", tempVer)
+	fmt.Printf("%-12s: %s\n", "Build Time", BUILDTIME)
+	fmt.Printf("%-12s: %s\n", "Git Branch", GITBRANCH)
+	fmt.Printf("%-12s: %s\n", "Git Commit", GITCOMMIT)
+	fmt.Printf("%-12s: %s\n", "Go Version", GOVERSION)
+	fmt.Printf("%s\n", bold("====================================\n"))
 }

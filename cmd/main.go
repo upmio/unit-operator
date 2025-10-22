@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
@@ -103,7 +102,7 @@ func main() {
 	flag.Parse()
 
 	if versionFlag {
-		fmt.Println(vars.GetVersion())
+		vars.PrintVersion()
 		return
 	}
 
