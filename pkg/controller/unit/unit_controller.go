@@ -133,6 +133,7 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 			wg.Add(1)
 			go func(finalizer string) {
 				defer wg.Done()
+
 				// our finalizer is present, so lets handle any external dependency
 				if deleteResourcesErr := r.deleteResources(ctx, req, unit, finalizer); deleteResourcesErr != nil {
 					// if fail to delete the external dependency here, return with error
@@ -140,6 +141,7 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 					errs = append(errs, deleteResourcesErr)
 					return
 				}
+
 			}(myFinalizerName)
 		}
 		wg.Wait()

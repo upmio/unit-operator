@@ -33,6 +33,10 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
+	if !pod.DeletionTimestamp.IsZero() {
+		return fmt.Errorf("pod [%s] is marked for deleted", pod.Name)
+	}
+
 	if !podutil.IsPodInitialized(pod) {
 		klog.Errorf("[reconcileUnitConfig] pod not initialized, not support sync unit config")
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ResourceCheck", "pod not initialized, not support sync unit config")
@@ -116,6 +120,17 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 			"[reconcileUnitConfig] wait for sync config timeout, message:[%s], error:[%s], will trrigger recreate pod",
 			lastTimeMessage, syncConfigErr.Error())
 
+		// check unit if marked for deleted, if yes, skip, avoid recreate pod, return error to trigger next reconcile
+		lastUnit := &upmiov1alpha2.Unit{}
+		lastUnitErr := r.Get(ctx, client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}, lastUnit)
+		if lastUnitErr != nil {
+			return fmt.Errorf("[reconcileUnitConfig]: sync config timeout, get new unit failed: %s", lastUnitErr.Error())
+		}
+
+		if !lastUnit.DeletionTimestamp.IsZero() {
+			return fmt.Errorf("[reconcileUnitConfig]: sync config timeout, unit marked for deleted, finish reconcile")
+		}
+
 		// delete pod
 		err = r.Delete(ctx, pod)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -138,15 +153,17 @@ func (r *UnitReconciler) reconcileUnitConfig(ctx context.Context, req ctrl.Reque
 			return fmt.Errorf("[reconcileUnitConfig]: wait pod delete fail:%s", err.Error())
 		}
 
+		// update: not recreate pod here, trigger next reconcile to recreate pod
+		//
 		// create
-		newPod, _ := r.convert2Pod(ctx, unit)
+		//newPod, _ := r.convert2Pod(ctx, unit)
+		//
+		//err = r.Create(ctx, newPod)
+		//if err != nil {
+		//	return fmt.Errorf("[reconcileUnitConfig]:wait for sync config timeout, recreate pod failed: %s", err.Error())
+		//}
 
-		err = r.Create(ctx, newPod)
-		if err != nil {
-			return fmt.Errorf("[reconcileUnitConfig]:wait for sync config timeout, recreate pod failed: %s", err.Error())
-		}
-
-		return fmt.Errorf("[reconcileUnitConfig]: because sync config timeout, recreate pod ok, wait for next reconcile to sync config")
+		return fmt.Errorf("[reconcileUnitConfig]: sync config timeout, delete pod ok~, wait for next reconcile to recrate pod and then sync config")
 	}
 
 	// sync ConfigTemplate and ConfigValue version to unit annotation

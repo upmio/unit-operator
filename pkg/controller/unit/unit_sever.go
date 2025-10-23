@@ -36,6 +36,10 @@ func (r *UnitReconciler) reconcileUnitServer(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
+	if !pod.DeletionTimestamp.IsZero() {
+		return fmt.Errorf("pod [%s] is marked for deleted", pod.Name)
+	}
+
 	if !podutil.IsPodInitialized(pod) || !podutil.IsPodScheduled(pod) {
 		klog.Errorf("[reconcileUnitServer] pod not initialized or scheduled, not support unit lifecycle management")
 		r.Recorder.Eventf(unit, v1.EventTypeWarning, "ResourceCheck", "pod not initialized or scheduled, not support unit lifecycle management")
