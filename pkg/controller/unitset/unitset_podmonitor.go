@@ -6,6 +6,7 @@ import (
 
 	serviceMonitorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	v1 "k8s.io/api/core/v1"
 	apiextensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,7 @@ func (r *UnitSetReconciler) reconcilePodMonitor(ctx context.Context, req ctrl.Re
 	err := r.Get(ctx, client.ObjectKey{Name: upmiov1alpha2.MonitorPodMonitorCrdName}, &exceptedCrd)
 	if err != nil && errors.IsNotFound(err) {
 		// no crd found, creation of service monitor not supported
-		r.Recorder.Eventf(unitset, "WARNNING", "PodMonitor",
+		r.Recorder.Eventf(unitset, v1.EventTypeWarning, "PodMonitor",
 			"[pod monitor enable=true], but not found podmonitor crd:[%s], ignore",
 			upmiov1alpha2.MonitorPodMonitorCrdName)
 		klog.Infof("[ensurePodMonitor] unitset:[%s], [pod monitor enable=true], "+
@@ -75,7 +76,7 @@ func (r *UnitSetReconciler) reconcilePodMonitor(ctx context.Context, req ctrl.Re
 			return fmt.Errorf("create pod monitor:[%s] error:[%s]", podMonitorName, err.Error())
 		}
 
-		r.Recorder.Eventf(unitset, "SuccessCreated", "PodMonitor create", "create pod monitor:[%s] ok~", podMonitorName)
+		r.Recorder.Eventf(unitset, v1.EventTypeNormal, "PodMonitor create", "create pod monitor:[%s] ok~", podMonitorName)
 	}
 
 	if err != nil && !errors.IsNotFound(err) {
