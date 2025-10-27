@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime/debug"
 	"time"
 
 	klog "k8s.io/klog/v2"
@@ -115,6 +116,14 @@ func main() {
 	//ctrl.SetLogger(log.InitLoggerFromFlagsAndEnv(logDir, logLevel, logFileMaxSize))
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	klog.SetLogger(ctrl.Log)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				ctrl.Log.Error(nil, "Recovered from panic in goroutine", "reason", r, "stack", string(debug.Stack()))
+			}
+		}()
+	}()
 
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = "unit-operator-manager"
