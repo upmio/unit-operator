@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package milvus;
+option go_package="github.com/upmio/unit-operator/pkg/agent/app/milvus";
+
+message S3Storage {
+  string Endpoint = 1;
+  string Bucket = 2;
+  string AccessKey = 3;
+  string SecretKey = 4;
+}
+
+message BackupRequest {
+  S3Storage S3Storage=1;
+  string BackupFile = 2;
+  string BackupRootPath = 3;
+}
+
+message RestoreRequest {
+  S3Storage S3Storage=1;
+  string BackupFile = 2;
+  string BackupRootPath = 3;
+  string Suffix = 4;
+}
+
+message Response {
+  string message = 1;
+}
+
+service MilvusOperation {
+  rpc Backup (BackupRequest) returns (Response);
+  rpc Restore (RestoreRequest) returns (Response);
+}

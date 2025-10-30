@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
@@ -86,6 +87,9 @@ var daemonCmd = &cobra.Command{
 		case "proxysql":
 			proxysql.RegistryGrpcApp()
 			zap.L().Named("[INIT]").Sugar().Infof("registry proxysql grpc app")
+		case "milvus":
+			milvus.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry milvus grpc app")
 		}
 
 		// initialize the global app

@@ -8,6 +8,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/abrander/go-supervisord v0.0.0-20241025195033-ca03911ce450
+	github.com/caarlos0/env/v9 v9.0.0
 	github.com/cert-manager/cert-manager v1.18.2
 	github.com/fatih/color v1.16.0
 	github.com/go-logr/logr v1.4.3
