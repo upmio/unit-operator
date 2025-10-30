@@ -1,0 +1,62 @@
+log:
+  level: info
+  console: true
+  file:
+    filename: "{{ .LogMount }}/backup.log"
+
+http:
+  simpleResponse: true
+
+milvus:
+  address: localhost
+  port: {{ .MilvusPort }}
+  user: {{ .MilvusUser }}
+  password: {{ .MilvusPassword}}
+  tlsMode: 0
+  caCertPath: ""
+  serverName: ""
+  mtlsCertPath: ""
+  mtlsKeyPath: ""
+  rpcChannelName: "by-dev-replicate-msg"
+
+minio:
+  storageType: "minio"
+  address: {{ .MinioAddress }}
+  port: {{ .MinioPort }}
+  region: ""
+  accessKeyID: {{ .MinioUser }}
+  secretAccessKey: {{ .MinioPassword }}
+  token: ""
+  gcpCredentialJSON: "/path/to/json-key-file"
+  useSSL: false
+  useIAM: false
+  iamEndpoint: ""
+  bucketName: {{ .MinioBucket }}
+  rootPath: "files"
+
+  backupStorageType: "minio"
+  backupAddress: {{ .BackupAddress }}
+  backupRegion: ""
+  backupPort: {{ .BackupPort }}
+  backupAccessKeyID: {{ .BackupUser}}
+  backupSecretAccessKey: {{ .BackupPassword }}
+  backupToken: ""
+  backupGcpCredentialJSON: "/path/to/json-key-file"
+  backupBucketName: {{ .BackupBucket }}
+  backupRootPath: {{ .BackupRootPath }}
+  backupUseSSL: false
+  crossStorage: "false"
+
+backup:
+  maxSegmentGroupSize: 2G
+
+  parallelism:
+    backupCollection: 4
+    copydata: 128
+    restoreCollection: 2
+    importJobNum: 768
+
+  keepTempFiles: false
+  gcPause:
+    enable: true
+    address: http://localhost:9091
