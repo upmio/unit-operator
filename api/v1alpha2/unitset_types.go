@@ -79,15 +79,29 @@ type UnitSetSpec struct {
 	// +optional
 	EmptyDir []EmptyDirSpec `json:"emptyDir,omitempty"`
 
-	// Secret defines the configuration for secret
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	// +optional
-	Secret *SecretInfo `json:"secret,omitempty"`
+	ExtraVolume []ExtraVolumeInfo `json:"extraVolume,omitempty"`
 
 	// CertificateProfile defines the configuration for certificate profile
 	// +optional
 	CertificateProfile CertificateProfile `json:"certificateProfile,omitempty"`
 
+	// PodMonitor defines the configuration for pod monitor
+	// +optional
 	PodMonitor PodMonitorInfo `json:"podMonitor,omitempty"`
+}
+
+type ExtraVolumeInfo struct {
+
+	// Volume defines the configuration for volume
+	// +optional
+	Volume corev1.Volume `json:"volume,omitempty"`
+
+	// VolumeMountPath Volume mount path
+	// +optional
+	VolumeMountPath string `json:"volumeMountPath,omitempty"`
 }
 
 type PodMonitorInfo struct {

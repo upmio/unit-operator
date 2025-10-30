@@ -103,6 +103,8 @@ spec:
                     description: Type of the external service (e.g., NodePort)
                     type: string
                 type: object
+              extraVolume:
+                x-kubernetes-preserve-unknown-fields: true
               nodeAffinityPreset:
                 description: NodeAffinityPreset  Node affinity rules
                 items:
@@ -122,6 +124,7 @@ spec:
                 description: PodAntiAffinityPreset Pod anti-affinity policy
                 type: string
               podMonitor:
+                description: PodMonitor defines the configuration for pod monitor
                 properties:
                   enable:
                     description: |-
@@ -132,16 +135,6 @@ spec:
               resources:
                 description: Resources Resource requirements for the units
                 x-kubernetes-preserve-unknown-fields: true
-              secret:
-                description: Secret defines the configuration for secret
-                properties:
-                  mountPath:
-                    description: MountPath Mount path of the secret
-                    type: string
-                  name:
-                    description: Name of the secret
-                    type: string
-                type: object
               storages:
                 description: Storages defines the configuration for storage
                 items:

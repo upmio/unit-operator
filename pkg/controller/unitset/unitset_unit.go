@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
@@ -221,20 +220,19 @@ func fillUnitPersonalizedInfo(
 		}
 	}
 
-	// emptyDir doesn't need pvc
+	// only storage type volume needs pvc
 	if len(unitset.Spec.Storages) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
 		for i := range unit.Spec.Template.Spec.Volumes {
-			// ignore secret and certificate
-			if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
-				unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
-				unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
-					&v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
-							unit, unit.Spec.Template.Spec.Volumes[i].Name),
-					}
+			for j := range unitset.Spec.Storages {
+				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storages[j].Name {
+					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
+						&v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
+								unit, unit.Spec.Template.Spec.Volumes[i].Name),
+						}
+				}
 			}
 		}
-
 	}
 
 	if len(unit.Spec.Template.Spec.Volumes) != 0 {
@@ -332,6 +330,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	unit.Spec.Template.Spec.EnableServiceLinks = &enableServiceLinks
 	unit.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("%s-serviceaccount", req.Namespace)
 
+	fillAnnotations(&unit, unitset)
 	fillVolumeMountsAndVolumes(&unit, volumeMounts, volumes)
 	fillEnvs(&unit, unitset, envVars, ports)
 	fillResourcesToDefaultContainer(&unit, unitset)
@@ -340,6 +339,95 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 
 	return unit, nil
 }
+
+// fillAnnotations fills annotations from unitset to unit
+// unitset.Spec.Storages
+// unitset.Spec.EmptyDir
+// unitset.Spec.CertificateProfile.Organizations
+// unitset.Spec.ExtraVolume
+func fillAnnotations(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
+	if unit == nil || unitset == nil {
+		return
+	}
+
+	if unit.Annotations == nil {
+		unit.Annotations = make(map[string]string)
+	}
+
+	// unitset.Spec.Storages
+	for _, one := range unitset.Spec.Storages {
+		key := upmiov1alpha2.AnnotationStoragePrefix + one.Name + ".mountPath"
+		unit.Annotations[key] = one.MountPath
+	}
+
+	// unitset.Spec.EmptyDir
+	for _, one := range unitset.Spec.EmptyDir {
+		key := upmiov1alpha2.AnnotationEmptyDirPrefix + one.Name + ".mountPath"
+		unit.Annotations[key] = one.MountPath
+	}
+
+	// unitset.Spec.CertificateProfile.Organizations
+	if len(unitset.Spec.CertificateProfile.Organizations) != 0 && unitset.Spec.CertificateProfile.RootSecret != "" {
+		unit.Annotations[upmiov1alpha2.AnnotationCertificatePrefix+"certMount"] = "/CERT_MOUNT"
+
+		organizationsStr, _ := json.Marshal(unitset.Spec.CertificateProfile.Organizations)
+		unit.Annotations[upmiov1alpha2.AnnotationCertificatePrefix+"certORG"] = string(organizationsStr)
+
+	}
+
+	// unitset.Spec.ExtraVolume
+	for _, one := range unitset.Spec.ExtraVolume {
+		switch volumeKind(one.Volume) {
+		case "Secret":
+			key := upmiov1alpha2.AnnotationExtraVolumePrefix + one.Volume.Name + ".secretName"
+			unit.Annotations[key] = one.Volume.Secret.SecretName
+		case "ConfigMap":
+			key := upmiov1alpha2.AnnotationExtraVolumePrefix + one.Volume.Name + ".configMapName"
+			unit.Annotations[key] = one.Volume.ConfigMap.Name
+		default:
+			klog.Errorf("unsupported volume kind: %s", volumeKind(one.Volume))
+		}
+
+		key := upmiov1alpha2.AnnotationExtraVolumePrefix + one.Volume.Name + ".volumeMountPath"
+		unit.Annotations[key] = one.VolumeMountPath
+	}
+}
+
+// volumeKind returns the type of volume as a string based on its underlying Kubernetes volume source.
+//
+// Parameters:
+//   - vol: a v1.Volume object representing a Kubernetes volume
+//
+// Returns:
+//   - string: the volume type ("Secret", "ConfigMap", or "Other")
+func volumeKind(vol v1.Volume) string {
+	switch {
+	case vol.Secret != nil:
+		return "Secret"
+	case vol.ConfigMap != nil:
+		return "ConfigMap"
+	default:
+		return "Other"
+	}
+}
+
+//func volumeKindReflect(vol v1.Volume) string {
+//	vsVal := reflect.ValueOf(vol.VolumeSource)
+//	if vsVal.Kind() == reflect.Ptr || vsVal.Kind() == reflect.Interface {
+//		if vsVal.IsNil() {
+//			return "Other"
+//		}
+//		vsVal = vsVal.Elem()
+//	}
+//	vsType := vsVal.Type()
+//	for i := 0; i < vsVal.NumField(); i++ {
+//		f := vsVal.Field(i)
+//		if f.Kind() == reflect.Ptr && !f.IsNil() {
+//			return vsType.Field(i).Name
+//		}
+//	}
+//	return "Other"
+//}
 
 func fillNodeAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 	matchExpressions := []v1.NodeSelectorRequirement{}
@@ -695,10 +783,10 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 				},
 			})
 
-			envs = append(envs, v1.EnvVar{
-				Name:  fmt.Sprintf("%s_MOUNT", strings.ToUpper(storageInfo.Name)),
-				Value: storageInfo.MountPath,
-			})
+			//envs = append(envs, v1.EnvVar{
+			//	Name:  fmt.Sprintf("%s_MOUNT", strings.ToUpper(storageInfo.Name)),
+			//	Value: storageInfo.MountPath,
+			//})
 
 		}
 	}
@@ -720,54 +808,54 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 				},
 			})
 
-			envs = append(envs, v1.EnvVar{
-				Name:  fmt.Sprintf("%s_MOUNT", strings.ToUpper(emptyDirInfo.Name)),
-				Value: emptyDirInfo.MountPath,
-			})
+			//envs = append(envs, v1.EnvVar{
+			//	Name:  fmt.Sprintf("%s_MOUNT", strings.ToUpper(emptyDirInfo.Name)),
+			//	Value: emptyDirInfo.MountPath,
+			//})
 		}
 	}
 
-	if unitset.Spec.Secret != nil {
-		volumeMount = append(volumeMount, v1.VolumeMount{
-			Name:      "secret",
-			MountPath: unitset.Spec.Secret.MountPath,
-			ReadOnly:  true,
-		})
-
-		defaultMode := int32(420)
-		volumes = append(volumes, v1.Volume{
-			Name: "secret",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName:  unitset.Spec.Secret.Name,
-					DefaultMode: &defaultMode,
-				},
-			},
-		})
-
-		envs = append(envs, []v1.EnvVar{
-			{
-				Name:  "SECRET_NAME",
-				Value: unitset.Spec.Secret.Name,
-			},
-			{
-				Name:  "SECRET_MOUNT",
-				Value: unitset.Spec.Secret.MountPath,
-			},
-		}...)
-	}
+	//if unitset.Spec.Secret != nil {
+	//	volumeMount = append(volumeMount, v1.VolumeMount{
+	//		Name:      "secret",
+	//		MountPath: unitset.Spec.Secret.MountPath,
+	//		ReadOnly:  true,
+	//	})
+	//
+	//	defaultMode := int32(420)
+	//	volumes = append(volumes, v1.Volume{
+	//		Name: "secret",
+	//		VolumeSource: v1.VolumeSource{
+	//			Secret: &v1.SecretVolumeSource{
+	//				SecretName:  unitset.Spec.Secret.Name,
+	//				DefaultMode: &defaultMode,
+	//			},
+	//		},
+	//	})
+	//
+	//	envs = append(envs, []v1.EnvVar{
+	//		{
+	//			Name:  "SECRET_NAME",
+	//			Value: unitset.Spec.Secret.Name,
+	//		},
+	//		{
+	//			Name:  "SECRET_MOUNT",
+	//			Value: unitset.Spec.Secret.MountPath,
+	//		},
+	//	}...)
+	//}
 
 	if len(unitset.Spec.CertificateProfile.Organizations) != 0 && unitset.Spec.CertificateProfile.RootSecret != "" {
-		envs = append(envs, v1.EnvVar{
-			Name:  "CERT_MOUNT",
-			Value: "/CERT_MOUNT",
-		})
-
-		organizationsStr, _ := json.Marshal(unitset.Spec.CertificateProfile.Organizations)
-		envs = append(envs, v1.EnvVar{
-			Name:  "CERT_ORG",
-			Value: string(organizationsStr),
-		})
+		//envs = append(envs, v1.EnvVar{
+		//	Name:  "CERT_MOUNT",
+		//	Value: "/CERT_MOUNT",
+		//})
+		//
+		//organizationsStr, _ := json.Marshal(unitset.Spec.CertificateProfile.Organizations)
+		//envs = append(envs, v1.EnvVar{
+		//	Name:  "CERT_ORG",
+		//	Value: string(organizationsStr),
+		//})
 
 		// certificate volume SecretName not here, will be filled in Unit level
 		volume := v1.SecretVolumeSource{
@@ -785,6 +873,17 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 			ReadOnly:  true,
 			MountPath: "/CERT_MOUNT",
 		})
+	}
+
+	if len(unitset.Spec.ExtraVolume) != 0 {
+		for _, extraVolumeInfo := range unitset.Spec.ExtraVolume {
+			volumeMount = append(volumeMount, v1.VolumeMount{
+				Name:      extraVolumeInfo.Volume.Name,
+				MountPath: extraVolumeInfo.VolumeMountPath,
+			})
+
+			volumes = append(volumes, extraVolumeInfo.Volume)
+		}
 	}
 
 	return volumeMount, volumes, envs, volumeClaimTemplates

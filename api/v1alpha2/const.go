@@ -33,6 +33,11 @@ const (
 	AnnotationUnitServiceNodeportMapSuffix       = ".nodeport.map"
 	AnnotationUnitServiceLoadBalancerIPMapSuffix = "unit-operator/unit-service.loadbalancer-ip.map"
 
+	AnnotationExtraVolumePrefix = "unit-operator/extraVolume.volume."
+	AnnotationStoragePrefix     = "unit-operator/storages.volume."
+	AnnotationEmptyDirPrefix    = "unit-operator/emptyDir.volume."
+	AnnotationCertificatePrefix = "unit-operator/certificate.volume."
+
 	AnnotationAesSecretKey = "unit-operator/secret.aes-secret-key"
 
 	LabelProjectOwner = "unit-operator/owner"

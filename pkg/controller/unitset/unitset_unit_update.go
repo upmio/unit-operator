@@ -514,20 +514,19 @@ func mergePodTemplate(
 		}
 	}
 
-	// emptyDir doesn't need pvc
+	// only storage type volume needs pvc
 	if len(unitset.Spec.Storages) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
 		for i := range unit.Spec.Template.Spec.Volumes {
-			// ignore secret and certificate
-			if unit.Spec.Template.Spec.Volumes[i].Name != "secret" &&
-				unit.Spec.Template.Spec.Volumes[i].Name != "certificate" {
-				unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
-					&v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
-							unit, unit.Spec.Template.Spec.Volumes[i].Name),
-					}
+			for j := range unitset.Spec.Storages {
+				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storages[j].Name {
+					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
+						&v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
+								unit, unit.Spec.Template.Spec.Volumes[i].Name),
+						}
+				}
 			}
 		}
-
 	}
 
 	if len(unit.Spec.Template.Spec.Volumes) != 0 {
