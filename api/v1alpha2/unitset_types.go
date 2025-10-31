@@ -73,7 +73,7 @@ type UnitSetSpec struct {
 
 	// Storages defines the configuration for storage
 	// +optional
-	Storages []StorageSpec `json:"storages,omitempty"`
+	Storage []StorageSpec `json:"storage,omitempty"`
 
 	// EmptyDir defines the configuration for emptyDir
 	// +optional

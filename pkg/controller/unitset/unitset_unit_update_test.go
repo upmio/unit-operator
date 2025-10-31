@@ -95,7 +95,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 						corev1.ResourceMemory: resource.MustParse("1Gi"),
 					},
 				},
-				Storages: []upmiov1alpha2.StorageSpec{
+				Storage: []upmiov1alpha2.StorageSpec{
 					{
 						Name: "data",
 						Size: "10Gi",
@@ -258,7 +258,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 		It("Should handle multiple storage specifications", func() {
 			By("Creating unit with multiple storage")
-			unitSet.Spec.Storages = []upmiov1alpha2.StorageSpec{
+			unitSet.Spec.Storage = []upmiov1alpha2.StorageSpec{
 				{Name: "data", Size: "10Gi"},
 				{Name: "logs", Size: "5Gi"},
 			}

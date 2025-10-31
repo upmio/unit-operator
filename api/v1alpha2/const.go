@@ -34,8 +34,7 @@ const (
 	AnnotationUnitServiceLoadBalancerIPMapSuffix = "unit-operator/unit-service.loadbalancer-ip.map"
 
 	AnnotationExtraVolumePrefix = "unit-operator/extraVolume.volume."
-	AnnotationStoragePrefix     = "unit-operator/storages.volume."
-	AnnotationEmptyDirPrefix    = "unit-operator/emptyDir.volume."
+	AnnotationStoragePrefix     = "unit-operator/storage.volume."
 	AnnotationCertificatePrefix = "unit-operator/certificate.volume."
 
 	AnnotationAesSecretKey = "unit-operator/secret.aes-secret-key"

@@ -515,10 +515,10 @@ func mergePodTemplate(
 	}
 
 	// only storage type volume needs pvc
-	if len(unitset.Spec.Storages) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
+	if len(unitset.Spec.Storage) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
 		for i := range unit.Spec.Template.Spec.Volumes {
-			for j := range unitset.Spec.Storages {
-				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storages[j].Name {
+			for j := range unitset.Spec.Storage {
+				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storage[j].Name {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
 							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
@@ -756,7 +756,7 @@ func (r *UnitSetReconciler) reconcileStorage(ctx context.Context, req ctrl.Reque
 
 	// resource request
 	for _, unit := range kUnits {
-		for _, unitsetStorage := range unitset.Spec.Storages {
+		for _, unitsetStorage := range unitset.Spec.Storage {
 			for _, unitVolumeClaimTemplate := range unit.Spec.VolumeClaimTemplates {
 				if unitVolumeClaimTemplate.Name == unitsetStorage.Name {
 
@@ -818,7 +818,7 @@ func mergeStorage(kUnit upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) upmi
 	unit := kUnit.DeepCopy()
 
 	for i := range unit.Spec.VolumeClaimTemplates {
-		for _, unitsetStorage := range unitset.Spec.Storages {
+		for _, unitsetStorage := range unitset.Spec.Storage {
 			if unit.Spec.VolumeClaimTemplates[i].Name == unitsetStorage.Name {
 				unit.Spec.VolumeClaimTemplates[i].Spec.Resources.Requests["storage"] = resource.MustParse(unitsetStorage.Size)
 			}

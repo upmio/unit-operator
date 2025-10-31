@@ -145,7 +145,7 @@ spec:
               resources:
                 description: Resources Resource requirements for the units
                 x-kubernetes-preserve-unknown-fields: true
-              storages:
+              storage:
                 description: Storages defines the configuration for storage
                 items:
                   description: StorageSpec defines the configuration for storage.

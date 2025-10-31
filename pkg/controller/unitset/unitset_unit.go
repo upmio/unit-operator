@@ -221,10 +221,10 @@ func fillUnitPersonalizedInfo(
 	}
 
 	// only storage type volume needs pvc
-	if len(unitset.Spec.Storages) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
+	if len(unitset.Spec.Storage) != 0 && len(unit.Spec.Template.Spec.Volumes) != 0 {
 		for i := range unit.Spec.Template.Spec.Volumes {
-			for j := range unitset.Spec.Storages {
-				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storages[j].Name {
+			for j := range unitset.Spec.Storage {
+				if unit.Spec.Template.Spec.Volumes[i].Name == unitset.Spec.Storage[j].Name {
 					unit.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim =
 						&v1.PersistentVolumeClaimVolumeSource{
 							ClaimName: upmiov1alpha2.PersistentVolumeClaimName(
@@ -355,14 +355,14 @@ func fillAnnotations(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 	}
 
 	// unitset.Spec.Storages
-	for _, one := range unitset.Spec.Storages {
+	for _, one := range unitset.Spec.Storage {
 		key := upmiov1alpha2.AnnotationStoragePrefix + one.Name + ".mountPath"
 		unit.Annotations[key] = one.MountPath
 	}
 
 	// unitset.Spec.EmptyDir
 	for _, one := range unitset.Spec.EmptyDir {
-		key := upmiov1alpha2.AnnotationEmptyDirPrefix + one.Name + ".mountPath"
+		key := upmiov1alpha2.AnnotationStoragePrefix + one.Name + ".mountPath"
 		unit.Annotations[key] = one.MountPath
 	}
 
@@ -750,8 +750,8 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 	var volumes []v1.Volume
 	var envs []v1.EnvVar
 
-	if len(unitset.Spec.Storages) != 0 {
-		for _, storageInfo := range unitset.Spec.Storages {
+	if len(unitset.Spec.Storage) != 0 {
+		for _, storageInfo := range unitset.Spec.Storage {
 			volumeClaimTemplates = append(volumeClaimTemplates, v1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: storageInfo.Name,

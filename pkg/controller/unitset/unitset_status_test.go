@@ -71,7 +71,7 @@ var _ = Describe("UnitSet Status Reconciliation", func() {
 						corev1.ResourceMemory: resource.MustParse("1Gi"),
 					},
 				},
-				Storages: []upmiov1alpha2.StorageSpec{
+				Storage: []upmiov1alpha2.StorageSpec{
 					{
 						Name: "data",
 						Size: "10Gi",

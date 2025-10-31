@@ -612,8 +612,8 @@ func (in *UnitSetSpec) DeepCopyInto(out *UnitSetSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Storages != nil {
-		in, out := &in.Storages, &out.Storages
+	if in.Storage != nil {
+		in, out := &in.Storage, &out.Storage
 		*out = make([]StorageSpec, len(*in))
 		copy(*out, *in)
 	}

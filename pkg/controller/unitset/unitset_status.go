@@ -159,7 +159,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 			//}
 
 			for _, pvc := range one.Status.PersistentVolumeClaim {
-				for _, expect := range unitset.Spec.Storages {
+				for _, expect := range unitset.Spec.Storage {
 					if pvc.Name == upmiov1alpha2.PersistentVolumeClaimName(one, expect.Name) {
 						if pvc.Capacity.Storage == resource.MustParse(expect.Size) {
 							unitPVCSyncedCount++
@@ -201,7 +201,7 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 		}
 	}
 
-	if len(unitset.Spec.Storages)*orig.Spec.Units == unitPVCSyncedCount {
+	if len(unitset.Spec.Storage)*orig.Spec.Units == unitPVCSyncedCount {
 		unitset.Status.PvcSyncStatus = upmiov1alpha2.PvcSyncStatus{
 			LastTransitionTime: v1.Now(),
 			Status:             "True",
