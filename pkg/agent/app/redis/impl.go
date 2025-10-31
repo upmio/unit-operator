@@ -374,21 +374,22 @@ func getConfigValue(ctx context.Context, client *redis.Client, key string) (stri
 		return "", fmt.Errorf("failed to CONFIG GET %s: %w", key, err)
 	}
 
-	var value string
+	var (
+		result string
+	)
+
 	switch arr := resp.(type) {
-	case []interface{}:
-		if len(arr) == 2 {
-			if s, ok := arr[1].(string); ok {
-				value = s
-			}
+	case map[interface{}]interface{}:
+		if value, ok := arr[key]; ok {
+			result = value.(string)
 		}
 	}
 
-	if value == "" {
+	if result == "" {
 		return "", fmt.Errorf("unexpected redis CONFIG GET %s response", key)
 	}
 
-	return value, nil
+	return result, nil
 }
 
 func parseRedisInfo(info string) map[string]string {
