@@ -321,6 +321,10 @@ func (r *ProjectReconciler) reconcileSecret(ctx context.Context, req ctrl.Reques
 				}
 			} else {
 				if project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] == "" {
+					if project.Annotations == nil {
+						project.Annotations = make(map[string]string)
+					}
+
 					project.Annotations[upmiov1alpha2.AnnotationAesSecretKey] = string(needSecret.Data[defaultAESSecretKey])
 					updateProjectErr := r.Update(ctx, project)
 					if updateProjectErr != nil {
