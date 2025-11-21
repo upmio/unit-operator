@@ -6,9 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
@@ -73,31 +72,6 @@ func (s *service) newMysqlDB(ctx context.Context, username, password, socketFile
 	}
 
 	return db, nil
-}
-
-// createMinioClient creates an S3 client
-func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) {
-	if s3Config == nil {
-		return nil, fmt.Errorf("S3 storage configuration is required")
-	}
-
-	endpoint := s3Config.GetEndpoint()
-	secure := false
-	if strings.HasPrefix(endpoint, "https://") {
-		secure = true
-		endpoint = strings.TrimPrefix(endpoint, "https://")
-	} else if strings.HasPrefix(endpoint, "http://") {
-		endpoint = strings.TrimPrefix(endpoint, "http://")
-	}
-
-	if endpoint == "" {
-		return nil, fmt.Errorf("S3 endpoint must be provided")
-	}
-
-	return minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
-		Secure: secure,
-	})
 }
 
 // getEnvVarOrError gets environment variable or returns error if not found
@@ -274,17 +248,35 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 				return common.LogAndReturnError(s.logger, newMysqlResponse, "xbcloud command is not installed or not in PATH", err)
 			}
 
-			xbcloudCmd := exec.CommandContext(ctx,
-				"xbcloud",
-				"put",
-				"--storage=s3",
-				fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
-				fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
-				fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
-				fmt.Sprintf("--s3-secret-key=%s", req.GetS3Storage().GetSecretKey()),
-				fmt.Sprintf("--parallel=%d", req.GetParallel()),
-				req.GetBackupFile(),
-			)
+			var xbcloudCmd *exec.Cmd
+
+			if req.GetS3Storage().GetSsl() {
+				xbcloudCmd = exec.CommandContext(ctx,
+					"xbcloud",
+					"put",
+					"--storage=s3",
+					"--s3-ssl",
+					"--s3-verify-ssl=0",
+					fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
+					fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
+					fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
+					fmt.Sprintf("--parallel=%d", req.GetParallel()),
+					fmt.Sprintf("--backup-dir=%s", req.GetBackupFile()),
+					req.GetBackupFile(),
+				)
+			} else {
+				xbcloudCmd = exec.CommandContext(ctx,
+					"xbcloud",
+					"put",
+					"--storage=s3",
+					fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
+					fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
+					fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
+					fmt.Sprintf("--s3-secret-key=%s", req.GetS3Storage().GetSecretKey()),
+					fmt.Sprintf("--parallel=%d", req.GetParallel()),
+					req.GetBackupFile(),
+				)
+			}
 
 			// Use command executor for piped commands
 			executor := common.NewCommandExecutor(ctx, s.logger)
@@ -378,10 +370,15 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	}
 
 	if req.GetS3Storage() != nil {
-		// 2. Create S3 client
-		minioClient, err := s.createMinioClient(req.GetS3Storage())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to create S3 client", err)
+		var storageFactory s3storage.S3Storage
+		switch req.GetS3Storage().GetType() {
+		case S3StorageType_Minio:
+			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			if err != nil {
+				return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to create s3 client", err)
+			}
+		default:
+			return common.LogAndReturnError(s.logger, newMysqlResponse, "unsupported s3 storage type", nil)
 		}
 
 		// execute mysqldump command
@@ -418,13 +415,10 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			result, err := minioClient.PutObject(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes), -1, minio.PutObjectOptions{})
+			err := storageFactory.UploadContentToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), stdoutBytes)
 
 			errCh <- err
 
-			if err == nil {
-				s.logger.Infof("upload successful: %s", result.Location)
-			}
 		}(ctx, cmd, errCh)
 
 		if err := <-errCh; err != nil {
@@ -611,17 +605,34 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 			return common.LogAndReturnError(s.logger, newMysqlResponse, fmt.Sprintf("failed to clear bin log directory '%s'", binLogDirValue), err)
 		}
 
-		xbcloudCmd := exec.CommandContext(ctx,
-			"xbcloud",
-			"get",
-			"--storage=s3",
-			fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
-			fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
-			fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
-			fmt.Sprintf("--s3-secret-key=%s", req.GetS3Storage().GetSecretKey()),
-			fmt.Sprintf("--parallel=%d", req.GetParallel()),
-			req.GetBackupFile(),
-		)
+		var xbcloudCmd *exec.Cmd
+		if req.GetS3Storage().GetSsl() {
+			xbcloudCmd = exec.CommandContext(ctx,
+				"xbcloud",
+				"get",
+				"--storage=s3",
+				"--s3-ssl",
+				"--s3-verify-ssl=0",
+				fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
+				fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
+				fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
+				fmt.Sprintf("--s3-secret-key=%s", req.GetS3Storage().GetSecretKey()),
+				fmt.Sprintf("--parallel=%d", req.GetParallel()),
+				req.GetBackupFile(),
+			)
+		} else {
+			xbcloudCmd = exec.CommandContext(ctx,
+				"xbcloud",
+				"get",
+				"--storage=s3",
+				fmt.Sprintf("--s3-endpoint=%s", req.GetS3Storage().GetEndpoint()),
+				fmt.Sprintf("--s3-bucket=%s", req.GetS3Storage().GetBucket()),
+				fmt.Sprintf("--s3-access-key=%s", req.GetS3Storage().GetAccessKey()),
+				fmt.Sprintf("--s3-secret-key=%s", req.GetS3Storage().GetSecretKey()),
+				fmt.Sprintf("--parallel=%d", req.GetParallel()),
+				req.GetBackupFile(),
+			)
+		}
 
 		xbstreamCmd := exec.CommandContext(ctx,
 			"xbstream",

@@ -270,64 +270,6 @@ func TestMysqlCloneStatuses(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-// TestCreateMinioClient 测试 MinIO 客户端创建
-func TestCreateMinioClient(t *testing.T) {
-	service := &service{
-		logger: zaptest.NewLogger(t).Sugar(),
-	}
-
-	tests := []struct {
-		name        string
-		s3Config    *S3Storage
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:        "nil s3 config",
-			s3Config:    nil,
-			expectError: true,
-			errorMsg:    "S3 storage configuration is required",
-		},
-		{
-			name: "valid s3 config",
-			s3Config: &S3Storage{
-				Endpoint:  "localhost:9000",
-				AccessKey: "minio",
-				SecretKey: "minio123",
-				Bucket:    "test-bucket",
-			},
-			expectError: false,
-		},
-		{
-			name: "empty endpoint",
-			s3Config: &S3Storage{
-				Endpoint:  "",
-				AccessKey: "minio",
-				SecretKey: "minio123",
-				Bucket:    "test-bucket",
-			},
-			expectError: true, // MinIO 客户端会验证 endpoint
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := service.createMinioClient(tt.s3Config)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, client)
-				if tt.errorMsg != "" {
-					assert.Contains(t, err.Error(), tt.errorMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, client)
-			}
-		})
-	}
-}
-
 // TestValidateBackupRequest 测试备份请求验证
 func TestValidateBackupRequest(t *testing.T) {
 	tests := []struct {

@@ -21,12 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type S3StorageType int32
+
+const (
+	S3StorageType_Minio S3StorageType = 0
+)
+
+// Enum value maps for S3StorageType.
+var (
+	S3StorageType_name = map[int32]string{
+		0: "Minio",
+	}
+	S3StorageType_value = map[string]int32{
+		"Minio": 0,
+	}
+)
+
+func (x S3StorageType) Enum() *S3StorageType {
+	p := new(S3StorageType)
+	*p = x
+	return p
+}
+
+func (x S3StorageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes[0].Descriptor()
+}
+
+func (S3StorageType) Type() protoreflect.EnumType {
+	return &file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes[0]
+}
+
+func (x S3StorageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use S3StorageType.Descriptor instead.
+func (S3StorageType) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{0}
+}
+
 type S3Storage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Endpoint      string                 `protobuf:"bytes,1,opt,name=Endpoint,proto3" json:"Endpoint,omitempty"`
 	Bucket        string                 `protobuf:"bytes,2,opt,name=Bucket,proto3" json:"Bucket,omitempty"`
 	AccessKey     string                 `protobuf:"bytes,3,opt,name=AccessKey,proto3" json:"AccessKey,omitempty"`
 	SecretKey     string                 `protobuf:"bytes,4,opt,name=SecretKey,proto3" json:"SecretKey,omitempty"`
+	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
+	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=milvus.S3StorageType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -87,6 +132,20 @@ func (x *S3Storage) GetSecretKey() string {
 		return x.SecretKey
 	}
 	return ""
+}
+
+func (x *S3Storage) GetSsl() bool {
+	if x != nil {
+		return x.Ssl
+	}
+	return false
+}
+
+func (x *S3Storage) GetType() S3StorageType {
+	if x != nil {
+		return x.Type
+	}
+	return S3StorageType_Minio
 }
 
 type BackupRequest struct {
@@ -265,12 +324,14 @@ var File_pkg_agent_app_milvus_pb_milvus_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc = "" +
 	"\n" +
-	"$pkg/agent/app/milvus/pb/milvus.proto\x12\x06milvus\"{\n" +
+	"$pkg/agent/app/milvus/pb/milvus.proto\x12\x06milvus\"\xb8\x01\n" +
 	"\tS3Storage\x12\x1a\n" +
 	"\bEndpoint\x18\x01 \x01(\tR\bEndpoint\x12\x16\n" +
 	"\x06Bucket\x18\x02 \x01(\tR\x06Bucket\x12\x1c\n" +
 	"\tAccessKey\x18\x03 \x01(\tR\tAccessKey\x12\x1c\n" +
-	"\tSecretKey\x18\x04 \x01(\tR\tSecretKey\"\x88\x01\n" +
+	"\tSecretKey\x18\x04 \x01(\tR\tSecretKey\x12\x10\n" +
+	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12)\n" +
+	"\x04type\x18\x06 \x01(\x0e2\x15.milvus.S3StorageTypeR\x04type\"\x88\x01\n" +
 	"\rBackupRequest\x12/\n" +
 	"\tS3Storage\x18\x01 \x01(\v2\x11.milvus.S3StorageR\tS3Storage\x12\x1e\n" +
 	"\n" +
@@ -285,7 +346,9 @@ const file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc = "" +
 	"\x0eBackupRootPath\x18\x03 \x01(\tR\x0eBackupRootPath\x12\x16\n" +
 	"\x06Suffix\x18\x04 \x01(\tR\x06Suffix\"$\n" +
 	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2y\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage*\x1a\n" +
+	"\rS3StorageType\x12\t\n" +
+	"\x05Minio\x10\x002y\n" +
 	"\x0fMilvusOperation\x121\n" +
 	"\x06Backup\x12\x15.milvus.BackupRequest\x1a\x10.milvus.Response\x123\n" +
 	"\aRestore\x12\x16.milvus.RestoreRequest\x1a\x10.milvus.ResponseB5Z3github.com/upmio/unit-operator/pkg/agent/app/milvusb\x06proto3"
@@ -302,25 +365,28 @@ func file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescData
 }
 
+var file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pkg_agent_app_milvus_pb_milvus_proto_goTypes = []any{
-	(*S3Storage)(nil),      // 0: milvus.S3Storage
-	(*BackupRequest)(nil),  // 1: milvus.BackupRequest
-	(*RestoreRequest)(nil), // 2: milvus.RestoreRequest
-	(*Response)(nil),       // 3: milvus.Response
+	(S3StorageType)(0),     // 0: milvus.S3StorageType
+	(*S3Storage)(nil),      // 1: milvus.S3Storage
+	(*BackupRequest)(nil),  // 2: milvus.BackupRequest
+	(*RestoreRequest)(nil), // 3: milvus.RestoreRequest
+	(*Response)(nil),       // 4: milvus.Response
 }
 var file_pkg_agent_app_milvus_pb_milvus_proto_depIdxs = []int32{
-	0, // 0: milvus.BackupRequest.S3Storage:type_name -> milvus.S3Storage
-	0, // 1: milvus.RestoreRequest.S3Storage:type_name -> milvus.S3Storage
-	1, // 2: milvus.MilvusOperation.Backup:input_type -> milvus.BackupRequest
-	2, // 3: milvus.MilvusOperation.Restore:input_type -> milvus.RestoreRequest
-	3, // 4: milvus.MilvusOperation.Backup:output_type -> milvus.Response
-	3, // 5: milvus.MilvusOperation.Restore:output_type -> milvus.Response
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 0: milvus.S3Storage.type:type_name -> milvus.S3StorageType
+	1, // 1: milvus.BackupRequest.S3Storage:type_name -> milvus.S3Storage
+	1, // 2: milvus.RestoreRequest.S3Storage:type_name -> milvus.S3Storage
+	2, // 3: milvus.MilvusOperation.Backup:input_type -> milvus.BackupRequest
+	3, // 4: milvus.MilvusOperation.Restore:input_type -> milvus.RestoreRequest
+	4, // 5: milvus.MilvusOperation.Backup:output_type -> milvus.Response
+	4, // 6: milvus.MilvusOperation.Restore:output_type -> milvus.Response
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_milvus_pb_milvus_proto_init() }
@@ -333,13 +399,14 @@ func file_pkg_agent_app_milvus_pb_milvus_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc), len(file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pkg_agent_app_milvus_pb_milvus_proto_goTypes,
 		DependencyIndexes: file_pkg_agent_app_milvus_pb_milvus_proto_depIdxs,
+		EnumInfos:         file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes,
 		MessageInfos:      file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes,
 	}.Build()
 	File_pkg_agent_app_milvus_pb_milvus_proto = out.File

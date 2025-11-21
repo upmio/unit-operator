@@ -3,11 +3,17 @@ syntax = "proto3";
 package milvus;
 option go_package="github.com/upmio/unit-operator/pkg/agent/app/milvus";
 
+enum S3StorageType {
+  Minio = 0;
+}
+
 message S3Storage {
   string Endpoint = 1;
   string Bucket = 2;
   string AccessKey = 3;
   string SecretKey = 4;
+  bool ssl = 5;
+  S3StorageType type =6;
 }
 
 message BackupRequest {

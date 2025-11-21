@@ -70,12 +70,57 @@ func (LogicalBackupMode) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{0}
 }
 
+type S3StorageType int32
+
+const (
+	S3StorageType_Minio S3StorageType = 0
+)
+
+// Enum value maps for S3StorageType.
+var (
+	S3StorageType_name = map[int32]string{
+		0: "Minio",
+	}
+	S3StorageType_value = map[string]int32{
+		"Minio": 0,
+	}
+)
+
+func (x S3StorageType) Enum() *S3StorageType {
+	p := new(S3StorageType)
+	*p = x
+	return p
+}
+
+func (x S3StorageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes[1].Descriptor()
+}
+
+func (S3StorageType) Type() protoreflect.EnumType {
+	return &file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes[1]
+}
+
+func (x S3StorageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use S3StorageType.Descriptor instead.
+func (S3StorageType) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{1}
+}
+
 type S3Storage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
 	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
+	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=postgresql.S3StorageType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,6 +181,20 @@ func (x *S3Storage) GetSecretKey() string {
 		return x.SecretKey
 	}
 	return ""
+}
+
+func (x *S3Storage) GetSsl() bool {
+	if x != nil {
+		return x.Ssl
+	}
+	return false
+}
+
+func (x *S3Storage) GetType() S3StorageType {
+	if x != nil {
+		return x.Type
+	}
+	return S3StorageType_Minio
 }
 
 type LocalStorage struct {
@@ -557,14 +616,16 @@ var File_pkg_agent_app_postgresql_pb_postgresql_proto protoreflect.FileDescripto
 const file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc = "" +
 	"\n" +
 	",pkg/agent/app/postgresql/pb/postgresql.proto\x12\n" +
-	"postgresql\"}\n" +
+	"postgresql\"\xbe\x01\n" +
 	"\tS3Storage\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\"\"\n" +
+	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
+	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12-\n" +
+	"\x04type\x18\x06 \x01(\x0e2\x19.postgresql.S3StorageTypeR\x04type\"\"\n" +
 	"\fLocalStorage\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"\xf6\x02\n" +
 	"\x14LogicalBackupRequest\x12\x1f\n" +
@@ -600,7 +661,9 @@ const file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc = "" +
 	"\x11LogicalBackupMode\x12\b\n" +
 	"\x04Full\x10\x00\x12\f\n" +
 	"\bDatabase\x10\x01\x12\t\n" +
-	"\x05Table\x10\x022\xe6\x01\n" +
+	"\x05Table\x10\x02*\x1a\n" +
+	"\rS3StorageType\x12\t\n" +
+	"\x05Minio\x10\x002\xe6\x01\n" +
 	"\x13PostgresqlOperation\x12I\n" +
 	"\x0ePhysicalBackup\x12!.postgresql.PhysicalBackupRequest\x1a\x14.postgresql.Response\x12G\n" +
 	"\rLogicalBackup\x12 .postgresql.LogicalBackupRequest\x1a\x14.postgresql.Response\x12;\n" +
@@ -618,36 +681,38 @@ func file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescData
 }
 
-var file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_pkg_agent_app_postgresql_pb_postgresql_proto_goTypes = []any{
 	(LogicalBackupMode)(0),        // 0: postgresql.LogicalBackupMode
-	(*S3Storage)(nil),             // 1: postgresql.S3Storage
-	(*LocalStorage)(nil),          // 2: postgresql.LocalStorage
-	(*LogicalBackupRequest)(nil),  // 3: postgresql.LogicalBackupRequest
-	(*PhysicalBackupRequest)(nil), // 4: postgresql.PhysicalBackupRequest
-	(*RestoreRequest)(nil),        // 5: postgresql.RestoreRequest
-	(*Response)(nil),              // 6: postgresql.Response
+	(S3StorageType)(0),            // 1: postgresql.S3StorageType
+	(*S3Storage)(nil),             // 2: postgresql.S3Storage
+	(*LocalStorage)(nil),          // 3: postgresql.LocalStorage
+	(*LogicalBackupRequest)(nil),  // 4: postgresql.LogicalBackupRequest
+	(*PhysicalBackupRequest)(nil), // 5: postgresql.PhysicalBackupRequest
+	(*RestoreRequest)(nil),        // 6: postgresql.RestoreRequest
+	(*Response)(nil),              // 7: postgresql.Response
 }
 var file_pkg_agent_app_postgresql_pb_postgresql_proto_depIdxs = []int32{
-	0,  // 0: postgresql.LogicalBackupRequest.logicalBackupMode:type_name -> postgresql.LogicalBackupMode
-	1,  // 1: postgresql.LogicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
-	2,  // 2: postgresql.LogicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
-	1,  // 3: postgresql.PhysicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
-	2,  // 4: postgresql.PhysicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
-	1,  // 5: postgresql.RestoreRequest.s3_storage:type_name -> postgresql.S3Storage
-	2,  // 6: postgresql.RestoreRequest.local_storage:type_name -> postgresql.LocalStorage
-	4,  // 7: postgresql.PostgresqlOperation.PhysicalBackup:input_type -> postgresql.PhysicalBackupRequest
-	3,  // 8: postgresql.PostgresqlOperation.LogicalBackup:input_type -> postgresql.LogicalBackupRequest
-	5,  // 9: postgresql.PostgresqlOperation.Restore:input_type -> postgresql.RestoreRequest
-	6,  // 10: postgresql.PostgresqlOperation.PhysicalBackup:output_type -> postgresql.Response
-	6,  // 11: postgresql.PostgresqlOperation.LogicalBackup:output_type -> postgresql.Response
-	6,  // 12: postgresql.PostgresqlOperation.Restore:output_type -> postgresql.Response
-	10, // [10:13] is the sub-list for method output_type
-	7,  // [7:10] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	1,  // 0: postgresql.S3Storage.type:type_name -> postgresql.S3StorageType
+	0,  // 1: postgresql.LogicalBackupRequest.logicalBackupMode:type_name -> postgresql.LogicalBackupMode
+	2,  // 2: postgresql.LogicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
+	3,  // 3: postgresql.LogicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
+	2,  // 4: postgresql.PhysicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
+	3,  // 5: postgresql.PhysicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
+	2,  // 6: postgresql.RestoreRequest.s3_storage:type_name -> postgresql.S3Storage
+	3,  // 7: postgresql.RestoreRequest.local_storage:type_name -> postgresql.LocalStorage
+	5,  // 8: postgresql.PostgresqlOperation.PhysicalBackup:input_type -> postgresql.PhysicalBackupRequest
+	4,  // 9: postgresql.PostgresqlOperation.LogicalBackup:input_type -> postgresql.LogicalBackupRequest
+	6,  // 10: postgresql.PostgresqlOperation.Restore:input_type -> postgresql.RestoreRequest
+	7,  // 11: postgresql.PostgresqlOperation.PhysicalBackup:output_type -> postgresql.Response
+	7,  // 12: postgresql.PostgresqlOperation.LogicalBackup:output_type -> postgresql.Response
+	7,  // 13: postgresql.PostgresqlOperation.Restore:output_type -> postgresql.Response
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_postgresql_pb_postgresql_proto_init() }
@@ -672,7 +737,7 @@ func file_pkg_agent_app_postgresql_pb_postgresql_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc), len(file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,

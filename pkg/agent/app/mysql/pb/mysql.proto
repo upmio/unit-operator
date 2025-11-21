@@ -29,11 +29,17 @@ message CloneRequest {
   string password = 7;
 }
 
+enum S3StorageType {
+  Minio = 0;
+}
+
 message S3Storage {
   string endpoint = 1;
   string bucket = 2;
   string access_key = 3;
   string secret_key = 4;
+  bool ssl = 5;
+  S3StorageType type =6;
 }
 
 message LocalStorage {

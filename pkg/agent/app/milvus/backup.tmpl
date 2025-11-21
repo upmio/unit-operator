@@ -44,7 +44,10 @@ minio:
   backupGcpCredentialJSON: "/path/to/json-key-file"
   backupBucketName: {{ .BackupBucket }}
   backupRootPath: {{ .BackupRootPath }}
-  backupUseSSL: false
+  backupUseSSL: {{ .BackupSSL }}
+  {{- if .BackupSSL }}
+  insecureSkipVerify: true
+  {{- end }}
   crossStorage: "false"
 
 backup:

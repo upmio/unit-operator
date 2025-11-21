@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -74,31 +73,6 @@ func (s *service) closeRedisClient(client *redis.Client) {
 	if err := client.Close(); err != nil {
 		s.logger.Errorf("failed to close redis client: %v", err)
 	}
-}
-
-// createMinioClient creates an S3 client
-func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) {
-	if s3Config == nil {
-		return nil, fmt.Errorf("s3 storage configuration is required")
-	}
-
-	endpoint := s3Config.GetEndpoint()
-	secure := false
-	if strings.HasPrefix(endpoint, "https://") {
-		secure = true
-		endpoint = strings.TrimPrefix(endpoint, "https://")
-	} else if strings.HasPrefix(endpoint, "http://") {
-		endpoint = strings.TrimPrefix(endpoint, "http://")
-	}
-
-	if endpoint == "" {
-		return nil, fmt.Errorf("s3 endpoint must be provided")
-	}
-
-	return minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
-		Secure: secure,
-	})
 }
 
 // getEnvVarOrError gets environment variable or returns error if not found
@@ -190,12 +164,18 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 		return common.LogAndReturnError(s.logger, newRedisResponse, "redis rdb file not found after snapshot", err)
 	}
 
-	minioClient, err := s.createMinioClient(req.GetS3Storage())
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
+	var storageFactory s3storage.S3Storage
+	switch req.GetS3Storage().GetType() {
+	case S3StorageType_Minio:
+		storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+		if err != nil {
+			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
+		}
+	default:
+		return common.LogAndReturnError(s.logger, newRedisResponse, "unsupported s3 storage type", nil)
 	}
 
-	if err := uploadFileToS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
+	if err := storageFactory.UploadFileToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
 		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to upload redis backup to s3", err)
 	}
 
@@ -228,13 +208,18 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to backup original rdb file", err)
 	}
 
-	minioClient, err := s.createMinioClient(req.GetS3Storage())
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
+	var storageFactory s3storage.S3Storage
+	switch req.GetS3Storage().GetType() {
+	case S3StorageType_Minio:
+		storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+		if err != nil {
+			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
+		}
+	default:
+		return common.LogAndReturnError(s.logger, newRedisResponse, "unsupported s3 storage type", nil)
 	}
 
-	// 3. download rdb from s3
-	if err := downloadFileFromS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
+	if err := storageFactory.DownloadFileFromS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
 		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to download rdb file from s3 storage", err)
 	}
 
@@ -247,34 +232,6 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 	}
 
 	return common.LogAndReturnSuccess(s.logger, newRedisResponse, "restore from s3 succeeded")
-}
-
-func uploadFileToS3(ctx context.Context, client *minio.Client, bucket, objectName, localPath string) error {
-	file, err := os.Open(localPath)
-	if err != nil {
-		return fmt.Errorf("failed to open backup file %s: %w", localPath, err)
-	}
-	defer file.Close()
-
-	info, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to stat backup file %s: %w", localPath, err)
-	}
-
-	if _, err := client.PutObject(ctx, bucket, objectName, file, info.Size(), minio.PutObjectOptions{
-		ContentType: "application/octet-stream",
-	}); err != nil {
-		return fmt.Errorf("failed to upload backup to s3: %w", err)
-	}
-
-	return nil
-}
-
-func downloadFileFromS3(ctx context.Context, client *minio.Client, bucket, objectName, destination string) error {
-	if err := client.FGetObject(ctx, bucket, objectName, destination, minio.GetObjectOptions{}); err != nil {
-		return fmt.Errorf("failed to download backup from s3: %w", err)
-	}
-	return nil
 }
 
 func redisLastSaveTime(ctx context.Context, client *redis.Client) (time.Time, error) {

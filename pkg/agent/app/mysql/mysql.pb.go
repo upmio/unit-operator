@@ -162,6 +162,49 @@ func (ArchMode) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{2}
 }
 
+type S3StorageType int32
+
+const (
+	S3StorageType_Minio S3StorageType = 0
+)
+
+// Enum value maps for S3StorageType.
+var (
+	S3StorageType_name = map[int32]string{
+		0: "Minio",
+	}
+	S3StorageType_value = map[string]int32{
+		"Minio": 0,
+	}
+)
+
+func (x S3StorageType) Enum() *S3StorageType {
+	p := new(S3StorageType)
+	*p = x
+	return p
+}
+
+func (x S3StorageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[3].Descriptor()
+}
+
+func (S3StorageType) Type() protoreflect.EnumType {
+	return &file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[3]
+}
+
+func (x S3StorageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use S3StorageType.Descriptor instead.
+func (S3StorageType) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{3}
+}
+
 type CloneRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	SourceCloneUser     string                 `protobuf:"bytes,1,opt,name=source_clone_user,json=sourceCloneUser,proto3" json:"source_clone_user,omitempty"`
@@ -260,6 +303,8 @@ type S3Storage struct {
 	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
 	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
+	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=mysql.S3StorageType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -320,6 +365,20 @@ func (x *S3Storage) GetSecretKey() string {
 		return x.SecretKey
 	}
 	return ""
+}
+
+func (x *S3Storage) GetSsl() bool {
+	if x != nil {
+		return x.Ssl
+	}
+	return false
+}
+
+func (x *S3Storage) GetType() S3StorageType {
+	if x != nil {
+		return x.Type
+	}
+	return S3StorageType_Minio
 }
 
 type LocalStorage struct {
@@ -951,14 +1010,16 @@ const file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc = "" +
 	"\vsocket_file\x18\x05 \x01(\tR\n" +
 	"socketFile\x12\x1a\n" +
 	"\busername\x18\x06 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\a \x01(\tR\bpassword\"}\n" +
+	"\bpassword\x18\a \x01(\tR\bpassword\"\xb9\x01\n" +
 	"\tS3Storage\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\"\"\n" +
+	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
+	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12(\n" +
+	"\x04type\x18\x06 \x01(\x0e2\x14.mysql.S3StorageTypeR\x04type\"\"\n" +
 	"\fLocalStorage\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"\xa7\x03\n" +
 	"\x14LogicalBackupRequest\x12\x1f\n" +
@@ -1024,7 +1085,9 @@ const file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc = "" +
 	"\x05Table\x10\x02*1\n" +
 	"\bArchMode\x12\x0f\n" +
 	"\vReplication\x10\x00\x12\x14\n" +
-	"\x10GroupReplication\x10\x012\xe4\x02\n" +
+	"\x10GroupReplication\x10\x01*\x1a\n" +
+	"\rS3StorageType\x12\t\n" +
+	"\x05Minio\x10\x002\xe4\x02\n" +
 	"\x0eMysqlOperation\x12-\n" +
 	"\x05Clone\x12\x13.mysql.CloneRequest\x1a\x0f.mysql.Response\x12?\n" +
 	"\x0ePhysicalBackup\x12\x1c.mysql.PhysicalBackupRequest\x1a\x0f.mysql.Response\x12=\n" +
@@ -1045,49 +1108,51 @@ func file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescData
 }
 
-var file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_pkg_agent_app_mysql_pb_mysql_proto_goTypes = []any{
 	(PhysicalBackupTool)(0),       // 0: mysql.PhysicalBackupTool
 	(LogicalBackupMode)(0),        // 1: mysql.LogicalBackupMode
 	(ArchMode)(0),                 // 2: mysql.ArchMode
-	(*CloneRequest)(nil),          // 3: mysql.CloneRequest
-	(*S3Storage)(nil),             // 4: mysql.S3Storage
-	(*LocalStorage)(nil),          // 5: mysql.LocalStorage
-	(*LogicalBackupRequest)(nil),  // 6: mysql.LogicalBackupRequest
-	(*PhysicalBackupRequest)(nil), // 7: mysql.PhysicalBackupRequest
-	(*RestoreRequest)(nil),        // 8: mysql.RestoreRequest
-	(*GtidPurgeRequest)(nil),      // 9: mysql.GtidPurgeRequest
-	(*SetVariableRequest)(nil),    // 10: mysql.SetVariableRequest
-	(*Response)(nil),              // 11: mysql.Response
+	(S3StorageType)(0),            // 3: mysql.S3StorageType
+	(*CloneRequest)(nil),          // 4: mysql.CloneRequest
+	(*S3Storage)(nil),             // 5: mysql.S3Storage
+	(*LocalStorage)(nil),          // 6: mysql.LocalStorage
+	(*LogicalBackupRequest)(nil),  // 7: mysql.LogicalBackupRequest
+	(*PhysicalBackupRequest)(nil), // 8: mysql.PhysicalBackupRequest
+	(*RestoreRequest)(nil),        // 9: mysql.RestoreRequest
+	(*GtidPurgeRequest)(nil),      // 10: mysql.GtidPurgeRequest
+	(*SetVariableRequest)(nil),    // 11: mysql.SetVariableRequest
+	(*Response)(nil),              // 12: mysql.Response
 }
 var file_pkg_agent_app_mysql_pb_mysql_proto_depIdxs = []int32{
-	1,  // 0: mysql.LogicalBackupRequest.logical_backup_mode:type_name -> mysql.LogicalBackupMode
-	4,  // 1: mysql.LogicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
-	5,  // 2: mysql.LogicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
-	0,  // 3: mysql.PhysicalBackupRequest.physical_backup_tool:type_name -> mysql.PhysicalBackupTool
-	4,  // 4: mysql.PhysicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
-	5,  // 5: mysql.PhysicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
-	4,  // 6: mysql.RestoreRequest.s3_storage:type_name -> mysql.S3Storage
-	5,  // 7: mysql.RestoreRequest.local_storage:type_name -> mysql.LocalStorage
-	2,  // 8: mysql.GtidPurgeRequest.arch_mode:type_name -> mysql.ArchMode
-	3,  // 9: mysql.MysqlOperation.Clone:input_type -> mysql.CloneRequest
-	7,  // 10: mysql.MysqlOperation.PhysicalBackup:input_type -> mysql.PhysicalBackupRequest
-	6,  // 11: mysql.MysqlOperation.LogicalBackup:input_type -> mysql.LogicalBackupRequest
-	8,  // 12: mysql.MysqlOperation.Restore:input_type -> mysql.RestoreRequest
-	9,  // 13: mysql.MysqlOperation.GtidPurge:input_type -> mysql.GtidPurgeRequest
-	10, // 14: mysql.MysqlOperation.SetVariable:input_type -> mysql.SetVariableRequest
-	11, // 15: mysql.MysqlOperation.Clone:output_type -> mysql.Response
-	11, // 16: mysql.MysqlOperation.PhysicalBackup:output_type -> mysql.Response
-	11, // 17: mysql.MysqlOperation.LogicalBackup:output_type -> mysql.Response
-	11, // 18: mysql.MysqlOperation.Restore:output_type -> mysql.Response
-	11, // 19: mysql.MysqlOperation.GtidPurge:output_type -> mysql.Response
-	11, // 20: mysql.MysqlOperation.SetVariable:output_type -> mysql.Response
-	15, // [15:21] is the sub-list for method output_type
-	9,  // [9:15] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	3,  // 0: mysql.S3Storage.type:type_name -> mysql.S3StorageType
+	1,  // 1: mysql.LogicalBackupRequest.logical_backup_mode:type_name -> mysql.LogicalBackupMode
+	5,  // 2: mysql.LogicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
+	6,  // 3: mysql.LogicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
+	0,  // 4: mysql.PhysicalBackupRequest.physical_backup_tool:type_name -> mysql.PhysicalBackupTool
+	5,  // 5: mysql.PhysicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
+	6,  // 6: mysql.PhysicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
+	5,  // 7: mysql.RestoreRequest.s3_storage:type_name -> mysql.S3Storage
+	6,  // 8: mysql.RestoreRequest.local_storage:type_name -> mysql.LocalStorage
+	2,  // 9: mysql.GtidPurgeRequest.arch_mode:type_name -> mysql.ArchMode
+	4,  // 10: mysql.MysqlOperation.Clone:input_type -> mysql.CloneRequest
+	8,  // 11: mysql.MysqlOperation.PhysicalBackup:input_type -> mysql.PhysicalBackupRequest
+	7,  // 12: mysql.MysqlOperation.LogicalBackup:input_type -> mysql.LogicalBackupRequest
+	9,  // 13: mysql.MysqlOperation.Restore:input_type -> mysql.RestoreRequest
+	10, // 14: mysql.MysqlOperation.GtidPurge:input_type -> mysql.GtidPurgeRequest
+	11, // 15: mysql.MysqlOperation.SetVariable:input_type -> mysql.SetVariableRequest
+	12, // 16: mysql.MysqlOperation.Clone:output_type -> mysql.Response
+	12, // 17: mysql.MysqlOperation.PhysicalBackup:output_type -> mysql.Response
+	12, // 18: mysql.MysqlOperation.LogicalBackup:output_type -> mysql.Response
+	12, // 19: mysql.MysqlOperation.Restore:output_type -> mysql.Response
+	12, // 20: mysql.MysqlOperation.GtidPurge:output_type -> mysql.Response
+	12, // 21: mysql.MysqlOperation.SetVariable:output_type -> mysql.Response
+	16, // [16:22] is the sub-list for method output_type
+	10, // [10:16] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_mysql_pb_mysql_proto_init() }
@@ -1112,7 +1177,7 @@ func file_pkg_agent_app_mysql_pb_mysql_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc), len(file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,

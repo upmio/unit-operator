@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/caarlos0/env/v9"
@@ -43,6 +42,7 @@ type Config struct {
 	BackupUser     string
 	BackupPassword string
 	BackupBucket   string
+	BackupSSL      bool
 
 	BackupRootPath string
 }
@@ -98,7 +98,7 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 	cfg.BackupUser = req.GetS3Storage().GetAccessKey()
 	cfg.BackupPassword = req.GetS3Storage().GetSecretKey()
 	cfg.BackupRootPath = req.GetBackupRootPath()
-	cfg.BackupAddress, cfg.BackupPort, err = splitHostPortByEndpoint(req.GetS3Storage().GetEndpoint())
+	cfg.BackupAddress, cfg.BackupPort, err = net.SplitHostPort(req.GetS3Storage().GetEndpoint())
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to split host port, %v", err)
 	}
@@ -184,7 +184,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 	cfg.BackupUser = req.GetS3Storage().GetAccessKey()
 	cfg.BackupPassword = req.GetS3Storage().GetSecretKey()
 	cfg.BackupRootPath = req.GetBackupRootPath()
-	cfg.BackupAddress, cfg.BackupPort, err = splitHostPortByEndpoint(req.GetS3Storage().GetEndpoint())
+	cfg.BackupAddress, cfg.BackupPort, err = net.SplitHostPort(req.GetS3Storage().GetEndpoint())
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to split host port, %v", err)
 	}
@@ -267,17 +267,6 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 	}
 
 	return common.LogAndReturnSuccess(s.logger, newMilvusResponse, "milvus restore success")
-}
-
-func splitHostPortByEndpoint(url string) (string, string, error) {
-	var endpoint string
-	if strings.HasPrefix(url, "https://") {
-		endpoint = strings.TrimPrefix(url, "https://")
-	} else if strings.HasPrefix(url, "http://") {
-		endpoint = strings.TrimPrefix(url, "http://")
-	}
-
-	return net.SplitHostPort(endpoint)
 }
 
 func decryptPassword(dirName, fileName string) (string, error) {

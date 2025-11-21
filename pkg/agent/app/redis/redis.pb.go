@@ -21,6 +21,49 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type S3StorageType int32
+
+const (
+	S3StorageType_Minio S3StorageType = 0
+)
+
+// Enum value maps for S3StorageType.
+var (
+	S3StorageType_name = map[int32]string{
+		0: "Minio",
+	}
+	S3StorageType_value = map[string]int32{
+		"Minio": 0,
+	}
+)
+
+func (x S3StorageType) Enum() *S3StorageType {
+	p := new(S3StorageType)
+	*p = x
+	return p
+}
+
+func (x S3StorageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_agent_app_redis_pb_redis_proto_enumTypes[0].Descriptor()
+}
+
+func (S3StorageType) Type() protoreflect.EnumType {
+	return &file_pkg_agent_app_redis_pb_redis_proto_enumTypes[0]
+}
+
+func (x S3StorageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use S3StorageType.Descriptor instead.
+func (S3StorageType) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{0}
+}
+
 type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -87,6 +130,8 @@ type S3Storage struct {
 	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
 	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
+	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=redis.S3StorageType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -147,6 +192,20 @@ func (x *S3Storage) GetSecretKey() string {
 		return x.SecretKey
 	}
 	return ""
+}
+
+func (x *S3Storage) GetSsl() bool {
+	if x != nil {
+		return x.Ssl
+	}
+	return false
+}
+
+func (x *S3Storage) GetType() S3StorageType {
+	if x != nil {
+		return x.Type
+	}
+	return S3StorageType_Minio
 }
 
 type BackupRequest struct {
@@ -321,14 +380,16 @@ const file_pkg_agent_app_redis_pb_redis_proto_rawDesc = "" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\"}\n" +
+	"\bpassword\x18\x05 \x01(\tR\bpassword\"\xb9\x01\n" +
 	"\tS3Storage\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\"}\n" +
+	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
+	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12(\n" +
+	"\x04type\x18\x06 \x01(\x0e2\x14.redis.S3StorageTypeR\x04type\"}\n" +
 	"\rBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
 	"backupFile\x12/\n" +
@@ -342,7 +403,9 @@ const file_pkg_agent_app_redis_pb_redis_proto_rawDesc = "" +
 	"s3_storage\x18\x02 \x01(\v2\x10.redis.S3StorageR\ts3Storage\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\"$\n" +
 	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xaf\x01\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage*\x1a\n" +
+	"\rS3StorageType\x12\t\n" +
+	"\x05Minio\x10\x002\xaf\x01\n" +
 	"\x0eRedisOperation\x129\n" +
 	"\vSetVariable\x12\x19.redis.SetVariableRequest\x1a\x0f.redis.Response\x12/\n" +
 	"\x06Backup\x12\x14.redis.BackupRequest\x1a\x0f.redis.Response\x121\n" +
@@ -360,28 +423,31 @@ func file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_redis_pb_redis_proto_rawDescData
 }
 
+var file_pkg_agent_app_redis_pb_redis_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pkg_agent_app_redis_pb_redis_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pkg_agent_app_redis_pb_redis_proto_goTypes = []any{
-	(*SetVariableRequest)(nil), // 0: redis.SetVariableRequest
-	(*S3Storage)(nil),          // 1: redis.S3Storage
-	(*BackupRequest)(nil),      // 2: redis.BackupRequest
-	(*RestoreRequest)(nil),     // 3: redis.RestoreRequest
-	(*Response)(nil),           // 4: redis.Response
+	(S3StorageType)(0),         // 0: redis.S3StorageType
+	(*SetVariableRequest)(nil), // 1: redis.SetVariableRequest
+	(*S3Storage)(nil),          // 2: redis.S3Storage
+	(*BackupRequest)(nil),      // 3: redis.BackupRequest
+	(*RestoreRequest)(nil),     // 4: redis.RestoreRequest
+	(*Response)(nil),           // 5: redis.Response
 }
 var file_pkg_agent_app_redis_pb_redis_proto_depIdxs = []int32{
-	1, // 0: redis.BackupRequest.s3_storage:type_name -> redis.S3Storage
-	1, // 1: redis.RestoreRequest.s3_storage:type_name -> redis.S3Storage
-	0, // 2: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
-	2, // 3: redis.RedisOperation.Backup:input_type -> redis.BackupRequest
-	3, // 4: redis.RedisOperation.Restore:input_type -> redis.RestoreRequest
-	4, // 5: redis.RedisOperation.SetVariable:output_type -> redis.Response
-	4, // 6: redis.RedisOperation.Backup:output_type -> redis.Response
-	4, // 7: redis.RedisOperation.Restore:output_type -> redis.Response
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 0: redis.S3Storage.type:type_name -> redis.S3StorageType
+	2, // 1: redis.BackupRequest.s3_storage:type_name -> redis.S3Storage
+	2, // 2: redis.RestoreRequest.s3_storage:type_name -> redis.S3Storage
+	1, // 3: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
+	3, // 4: redis.RedisOperation.Backup:input_type -> redis.BackupRequest
+	4, // 5: redis.RedisOperation.Restore:input_type -> redis.RestoreRequest
+	5, // 6: redis.RedisOperation.SetVariable:output_type -> redis.Response
+	5, // 7: redis.RedisOperation.Backup:output_type -> redis.Response
+	5, // 8: redis.RedisOperation.Restore:output_type -> redis.Response
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_redis_pb_redis_proto_init() }
@@ -394,13 +460,14 @@ func file_pkg_agent_app_redis_pb_redis_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_redis_pb_redis_proto_rawDesc), len(file_pkg_agent_app_redis_pb_redis_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pkg_agent_app_redis_pb_redis_proto_goTypes,
 		DependencyIndexes: file_pkg_agent_app_redis_pb_redis_proto_depIdxs,
+		EnumInfos:         file_pkg_agent_app_redis_pb_redis_proto_enumTypes,
 		MessageInfos:      file_pkg_agent_app_redis_pb_redis_proto_msgTypes,
 	}.Build()
 	File_pkg_agent_app_redis_pb_redis_proto = out.File

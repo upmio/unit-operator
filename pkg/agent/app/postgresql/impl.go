@@ -2,9 +2,9 @@ package postgresql
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"fmt"
+	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
@@ -20,9 +20,6 @@ import (
 	"sync"
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
-
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 const (
@@ -50,25 +47,6 @@ type service struct {
 // newPostgresqlResponse creates a new PostgreSQL Response with the given message
 func newPostgresqlResponse(message string) *Response {
 	return &Response{Message: message}
-}
-
-// createMinioClient creates an S3 client
-func (s *service) createMinioClient(s3Config *S3Storage) (*minio.Client, error) {
-	if s3Config == nil {
-		return nil, fmt.Errorf("S3 storage configuration is required")
-	}
-
-	var endpoint string
-	if strings.Contains(s3Config.GetEndpoint(), "http://") {
-		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "http://")
-	} else if strings.Contains(s3Config.GetEndpoint(), "https://") {
-		endpoint, _ = strings.CutPrefix(s3Config.Endpoint, "https://")
-	}
-
-	return minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(s3Config.GetAccessKey(), s3Config.GetSecretKey(), ""),
-		Secure: false,
-	})
 }
 
 // getEnvVarOrError gets environment variable or returns error if not found
@@ -174,10 +152,15 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, fmt.Sprintf("failed to write pg_basebackup log to file %s", pgBaseBackupLogPath), err)
 		}
 
-		// 5. Create Minio client
-		minioClient, err := s.createMinioClient(req.GetS3Storage())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create minio client", err)
+		var storageFactory s3storage.S3Storage
+		switch req.GetS3Storage().GetType() {
+		case S3StorageType_Minio:
+			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			if err != nil {
+				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
+			}
+		default:
+			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "unsupported s3 storage type", nil)
 		}
 
 		errGrp := new(errgroup.Group)
@@ -191,7 +174,7 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 
 			errGrp.Go(func() error {
 
-				if _, err := minioClient.FPutObject(ctx, req.GetS3Storage().GetBucket(), key, filePath, minio.PutObjectOptions{}); err != nil {
+				if err := storageFactory.UploadFileToS3(ctx, req.GetS3Storage().GetBucket(), key, filePath); err != nil {
 					return err
 				}
 
@@ -267,10 +250,15 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	}
 
 	if req.GetS3Storage() != nil {
-		// 5. Create Minio client
-		minioClient, err := s.createMinioClient(req.GetS3Storage())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create minio client", err)
+		var storageFactory s3storage.S3Storage
+		switch req.GetS3Storage().GetType() {
+		case S3StorageType_Minio:
+			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			if err != nil {
+				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
+			}
+		default:
+			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "unsupported s3 storage type", nil)
 		}
 
 		// execute pgdumpall command
@@ -307,13 +295,10 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			result, err := minioClient.PutObject(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes), -1, minio.PutObjectOptions{})
+			err := storageFactory.UploadContentToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), stdoutBytes)
 
 			errCh <- err
 
-			if err == nil {
-				s.logger.Infof("upload successful: %s", result.Location)
-			}
 		}(ctx, cmd, errCh)
 
 		if err := <-errCh; err != nil {
@@ -382,10 +367,15 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get DATA_DIR environment variable", err)
 		}
 
-		// 3. Create minio client
-		minioClient, err := s.createMinioClient(req.GetS3Storage())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create S3 client", err)
+		var storageFactory s3storage.S3Storage
+		switch req.GetS3Storage().GetType() {
+		case S3StorageType_Minio:
+			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			if err != nil {
+				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
+			}
+		default:
+			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "unsupported s3 storage type", nil)
 		}
 
 		// 4. Clear data directory
@@ -394,11 +384,11 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		}
 
 		// 5. Extract backup files from S3
-		if err = s.extractFileFromS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "base.tar", dataDirValue); err != nil {
+		if err = s.extractFileFromS3(ctx, storageFactory, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "base.tar", dataDirValue); err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to unarchive base.tar", err)
 		}
 
-		if err = s.extractFileFromS3(ctx, minioClient, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "pg_wal.tar", filepath.Join(dataDirValue, "pg_wal")); err != nil {
+		if err = s.extractFileFromS3(ctx, storageFactory, req.GetS3Storage().GetBucket(), req.GetBackupFile(), "pg_wal.tar", filepath.Join(dataDirValue, "pg_wal")); err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to unarchive pg_wal.tar", err)
 		}
 
@@ -437,10 +427,10 @@ func (s *service) recursiveChown(rootPath string, uid, gid int) error {
 	})
 }
 
-func (s *service) extractFileFromS3(ctx context.Context, client *minio.Client, bucket, key, filename, targetDir string) error {
+func (s *service) extractFileFromS3(ctx context.Context, storageFactory s3storage.S3Storage, bucket, key, filename, targetDir string) error {
 	fileKey := filepath.Join(key, filename)
 
-	output, err := client.GetObject(ctx, bucket, fileKey, minio.GetObjectOptions{})
+	output, err := storageFactory.DownloadContentFromS3(ctx, bucket, fileKey)
 
 	if err != nil {
 		return fmt.Errorf("download %s failed: %v", fileKey, err)
