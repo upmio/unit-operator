@@ -37,7 +37,7 @@ func (g *GrpcService) Start() {
 		return
 	}
 
-	g.l.Infof("success start GRPC service, listen address: [%s]", addr)
+	g.l.Infof("start grpc service successfully, listen address: [%s]", addr)
 
 	if err := g.s.Serve(lsr); err != nil {
 		if err == grpc.ErrServerStopped {
@@ -50,7 +50,6 @@ func (g *GrpcService) Start() {
 }
 
 func (g *GrpcService) Stop() {
-	g.l.Info("start graceful shutdown")
 	g.s.GracefulStop()
 	g.l.Info("service is stopped")
 }

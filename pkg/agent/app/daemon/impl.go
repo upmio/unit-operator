@@ -59,9 +59,7 @@ func backupOnce(
 	return err
 }
 
-func StartRedisClusterNodesConfBackup(sign chan os.Signal, wg *sync.WaitGroup, namespace, podName, configDir string) {
-	wg.Add(1)
-	ctx := context.Background()
+func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, namespace, podName, configDir string) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
@@ -74,15 +72,13 @@ func StartRedisClusterNodesConfBackup(sign chan os.Signal, wg *sync.WaitGroup, n
 
 	for {
 		select {
-		case sg := <-sign:
-			switch v := sg.(type) {
-			default:
-				logger.Infof("received '%v' signal, doing final backup...", v.String())
-				//Upon receiving the exit signal, attempt to perform a final backup (ignore errors and only log them).
-				_ = backupOnce(ctx, logger, namespace, configMapName, filePath, key)
-				logger.Info("backup loop exited gracefully")
-				wg.Done()
-			}
+		case <-ctx.Done():
+			logger.Infof("stop redis cluster backup config daemon, doing final backup...")
+
+			//Upon receiving the exit signal, attempt to perform a final backup (ignore errors and only log them).
+			_ = backupOnce(ctx, logger, namespace, configMapName, filePath, key)
+			logger.Info("backup loop exited gracefully")
+			wg.Done()
 		case <-ticker.C:
 			if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
 				logger.Errorf("periodic backup failed: %v", err)

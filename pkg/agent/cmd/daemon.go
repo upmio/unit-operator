@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/daemon"
@@ -85,8 +86,16 @@ var daemonCmd = &cobra.Command{
 		_ = conf.GetConf()
 
 		// start service
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
+		//ch := make(chan os.Signal, 1)
+		//signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
+
+		ctx, stop := signal.NotifyContext(context.Background(),
+			syscall.SIGTERM,
+			syscall.SIGINT,
+			syscall.SIGHUP,
+			syscall.SIGQUIT,
+		)
+		defer stop()
 
 		// init service
 		svr, err := newService()
@@ -97,7 +106,7 @@ var daemonCmd = &cobra.Command{
 		// wait signal
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go svr.waitSign(ch, wg)
+		go svr.waitSign(ctx, wg)
 
 		switch unitType {
 		case "redis":
@@ -125,7 +134,8 @@ var daemonCmd = &cobra.Command{
 					return err
 				}
 
-				go daemon.StartRedisClusterNodesConfBackup(ch, wg, namespace, podName, configDir)
+				wg.Add(1)
+				go daemon.StartRedisClusterNodesConfBackup(ctx, wg, namespace, podName, configDir)
 			}
 
 		case "redis-sentinel":
@@ -178,18 +188,15 @@ func (s *service) start() error {
 }
 
 //nolint:staticcheck // S1000: keeping select structure for future extensibility
-func (s *service) waitSign(sign chan os.Signal, wg *sync.WaitGroup) {
+func (s *service) waitSign(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
-		case sg := <-sign:
-			switch v := sg.(type) {
-			default:
-				zap.L().Named("[GRPC SERVICE]").Sugar().Infof("receive signal '%v', start graceful shutdown", v.String())
+		case <-ctx.Done():
+			zap.L().Named("[GRPC SERVICE]").Sugar().Infof("start graceful shutdown")
 
-				s.grpc.Stop()
-				wg.Done()
-				return
-			}
+			s.grpc.Stop()
+			wg.Done()
+			return
 		}
 	}
 }
