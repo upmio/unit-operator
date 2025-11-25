@@ -2,12 +2,13 @@ package common
 
 import (
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"os"
 	"testing"
 )
 
 func TestGetPlainTextPassword(t *testing.T) {
-	os.Setenv(util.AESKeyEnvVar, "7097029b4c29f2cf6c796361fc174d77")
+	os.Setenv(vars.AESEnvKey, "7097029b4c29f2cf6c796361fc174d77")
 
 	if err := util.ValidateAndSetAESKey(); err != nil {
 		t.Fatal(err)

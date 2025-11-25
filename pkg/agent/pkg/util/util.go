@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"io"
 	"os"
 	"path"
@@ -111,11 +112,6 @@ func FileStat(name string) (fi FileInfo, err error) {
 	return fi, errors.New("file not found")
 }
 
-const (
-	// Environment variable name for AES key
-	AESKeyEnvVar = "AES_SECRET_KEY"
-)
-
 var (
 	// Global AES key that should be set during application startup
 	aesKey string
@@ -125,9 +121,9 @@ var (
 // This function should be called during application startup (e.g., in main.go)
 // Returns error if key is missing or invalid
 func ValidateAndSetAESKey() error {
-	key := os.Getenv(AESKeyEnvVar)
+	key := os.Getenv(vars.AESEnvKey)
 	if key == "" {
-		return fmt.Errorf("AES encryption key not found in environment variable %s", AESKeyEnvVar)
+		return fmt.Errorf("AES encryption key not found in environment variable %s", vars.AESEnvKey)
 	}
 
 	// Validate key length (should be 32 characters for AES-256)

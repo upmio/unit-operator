@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"os"
 	"path"
 	"testing"
@@ -329,13 +330,13 @@ func TestAES_CTR_EncryptDecrypt(t *testing.T) {
 // TestValidateAndSetAESKey 测试 AES 密钥验证和设置
 func TestValidateAndSetAESKey(t *testing.T) {
 	// 保存原始环境变量和密钥
-	originalKey := os.Getenv(AESKeyEnvVar)
+	originalKey := os.Getenv(vars.AESEnvKey)
 	originalAESKey := aesKey
 	defer func() {
 		if originalKey != "" {
-			_ = os.Setenv(AESKeyEnvVar, originalKey)
+			_ = os.Setenv(vars.AESEnvKey, originalKey)
 		} else {
-			_ = os.Unsetenv(AESKeyEnvVar)
+			_ = os.Unsetenv(vars.AESEnvKey)
 		}
 		aesKey = originalAESKey
 	}()
@@ -383,9 +384,9 @@ func TestValidateAndSetAESKey(t *testing.T) {
 
 			// 设置或清除环境变量
 			if tt.setEnv {
-				_ = os.Setenv(AESKeyEnvVar, tt.keyValue)
+				_ = os.Setenv(vars.AESEnvKey, tt.keyValue)
 			} else {
-				_ = os.Unsetenv(AESKeyEnvVar)
+				_ = os.Unsetenv(vars.AESEnvKey)
 			}
 
 			err := ValidateAndSetAESKey()

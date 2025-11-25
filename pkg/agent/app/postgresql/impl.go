@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
@@ -20,13 +21,6 @@ import (
 	"sync"
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
-)
-
-const (
-	dataDirKey   = "DATA_DIR"
-	dataMountKey = "DATA_MOUNT"
-	logMountKey  = "LOG_MOUNT"
-	standbyFile  = "standby.signal"
 )
 
 var (
@@ -104,12 +98,12 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 		}
 
 		// 2. Get environment variables
-		dataMountValue, err := getEnvVarOrError(dataMountKey)
+		dataMountValue, err := getEnvVarOrError(vars.DataMountEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get DATA_MOUNT environment variable", err)
 		}
 
-		logMountValue, err := getEnvVarOrError(logMountKey)
+		logMountValue, err := getEnvVarOrError(vars.LogMountEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get LOG_MOUNT environment variable", err)
 		}
@@ -362,7 +356,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 
 	if req.GetS3Storage() != nil {
 		// 2. Get environment variables
-		dataDirValue, err := getEnvVarOrError(dataDirKey)
+		dataDirValue, err := getEnvVarOrError(vars.DataDirEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get DATA_DIR environment variable", err)
 		}
@@ -393,10 +387,10 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		}
 
 		// 6. Create standby signal file
-		if _, err := os.Stat(filepath.Join(dataDirValue, standbyFile)); err != nil {
+		if _, err := os.Stat(filepath.Join(dataDirValue, "standby.signal")); err != nil {
 			s.logger.Info("standby.signal file not found, attempting to create it")
 
-			if err := os.WriteFile(filepath.Join(dataDirValue, standbyFile), []byte{}, 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(dataDirValue, "standby.signal"), []byte{}, 0644); err != nil {
 				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create standby.signal file", err)
 			}
 		}

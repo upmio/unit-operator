@@ -12,6 +12,7 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"github.com/upmio/unit-operator/pkg/agent/protocol"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"github.com/upmio/unit-operator/pkg/agent/version"
 	"os"
 	"os/signal"
@@ -69,7 +70,7 @@ var daemonCmd = &cobra.Command{
 			zap.L().Named("[INIT]").Sugar().Error(err)
 			return err
 		}
-		zap.L().Named("[INIT]").Sugar().Infof("get env %s successfullyx", util.AESKeyEnvVar)
+		zap.L().Named("[INIT]").Sugar().Infof("get env %s", vars.AESEnvKey)
 
 		switch unitType {
 		case "redis":

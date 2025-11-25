@@ -30,14 +30,6 @@ type service struct {
 	slm slm.ServiceLifecycleServer
 }
 
-const (
-	redisAddr            = "localhost:6379"
-	redisDB              = 0
-	defaultBGSaveTimeout = 2 * time.Minute
-
-	persistencePollInterval = 2 * time.Second
-)
-
 // Common helper methods
 
 // newRedisResponse creates a new Sentinel Response with the given message
@@ -53,9 +45,9 @@ func (s *service) newRedisClient(ctx context.Context, encrypt string) (*redis.Cl
 	}
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
+		Addr:     "localhost:6379",
 		Password: password,
-		DB:       redisDB,
+		DB:       0,
 	})
 
 	_, err = rdb.Ping(ctx).Result()
@@ -156,7 +148,7 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 	}
 	s.logger.Infof("discovered redis rdb path: %s", rdbPath)
 
-	if err := ensureFreshRDBSnapshot(ctx, client, defaultBGSaveTimeout); err != nil {
+	if err := ensureFreshRDBSnapshot(ctx, client, 2*time.Minute); err != nil {
 		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create new redis snapshot", err)
 	}
 
@@ -291,7 +283,7 @@ func waitForExistingBGSave(ctx context.Context, client *redis.Client, baseline t
 }
 
 func waitForBGSave(ctx context.Context, client *redis.Client, baseline time.Time, timeout time.Duration) error {
-	ticker := time.NewTicker(persistencePollInterval)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	deadline := time.Now().Add(timeout)

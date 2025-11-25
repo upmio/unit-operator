@@ -15,10 +15,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const (
-	portKey = "ADMIN_PORT"
-)
-
 var (
 	// service instance
 	svr = &service{}
@@ -32,6 +28,10 @@ type service struct {
 	slm slm.ServiceLifecycleServer
 }
 
+const (
+	adminPortEnvKey = "ADMIN_PORT"
+)
+
 // Common helper methods
 
 // newProxysqlResponse creates a new ProxySQL Response with the given message
@@ -41,9 +41,9 @@ func newProxysqlResponse(message string) *Response {
 
 // createProxySQLDB creates a ProxySQL database connection
 func (s *service) createProxySQLDB(ctx context.Context, username, password string) (*sql.DB, error) {
-	port := os.Getenv(portKey)
+	port := os.Getenv(adminPortEnvKey)
 	if port == "" {
-		return nil, fmt.Errorf("environment variable %s is not set", portKey)
+		return nil, fmt.Errorf("environment variable %s is not set", adminPortEnvKey)
 	}
 
 	addr := net.JoinHostPort("127.0.0.1", port)

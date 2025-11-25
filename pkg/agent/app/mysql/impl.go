@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
@@ -29,9 +30,8 @@ import (
 )
 
 const (
-	dataDirKey     = "DATA_DIR"
-	relayLogDirKey = "RELAY_LOG_DIR"
-	binLogDirKey   = "BIN_LOG_DIR"
+	relayLogDirEnvKey = "RELAY_LOG_DIR"
+	binLogDirEnvKey   = "BIN_LOG_DIR"
 )
 
 var (
@@ -484,7 +484,7 @@ func (s *service) GtidPurge(ctx context.Context, req *GtidPurgeRequest) (*Respon
 	}
 
 	// 2. Get data directory environment variable
-	dataDirValue, err := getEnvVarOrError(dataDirKey)
+	dataDirValue, err := getEnvVarOrError(vars.DataDirEnvKey)
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to get DATA_DIR environment variable", err)
 	}
@@ -577,17 +577,17 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 
 	if req.GetS3Storage() != nil {
 		// 4. Get environment variables
-		dataDirValue, err := getEnvVarOrError(dataDirKey)
+		dataDirValue, err := getEnvVarOrError(vars.DataDirEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to get DATA_DIR environment variable", err)
 		}
 
-		relayLogDirValue, err := getEnvVarOrError(relayLogDirKey)
+		relayLogDirValue, err := getEnvVarOrError(relayLogDirEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to get RELAY_LOG_DIR environment variable", err)
 		}
 
-		binLogDirValue, err := getEnvVarOrError(binLogDirKey)
+		binLogDirValue, err := getEnvVarOrError(binLogDirEnvKey)
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to get BIN_LOG_DIR environment variable", err)
 		}

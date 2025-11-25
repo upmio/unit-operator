@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"k8s.io/apimachinery/pkg/util/json"
 	"os"
 	"path/filepath"
@@ -24,10 +25,6 @@ import (
 var (
 	// service instance
 	svr = &service{}
-)
-
-const (
-	confPathEnvKey = "CONFIG_PATH"
 )
 
 type service struct {
@@ -90,7 +87,7 @@ func (s *service) SyncConfig(ctx context.Context, req *SyncConfigRequest) (*Resp
 	})
 
 	// Get CONFIG_PATH environment variable
-	path, err := getEnvVarOrError(confPathEnvKey)
+	path, err := getEnvVarOrError(vars.ConfigPathEnvKey)
 	if err != nil {
 		return common.LogAndReturnError(s.logger, newConfigResponse, "failed to get CONFIG_PATH environment variable", err)
 	}
