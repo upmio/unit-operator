@@ -43,7 +43,6 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run as a daemon process",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := zap.L().Named("[INIT]").Sugar()
 
 		defer func() {
 			if err := file.Close(); err != nil {
@@ -72,6 +71,7 @@ var daemonCmd = &cobra.Command{
 			return fmt.Errorf("UNIT_TYPE must be set")
 		}
 
+		logger := zap.L().Named("[INIT]").Sugar()
 		if err := util.ValidateAndSetAESKey(); err != nil {
 			logger.Error(err)
 			return err
@@ -117,7 +117,7 @@ var daemonCmd = &cobra.Command{
 			}
 
 			if archMode == "cluster" {
-				logger.Infof("start redis cluster backup config daemon")
+				logger.Info("start redis cluster backup config daemon")
 
 				configDir, err := util.GetEnvVarOrError(vars.ConfigDirEnvKey)
 				if err != nil {
