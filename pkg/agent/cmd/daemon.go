@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/daemon"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
@@ -64,6 +65,9 @@ var daemonCmd = &cobra.Command{
 		}()
 
 		unitType := os.Getenv("UNIT_TYPE")
+		if unitType == "" {
+			return fmt.Errorf("UNIT_TYPE must be set")
+		}
 		zap.L().Named("[INIT]").Sugar().Infof("get env UNIT_TYPE %s", unitType)
 
 		if err := util.ValidateAndSetAESKey(); err != nil {
@@ -71,27 +75,6 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 		zap.L().Named("[INIT]").Sugar().Infof("get env %s", vars.AESEnvKey)
-
-		switch unitType {
-		case "redis":
-			redis.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry redis grpc app")
-		case "redis-sentinel":
-			sentinel.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry sentinel grpc app")
-		case "mysql":
-			mysql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry mysql grpc app")
-		case "postgresql":
-			postgresql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry postgresql grpc app")
-		case "proxysql":
-			proxysql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry proxysql grpc app")
-		case "milvus":
-			milvus.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry milvus grpc app")
-		}
 
 		// initialize the global app
 		if err := app.InitAllApp(); err != nil {
@@ -115,6 +98,53 @@ var daemonCmd = &cobra.Command{
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 		go svr.waitSign(ch, wg)
+
+		switch unitType {
+		case "redis":
+			redis.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry redis grpc app")
+			archMode, err := util.GetEnvVarOrError(vars.ArchModeEnvKey)
+			if err != nil {
+				return err
+			}
+
+			if archMode == "cluster" {
+				zap.L().Named("[INIT]").Sugar().Infof("start redis cluster backup config daemon")
+
+				configPath, err := util.GetEnvVarOrError(vars.ConfigPathEnvKey)
+				if err != nil {
+					return err
+				}
+
+				namespace, err := util.GetEnvVarOrError("NAMESPACE")
+				if err != nil {
+					return err
+				}
+
+				podName, err := util.GetEnvVarOrError("POD_NAME")
+				if err != nil {
+					return err
+				}
+
+				go daemon.StartRedisClusterNodesConfBackup(ch, wg, namespace, podName, configPath)
+			}
+
+		case "redis-sentinel":
+			sentinel.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry sentinel grpc app")
+		case "mysql":
+			mysql.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry mysql grpc app")
+		case "postgresql":
+			postgresql.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry postgresql grpc app")
+		case "proxysql":
+			proxysql.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry proxysql grpc app")
+		case "milvus":
+			milvus.RegistryGrpcApp()
+			zap.L().Named("[INIT]").Sugar().Infof("registry milvus grpc app")
+		}
 
 		// start service
 		if err := svr.start(); err != nil {

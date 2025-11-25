@@ -6,4 +6,5 @@ const (
 	DataMountEnvKey  = "DATA_MOUNT"
 	LogMountEnvKey   = "LOG_MOUNT"
 	ConfigPathEnvKey = "CONFIG_PATH"
+	ArchModeEnvKey   = "ARCH_MODE"
 )

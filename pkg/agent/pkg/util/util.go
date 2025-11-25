@@ -221,3 +221,11 @@ func AES_CTR_Decrypt(encryptedData []byte) ([]byte, error) {
 
 	return plaintext, nil
 }
+
+func GetEnvVarOrError(key string) (string, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return "", fmt.Errorf("environment variable %s is not set", key)
+	}
+	return value, nil
+}
