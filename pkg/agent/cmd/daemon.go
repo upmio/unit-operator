@@ -42,6 +42,8 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run as a daemon process",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		logger := zap.L().Named("[INIT]").Sugar()
+
 		defer func() {
 			if err := file.Close(); err != nil {
 				fmt.Printf("failed to close file: %v\n", err)
@@ -68,13 +70,11 @@ var daemonCmd = &cobra.Command{
 		if unitType == "" {
 			return fmt.Errorf("UNIT_TYPE must be set")
 		}
-		zap.L().Named("[INIT]").Sugar().Infof("get env UNIT_TYPE %s", unitType)
 
 		if err := util.ValidateAndSetAESKey(); err != nil {
-			zap.L().Named("[INIT]").Sugar().Error(err)
+			logger.Error(err)
 			return err
 		}
-		zap.L().Named("[INIT]").Sugar().Infof("get env %s", vars.AESEnvKey)
 
 		// initialize the global app
 		if err := app.InitAllApp(); err != nil {
@@ -102,16 +102,15 @@ var daemonCmd = &cobra.Command{
 		switch unitType {
 		case "redis":
 			redis.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry redis grpc app")
 			archMode, err := util.GetEnvVarOrError(vars.ArchModeEnvKey)
 			if err != nil {
 				return err
 			}
 
 			if archMode == "cluster" {
-				zap.L().Named("[INIT]").Sugar().Infof("start redis cluster backup config daemon")
+				logger.Infof("start redis cluster backup config daemon")
 
-				configPath, err := util.GetEnvVarOrError(vars.ConfigPathEnvKey)
+				configDir, err := util.GetEnvVarOrError(vars.ConfigDirEnvKey)
 				if err != nil {
 					return err
 				}
@@ -126,24 +125,19 @@ var daemonCmd = &cobra.Command{
 					return err
 				}
 
-				go daemon.StartRedisClusterNodesConfBackup(ch, wg, namespace, podName, configPath)
+				go daemon.StartRedisClusterNodesConfBackup(ch, wg, namespace, podName, configDir)
 			}
 
 		case "redis-sentinel":
 			sentinel.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry sentinel grpc app")
 		case "mysql":
 			mysql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry mysql grpc app")
 		case "postgresql":
 			postgresql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry postgresql grpc app")
 		case "proxysql":
 			proxysql.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry proxysql grpc app")
 		case "milvus":
 			milvus.RegistryGrpcApp()
-			zap.L().Named("[INIT]").Sugar().Infof("registry milvus grpc app")
 		}
 
 		// start service
@@ -238,9 +232,6 @@ func loadGlobalLogger() error {
 	logger := zap.New(core)
 
 	zap.ReplaceGlobals(logger)
-
-	//zap.L().Named("[INIT]").Info(conf.Banner)
-	zap.L().Named("[INIT]").Info(fmt.Sprintf("log level: %s", conf.GetConf().Level))
 
 	return nil
 }

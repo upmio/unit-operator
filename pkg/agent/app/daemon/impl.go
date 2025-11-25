@@ -59,18 +59,18 @@ func backupOnce(
 	return err
 }
 
-func StartRedisClusterNodesConfBackup(sign chan os.Signal, wg *sync.WaitGroup, namespace, podName, configPath string) {
+func StartRedisClusterNodesConfBackup(sign chan os.Signal, wg *sync.WaitGroup, namespace, podName, configDir string) {
 	wg.Add(1)
 	ctx := context.Background()
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	logger := zap.L().Named("[REDIS DAEMON]").Sugar()
-	key := "node.conf"
+	key := "nodes.conf"
 
 	configMapName := fmt.Sprintf("%s-config-backup", podName)
 
-	filePath := filepath.Join(configPath, key)
+	filePath := filepath.Join(configDir, key)
 
 	for {
 		select {
