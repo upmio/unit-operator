@@ -79,6 +79,7 @@ func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, n
 			_ = backupOnce(ctx, logger, namespace, configMapName, filePath, key)
 			logger.Info("backup loop exited gracefully")
 			wg.Done()
+			return
 		case <-ticker.C:
 			if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
 				logger.Errorf("periodic backup failed: %v", err)
