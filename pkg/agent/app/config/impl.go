@@ -153,7 +153,7 @@ func (s *service) SyncConfig(ctx context.Context, req *SyncConfigRequest) (*Resp
 	if err := template.Process(s.confdConfig.TemplateConfig); err != nil {
 		return common.LogAndReturnError(s.logger, newConfigResponse, "failed to generate config file", err)
 	}
-
+	
 	return common.LogAndReturnSuccess(s.logger, newConfigResponse, "generate config file successfully")
 }
 

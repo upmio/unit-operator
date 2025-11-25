@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
@@ -62,13 +63,21 @@ func backupOnce(
 func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, namespace, podName, configDir string) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
+	defer wg.Done()
 
 	logger := zap.L().Named("[REDIS DAEMON]").Sugar()
+	logger.Info("start redis cluster backup config daemon")
+
 	key := "nodes.conf"
 
 	configMapName := fmt.Sprintf("%s-config-backup", podName)
 
 	filePath := filepath.Join(configDir, key)
+
+	//ensure redis node config exists
+	if err := ensureRedisClusterNodeConf(ctx, logger, namespace, podName, configMapName, filePath); err != nil {
+		logger.Error(err)
+	}
 
 	for {
 		select {
@@ -77,15 +86,64 @@ func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, n
 
 			//Upon receiving the exit signal, attempt to perform a final backup (ignore errors and only log them).
 			_ = backupOnce(ctx, logger, namespace, configMapName, filePath, key)
-			logger.Info("backup loop exited gracefully")
-			wg.Done()
+			logger.Info("redis cluster backup config daemon exited gracefully")
 			return
 		case <-ticker.C:
 			if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
-				logger.Errorf("periodic backup failed: %v", err)
+				logger.Errorf("redis cluster backup config failed: %v", err)
 			} else {
-				logger.Info("periodic backup success")
+				logger.Info("redis cluster backup config success")
 			}
 		}
 	}
+}
+
+func ensureRedisClusterNodeConf(ctx context.Context, logger *zap.SugaredLogger,
+	namespace, configMapName, filePath, key string) error {
+	if _, err := os.Stat(filePath); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("stat local file %s failed: %v", filePath, err)
+		}
+
+		logger.Infof("local file %s not found, try restore from ConfigMap %s/%s",
+			filePath, namespace, configMapName)
+
+		clientSet, err := conf.GetConf().GetClientSet()
+		if err != nil {
+			return err
+		}
+
+		cm, err := clientSet.CoreV1().
+			ConfigMaps(namespace).
+			Get(ctx, configMapName, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Infof("configmap %s/%s not found, skip restore", namespace, configMapName)
+				return nil
+			}
+
+			return fmt.Errorf("get configmap %s/%s failed: %v", namespace, configMapName, err)
+		}
+
+		content, ok := cm.Data[key]
+		if !ok {
+			logger.Infof("configmap %s/%s has no key %q, skip restore", namespace, configMapName, key)
+			return nil
+		}
+
+		if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+			return fmt.Errorf("write local file %s failed: %v", filePath, err)
+		}
+
+		if err := os.Chown(filePath, 1001, 1001); err != nil {
+			return fmt.Errorf("chown local file %s failed: %v", filePath, err)
+		}
+
+		logger.Infof("restore local file %s from configmap %s/%s key %q success",
+			filePath, namespace, configMapName, key)
+		return nil
+	}
+
+	logger.Infof("local file %s exists, skip restore from configmap", filePath)
+	return nil
 }

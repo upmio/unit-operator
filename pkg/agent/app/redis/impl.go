@@ -9,6 +9,7 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"os"
@@ -373,6 +374,15 @@ func discoverRDBPath(ctx context.Context, rdb *redis.Client) (string, error) {
 	}
 
 	return filepath.Join(dir, dbfn), nil
+}
+
+func EnsureRedisClusterNodeConfig(ctx context.Context, namespace string) error {
+	clientSet, err := conf.GetConf().GetClientSet()
+	if err != nil {
+		return err
+	}
+
+	clientSet.CoreV1().ConfigMaps(namespace).Get(ctx)
 }
 
 // renameWithBak renames dump.rdb to dump.rdb.bak.

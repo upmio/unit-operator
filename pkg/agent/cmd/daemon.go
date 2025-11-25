@@ -117,8 +117,6 @@ var daemonCmd = &cobra.Command{
 			}
 
 			if archMode == "cluster" {
-				logger.Info("start redis cluster backup config daemon")
-
 				configDir, err := util.GetEnvVarOrError(vars.ConfigDirEnvKey)
 				if err != nil {
 					return err
