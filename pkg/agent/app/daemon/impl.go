@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +67,7 @@ func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, n
 	defer wg.Done()
 
 	logger := zap.L().Named("[REDIS DAEMON]").Sugar()
-	logger.Info("start redis cluster backup config daemon")
+	logger.Info("start backup config daemon")
 
 	key := "nodes.conf"
 
@@ -75,25 +76,81 @@ func StartRedisClusterNodesConfBackup(ctx context.Context, wg *sync.WaitGroup, n
 	filePath := filepath.Join(configDir, key)
 
 	//ensure redis node config exists
-	if err := ensureRedisClusterNodeConf(ctx, logger, namespace, podName, configMapName, filePath); err != nil {
+	if err := ensureRedisClusterNodeConf(ctx, logger, namespace, configMapName, filePath, key); err != nil {
 		logger.Error(err)
+	}
+
+	var eventsCh <-chan fsnotify.Event
+	var errsCh <-chan error
+
+	// 初始化 fsnotify watcher，监听 nodes.conf 所在目录
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logger.Errorf("create fsnotify watcher failed, will only use periodic backup: %v", err)
+	}
+	// 确保退出时关闭 watcher
+	if watcher != nil {
+		defer watcher.Close()
+	}
+
+	if watcher != nil {
+		dir := filepath.Dir(filePath)
+		if err := watcher.Add(dir); err != nil {
+			logger.Errorf("watch directory %s failed, will only use periodic backup: %v", dir, err)
+		} else {
+			logger.Infof("watching directory %s for changes of %s", dir, filePath)
+			eventsCh = watcher.Events
+			errsCh = watcher.Errors
+		}
+	}
+
+	if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
+		logger.Errorf("initial backup config failed: %v", err)
+	} else {
+		logger.Info("initial backup config success")
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("stop redis cluster backup config daemon, doing final backup...")
+			logger.Infof("stop backup config daemon, doing final backup...")
 
 			//Upon receiving the exit signal, attempt to perform a final backup (ignore errors and only log them).
 			_ = backupOnce(ctx, logger, namespace, configMapName, filePath, key)
-			logger.Info("redis cluster backup config daemon exited gracefully")
+			logger.Info("backup config daemon exited gracefully")
 			return
 		case <-ticker.C:
 			if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
-				logger.Errorf("redis cluster backup config failed: %v", err)
+				logger.Errorf("periodic backup config failed: %v", err)
 			} else {
-				logger.Info("redis cluster backup config success")
+				logger.Info("periodic backup config success")
 			}
+
+		case ev, ok := <-eventsCh:
+			if !ok {
+				eventsCh = nil
+				continue
+			}
+
+			if filepath.Clean(ev.Name) != filepath.Clean(filePath) {
+				continue
+			}
+
+			if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+				logger.Infof("detected change on %s (op=%s), trigger immediate backup", ev.Name, ev.Op.String())
+				if err := backupOnce(ctx, logger, namespace, configMapName, filePath, key); err != nil {
+					logger.Errorf("fsnotify backup config failed: %v", err)
+				} else {
+					logger.Info("fsnotify backup config success")
+				}
+			}
+
+		case err, ok := <-errsCh:
+			if !ok {
+				errsCh = nil
+				continue
+			}
+			logger.Errorf("fsnotify watcher error: %v", err)
 		}
 	}
 }

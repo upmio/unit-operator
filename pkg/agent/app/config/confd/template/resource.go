@@ -206,10 +206,9 @@ func (t *TemplateResource) sync() error {
 	staged := t.StageFile.Name()
 
 	defer func() {
-		if err := os.Remove(staged); err != nil {
-			fmt.Printf("failed to remove staged file: %v\n", err)
-		}
+		_ = os.Remove(staged)
 	}()
+	
 	ok, err := util.IsConfigChanged(staged, t.Dest)
 	if err != nil {
 		return err
