@@ -86,7 +86,7 @@ func (r *ProjectReconciler) reconcileRole(ctx context.Context, req ctrl.Request,
 				{
 					APIGroups: []string{""},
 					Resources: []string{"configmaps"},
-					Verbs:     []string{"get", "list", "patch", "update"},
+					Verbs:     []string{"create", "get", "list", "patch", "update"},
 				},
 				{
 					APIGroups: []string{"upm.syntropycloud.io"},
