@@ -146,7 +146,12 @@ func (s *service) Clone(ctx context.Context, req *CloneRequest) (*Response, erro
 		return common.LogAndReturnError(s.logger, newMysqlResponse, fmt.Sprintf("failed to set clone_valid_donor_list=%s", sourceAddr), err)
 	}
 
-	execSql := fmt.Sprintf(ExecCloneSql, req.GetSourceCloneUser(), req.GetSourceHost(), req.GetSourcePort(), req.GetSourceClonePassword())
+	clonePassword, err := common.GetPlainTextPassword(req.GetSourceClonePassword())
+	if err != nil {
+		return common.LogAndReturnError(s.logger, newMysqlResponse, "decrypt clone password failed", err)
+	}
+
+	execSql := fmt.Sprintf(ExecCloneSql, req.GetSourceCloneUser(), req.GetSourceHost(), req.GetSourcePort(), clonePassword)
 	if _, err = db.ExecContext(ctx, execSql); err != nil {
 		s.logger.Warnf("failed to execute clone instance: %v", err)
 	}
