@@ -2,6 +2,9 @@ package grpccall
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/go-logr/logr"
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
@@ -14,11 +17,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 
 	"context"
-	"google.golang.org/grpc"
 	"net"
+
+	"google.golang.org/grpc"
 )
 
 type Client struct {
@@ -27,8 +30,16 @@ type Client struct {
 
 // newGrpcClient builds grpc client to call unit agent interface
 func newGrpcClient(host, port string) (*Client, error) {
-	//conn, err := grpc.Dial(conf.Address(), grpc.WithInsecure(), grpc.WithPerRPCCredentials(conf.Authentication))
-	conn, err := grpc.NewClient(net.JoinHostPort(host, port), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	addr := net.JoinHostPort(host, port)
+
+	conn, err := grpc.NewClient(
+		addr,
+		//grpc.WithTransportCredentials(creds),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			MinConnectTimeout: 5 * time.Second,
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}

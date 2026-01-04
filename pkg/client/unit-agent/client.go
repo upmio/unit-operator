@@ -3,7 +3,6 @@ package unit_agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -91,7 +90,7 @@ func GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, 
 
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatal(err)
+		return "unknown", err
 	}
 	defer func() {
 		_ = conn.Close()
