@@ -16,6 +16,8 @@ package grpccall
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +25,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
