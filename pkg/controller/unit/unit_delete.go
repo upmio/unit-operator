@@ -46,7 +46,10 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 	}
 
 	errs := []error{}
-	var wg sync.WaitGroup
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
 	for _, pvcName := range needDeletePVCNames {
 		if pvcName == "" {
 			continue
@@ -68,7 +71,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 				err := r.Delete(ctx, &pvc, &client.DeleteOptions{GracePeriodSeconds: &second})
 				klog.Infof("[deletePVCWithFinalizer] excute to FORCE delete pvc: %s, unit:[%s]", pvcName, unit.Name)
 				if err != nil && !apierrors.IsNotFound(err) {
+					mu.Lock()
 					errs = append(errs, fmt.Errorf("error force deleting pvc:[%s]: [%s]", pvc.Name, err.Error()))
+					mu.Unlock()
 					return
 				}
 
@@ -81,7 +86,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 
 				err = r.List(ctx, pvList, listOps)
 				if err != nil {
+					mu.Lock()
 					errs = append(errs, fmt.Errorf("when force deleting pv, list pv error:[%s]", err.Error()))
+					mu.Unlock()
 					return
 				}
 
@@ -91,7 +98,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 						err = r.Delete(ctx, pv, &client.DeleteOptions{GracePeriodSeconds: &second})
 						klog.Infof("[deletePVCWithFinalizer] excute to FORCE delete pv: %s, unit:[%s]", pv.Name, unit.Name)
 						if err != nil && !apierrors.IsNotFound(err) {
+							mu.Lock()
 							errs = append(errs, fmt.Errorf("error force deleting pv:[%s]: [%s]", pv.Name, err.Error()))
+							mu.Unlock()
 							return
 						}
 					}
@@ -101,7 +110,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 				// only delete pvc, pv deleted by pvc
 				err := r.Delete(ctx, &pvc)
 				if err != nil && !apierrors.IsNotFound(err) {
+					mu.Lock()
 					errs = append(errs, fmt.Errorf("error deleting pvc:[%s]: [%s]", pvc.Name, err.Error()))
+					mu.Unlock()
 					return
 				}
 			}
@@ -116,17 +127,20 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 		return fmt.Errorf("[deletePVCWithFinalizer] error deleting pvc: [%s]", deleteErr.Error())
 	}
 
-	time.Sleep(2 * time.Second)
-
-	// wait for pvc or pv deleted
+	// wait for pvc or pv deleted (no hard-coded sleep; wait handles eventual consistency)
 	waitErrs := []error{}
-	var waitWg sync.WaitGroup
+	var (
+		waitWg   sync.WaitGroup
+		waitMu   sync.Mutex
+		interval = 200 * time.Millisecond
+		timeout  = 10 * time.Second
+	)
 	for i := range needDeletePVCNames {
 		waitWg.Add(1)
 		go func(pvcName string) {
 			defer waitWg.Done()
 
-			err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 6*time.Second, true, func(ctx context.Context) (bool, error) {
+			err := wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
 				pvc := &v1.PersistentVolumeClaim{}
 				err := r.Get(ctx, client.ObjectKey{Name: pvcName, Namespace: req.Namespace}, pvc)
 				if err != nil {
@@ -141,7 +155,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 			})
 
 			if err != nil {
+				waitMu.Lock()
 				waitErrs = append(waitErrs, err)
+				waitMu.Unlock()
 				return
 			}
 
@@ -156,12 +172,17 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 
 				err := r.List(ctx, pvList, listOps)
 				if err != nil {
+					waitMu.Lock()
 					waitErrs = append(waitErrs, fmt.Errorf("wait for pv deleted, list pv error:[%s]", err.Error()))
+					waitMu.Unlock()
 					return
 				}
 
 				errs := []error{}
-				var pvDeleteWG sync.WaitGroup
+				var (
+					pvDeleteWG sync.WaitGroup
+					pvErrMu    sync.Mutex
+				)
 				if len(pvList.Items) != 0 {
 					for _, one := range pvList.Items {
 						pvDeleteWG.Add(1)
@@ -169,7 +190,7 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 							defer pvDeleteWG.Done()
 
 							// wait for pv deleted
-							err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+							err = wait.PollUntilContextTimeout(ctx, interval, 15*time.Second, true, func(ctx context.Context) (bool, error) {
 								pv := v1.PersistentVolume{}
 								pvName := types.NamespacedName{Name: pvName}
 
@@ -185,7 +206,9 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 							})
 
 							if err != nil {
+								pvErrMu.Lock()
 								errs = append(errs, fmt.Errorf("error waiting for pv deleted: %s", err.Error()))
+								pvErrMu.Unlock()
 							}
 
 						}(one.Name)
@@ -194,19 +217,22 @@ func (r *UnitReconciler) deletePVCWithFinalizer(
 
 					err := utilerrors.NewAggregate(errs)
 					if err != nil {
+						waitMu.Lock()
 						waitErrs = append(waitErrs, fmt.Errorf("[deletePVCWithFinalizer] error waiting for pv deleted: [%s]", err.Error()))
+						waitMu.Unlock()
 						return
 					}
 				}
 			}
 
 		}(needDeletePVCNames[i])
+
 	}
 	waitWg.Wait()
 
 	waitErr := utilerrors.NewAggregate(waitErrs)
 	if waitErr != nil {
-		return fmt.Errorf("[deletePVCWithFinalizer] error waiting for pvc deleted: [%s]", waitErr.Error())
+		return fmt.Errorf("[deletePVCWithFinalizer] error waiting for pvc/pv deleted: [%s]", waitErr.Error())
 	}
 
 	if controllerutil.ContainsFinalizer(unit, finalizer) {

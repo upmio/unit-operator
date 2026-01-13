@@ -23,6 +23,7 @@ import (
 	"time"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	internalAgent "github.com/upmio/unit-operator/pkg/client/unit-agent"
 	"github.com/upmio/unit-operator/pkg/utils/patch"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,11 +43,27 @@ type UnitReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
+	Agent    UnitAgentClient
+}
+
+// UnitAgentClient abstracts unit-agent RPCs for testability.
+type UnitAgentClient interface {
+	GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, port string) (string, error)
+}
+
+type defaultUnitAgentClient struct{}
+
+func (defaultUnitAgentClient) GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, port string) (string, error) {
+	return internalAgent.GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, port)
 }
 
 var (
 	controllerKind          = upmiov1alpha2.GroupVersion.WithKind("Unit")
 	maxConcurrentReconciles = 10
+)
+
+const (
+	requeueAfter = 10 * time.Second
 )
 
 // +kubebuilder:rbac:groups=upm.syntropycloud.io,resources=units,verbs=get;list;watch;create;update;patch;delete
@@ -82,19 +99,19 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 	if err := r.Get(ctx, req.NamespacedName, unit); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{
-				RequeueAfter: 3 * time.Second,
+				RequeueAfter: requeueAfter,
 			}, nil
 		}
 
 		klog.Errorf("unable to fetch Unit [%s], error: [%v]", req.String(), err.Error())
 		return ctrl.Result{
-			RequeueAfter: 3 * time.Second,
+			RequeueAfter: requeueAfter,
 		}, err
 	}
 
 	if r.checkPodIsMarkedForDeleted(ctx, req, unit) {
 		return ctrl.Result{
-			RequeueAfter: 3 * time.Second,
+			RequeueAfter: requeueAfter,
 		}, nil
 	}
 
@@ -110,7 +127,7 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 	}()
 
 	return ctrl.Result{
-		RequeueAfter: 3 * time.Second,
+		RequeueAfter: requeueAfter,
 	}, retErr
 }
 
@@ -119,12 +136,16 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 
 	var err error
 	// examine DeletionTimestamp to determine if object is under deletion
-	if unit.DeletionTimestamp != nil || !unit.DeletionTimestamp.IsZero() {
+	// NOTE: The old `!= nil || !IsZero()` form can panic when DeletionTimestamp is nil.
+	if !unit.DeletionTimestamp.IsZero() {
 
 		klog.Infof("Unit [%s] is being deleted, finalizers: %v", req.String(), unit.GetFinalizers())
 
 		errs := []error{}
-		var wg sync.WaitGroup
+		var (
+			wg sync.WaitGroup
+			mu sync.Mutex
+		)
 
 		toRemoveFinalizer := unit.GetFinalizers()
 
@@ -138,7 +159,9 @@ func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, un
 				if deleteResourcesErr := r.deleteResources(ctx, req, unit, finalizer); deleteResourcesErr != nil {
 					// if fail to delete the external dependency here, return with error
 					// so that it can be retried.
+					mu.Lock()
 					errs = append(errs, deleteResourcesErr)
+					mu.Unlock()
 					return
 				}
 
@@ -249,7 +272,7 @@ func (r *UnitReconciler) patchUnit(ctx context.Context, old, _new *upmiov1alpha2
 // SetupWithManager sets up the controller with the Manager.
 func (r *UnitReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
-		context.TODO(),
+		context.Background(),
 		&v1.PersistentVolume{},
 		".spec.claimRef.name",
 		func(rawObj client.Object) []string {

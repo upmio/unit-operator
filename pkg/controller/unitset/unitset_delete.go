@@ -125,7 +125,10 @@ func (r *UnitSetReconciler) deleteConfigMapWithFinalizer(
 	}
 
 	errs := []error{}
-	var wg sync.WaitGroup
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
 	for _, configmapName := range needDeleteConfigmapName {
 		if configmapName == "" {
 			continue
@@ -141,7 +144,9 @@ func (r *UnitSetReconciler) deleteConfigMapWithFinalizer(
 
 			err := r.Delete(ctx, &cm)
 			if err != nil && !apierrors.IsNotFound(err) {
+				mu.Lock()
 				errs = append(errs, fmt.Errorf("error deleting configmap:[%s]: [%s]", configmapName, err.Error()))
+				mu.Unlock()
 				return
 			}
 
@@ -155,19 +160,26 @@ func (r *UnitSetReconciler) deleteConfigMapWithFinalizer(
 		return fmt.Errorf("[deleteConfigMapWithFinalizer] error deleting configmap: [%s]", deleteErr.Error())
 	}
 
-	time.Sleep(2 * time.Second)
-
-	// wait for cm deleted
+	// wait for cm deleted (no hard-coded sleep)
 	waitErrs := []error{}
-	var waitWg sync.WaitGroup
-	for i := range needDeleteConfigmapName {
+	var (
+		waitWg   sync.WaitGroup
+		waitMu   sync.Mutex
+		interval = 200 * time.Millisecond
+		timeout  = 10 * time.Second
+	)
+	for _, configmapName := range needDeleteConfigmapName {
+		if configmapName == "" {
+			continue
+		}
+
 		waitWg.Add(1)
 		go func(configmapName string) {
 			defer waitWg.Done()
 
-			err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 6*time.Second, true, func(ctx context.Context) (bool, error) {
+			err := wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
 				configmap := &v1.ConfigMap{}
-				err := r.Get(ctx, client.ObjectKey{Name: needDeleteConfigmapName[i], Namespace: unitset.Namespace}, configmap)
+				err := r.Get(ctx, client.ObjectKey{Name: configmapName, Namespace: unitset.Namespace}, configmap)
 				if err != nil {
 					if apierrors.IsNotFound(err) {
 						return true, nil
@@ -180,11 +192,13 @@ func (r *UnitSetReconciler) deleteConfigMapWithFinalizer(
 			})
 
 			if err != nil {
+				waitMu.Lock()
 				waitErrs = append(waitErrs, err)
+				waitMu.Unlock()
 				return
 			}
 
-		}(needDeleteConfigmapName[i])
+		}(configmapName)
 	}
 	waitWg.Wait()
 

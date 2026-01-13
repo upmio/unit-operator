@@ -110,7 +110,7 @@ spec:
               conditions:
                 description: Conditions is an array of conditions.
                 x-kubernetes-preserve-unknown-fields: true
-              configSynced:
+              configSyncStatus:
                 description: ConfigSyncStatus represents the status of the config
                   sync.
                 properties:

@@ -120,7 +120,7 @@ type CertificateProfile struct {
 
 	// RootSecret Root secret name
 	// +optional
-	RootSecret string `json:"root_secret,omitempty"`
+	RootSecret string `json:"rootSecret,omitempty"`
 }
 type SecretInfo struct {
 

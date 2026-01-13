@@ -15,6 +15,8 @@ package v1alpha2
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,11 +50,8 @@ func SetupUnitWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &unitAdmission{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *unitAdmission) Default(ctx context.Context, obj runtime.Object) error {
-	//unitlog.Info("default", "name", r.Name)
-
+func (r *unitAdmission) Default(_ context.Context, _ runtime.Object) error {
 	// TODO(user): fill in your defaulting logic.
-
 	return nil
 }
 
@@ -65,25 +64,36 @@ func (r *unitAdmission) Default(ctx context.Context, obj runtime.Object) error {
 var _ webhook.CustomValidator = &unitAdmission{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *unitAdmission) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	//unitlog.Info("validate create", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil, nil
+func (r *unitAdmission) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	unit, ok := obj.(*upmv1alpha2.Unit)
+	if !ok {
+		return nil, fmt.Errorf("expected a Unit but got %T", obj)
+	}
+	return validateUnitRequiredFields(unit)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *unitAdmission) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	//unitlog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil, nil
+func (r *unitAdmission) ValidateUpdate(_ context.Context, _ runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
+	unit, ok := newObj.(*upmv1alpha2.Unit)
+	if !ok {
+		return nil, fmt.Errorf("expected a Unit but got %T", newObj)
+	}
+	return validateUnitRequiredFields(unit)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *unitAdmission) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	//unitlog.Info("validate delete", "name", r.Name)
+func (r *unitAdmission) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	return nil, nil
+}
 
-	// TODO(user): fill in your validation logic upon object deletion.
+func validateUnitRequiredFields(unit *upmv1alpha2.Unit) (admission.Warnings, error) {
+	// Treat these as required fields even though CRD schema currently marks them optional.
+	// This avoids invalid objects entering the system and later breaking reconciliation.
+	if strings.TrimSpace(unit.Spec.ConfigTemplateName) == "" {
+		return nil, fmt.Errorf("spec.configTemplateName is required")
+	}
+	if strings.TrimSpace(unit.Spec.ConfigValueName) == "" {
+		return nil, fmt.Errorf("spec.configValueName is required")
+	}
 	return nil, nil
 }

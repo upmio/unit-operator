@@ -42,6 +42,10 @@ var (
 	maxConcurrentReconciles = 10
 )
 
+const (
+	requeueAfter = 10 * time.Second
+)
+
 // UnitSetReconciler reconciles a UnitSet object
 type UnitSetReconciler struct {
 	client.Client
@@ -87,13 +91,13 @@ func (r *UnitSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	if err := r.Get(ctx, req.NamespacedName, unitset); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{
-				RequeueAfter: 3 * time.Second,
+				RequeueAfter: requeueAfter,
 			}, nil
 		}
 
 		klog.Errorf("unable to fetch Unitset [%s], error: [%v]", req.String(), err.Error())
 		return ctrl.Result{
-			RequeueAfter: 3 * time.Second,
+			RequeueAfter: requeueAfter,
 		}, err
 	}
 
@@ -112,19 +116,23 @@ func (r *UnitSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	}()
 
 	return ctrl.Result{
-		RequeueAfter: 3 * time.Second,
+		RequeueAfter: requeueAfter,
 	}, retErr
 }
 
 func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) (err error) {
 	klog.Infof("start reconciling Unitset [%s]", req.String())
 
-	// Handle deletion only when DeletionTimestamp is set and non-zero
-	if unitset.DeletionTimestamp != nil || !unitset.DeletionTimestamp.IsZero() {
+	// Handle deletion only when DeletionTimestamp is set and non-zero.
+	// NOTE: The old `!= nil || !IsZero()` form can panic when DeletionTimestamp is nil.
+	if !unitset.DeletionTimestamp.IsZero() {
 		klog.Infof("Unitset [%s] is being deleted, finalizers: %v", req.String(), unitset.GetFinalizers())
 
 		errs := []error{}
-		var wg sync.WaitGroup
+		var (
+			wg sync.WaitGroup
+			mu sync.Mutex
+		)
 
 		toRemoveFinalizer := unitset.GetFinalizers()
 
@@ -136,9 +144,9 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 
 				// our finalizer is present, so lets handle any external dependency
 				if deleteResourcesErr := r.deleteResources(ctx, req, unitset, finalizer); deleteResourcesErr != nil {
-					// if fail to delete the external dependency here, return with error
-					// so that it can be retried.
+					mu.Lock()
 					errs = append(errs, deleteResourcesErr)
+					mu.Unlock()
 					return
 				}
 

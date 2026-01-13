@@ -125,7 +125,7 @@ type UnitStatus struct {
 
 	// ConfigSyncStatus represents the status of the config sync.
 	// +optional
-	ConfigSyncStatus ConfigSyncStatus `json:"configSynced,omitempty"`
+	ConfigSyncStatus ConfigSyncStatus `json:"configSyncStatus,omitempty"`
 
 	// PersistentVolumeClaim represents the current information/status of a persistent volume claim.
 	// +optional

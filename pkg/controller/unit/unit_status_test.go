@@ -40,14 +40,16 @@ func setPodStatus(ctx context.Context, name, ns string, status corev1.PodStatus)
 
 var _ = Describe("Unit Status Reconciliation", func() {
 	var (
-		ctx        context.Context
-		unit       *upmiov1alpha2.Unit
-		namespace  *corev1.Namespace
-		testNsName = "test-unit-status-namespace"
-		reconciler *UnitReconciler
-		pod        *corev1.Pod
-		node       *corev1.Node
-		pvc        *corev1.PersistentVolumeClaim
+		ctx              context.Context
+		unit             *upmiov1alpha2.Unit
+		namespace        *corev1.Namespace
+		testNsName       = "test-unit-status-namespace"
+		reconciler       *UnitReconciler
+		pod              *corev1.Pod
+		node             *corev1.Node
+		pvc              *corev1.PersistentVolumeClaim
+		configTemplateCM *corev1.ConfigMap
+		configValueCM    *corev1.ConfigMap
 	)
 
 	BeforeEach(func() {
@@ -71,13 +73,29 @@ var _ = Describe("Unit Status Reconciliation", func() {
 		}
 
 		// Create reconciler
-		reconciler = &UnitReconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+		reconciler = &UnitReconciler{Client: k8sClient, Scheme: k8sClient.Scheme(), Agent: fakeUnitAgentClient{}}
 
 		// Create test node with unique name
 		node = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("test-node-%d", time.Now().UnixNano())}, Spec: corev1.NodeSpec{PodCIDR: "10.244.0.0/24"}, Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}}}
 
 		// Create test PVC
 		pvc = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "test-unit-status-data", Namespace: namespace.Name}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")}}, VolumeName: "pv-1"}, Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound, Capacity: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")}}}
+
+		// Create required configmaps
+		configTemplateCM = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-config-template", unit.Name), Namespace: namespace.Name}}
+		configValueCM = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-config-value", unit.Name), Namespace: namespace.Name}}
+		Expect(k8sClient.Create(ctx, configTemplateCM)).To(Succeed())
+		Expect(k8sClient.Create(ctx, configValueCM)).To(Succeed())
+
+		// Fill required fields
+		unit.Spec.ConfigTemplateName = configTemplateCM.Name
+		unit.Spec.ConfigValueName = configValueCM.Name
+		if unit.Annotations == nil {
+			unit.Annotations = map[string]string{}
+		}
+		// Set annotations to mark configs as synced initially
+		unit.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion] = "1"
+		unit.Annotations[upmiov1alpha2.AnnotationConfigValueVersion] = "1"
 	})
 
 	AfterEach(func() { _ = k8sClient.Delete(ctx, namespace) })
@@ -97,10 +115,23 @@ var _ = Describe("Unit Status Reconciliation", func() {
 		It("Should update status correctly for ready pod", func() {
 			By("Creating resources")
 			Expect(k8sClient.Create(ctx, unit)).To(Succeed())
+
+			// refresh created configmap resourceVersions and sync annotations
+			t := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: configTemplateCM.Name, Namespace: namespace.Name}, t)).To(Succeed())
+			v := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: configValueCM.Name, Namespace: namespace.Name}, v)).To(Succeed())
+			unit.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion] = t.ResourceVersion
+			unit.Annotations[upmiov1alpha2.AnnotationConfigValueVersion] = v.ResourceVersion
+			Expect(k8sClient.Update(ctx, unit)).To(Succeed())
+
 			Expect(k8sClient.Create(ctx, node)).To(Succeed())
 			pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: unit.Name, Namespace: namespace.Name}, Spec: corev1.PodSpec{NodeName: node.Name, Containers: []corev1.Container{{Name: "mysql", Image: "mysql:8.0.40"}, {Name: "unit-agent", Image: "unit-agent:latest"}}}}
 			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
-			setPodStatus(ctx, unit.Name, namespace.Name, corev1.PodStatus{Phase: corev1.PodRunning, HostIP: "192.168.1.1", PodIPs: []corev1.PodIP{{IP: "10.244.0.1"}}, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}, ContainerStatuses: []corev1.ContainerStatus{{Name: "unit-agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}}})
+
+			// Important: don't mark unit-agent Ready here to avoid hitting real RPC in tests.
+			setPodStatus(ctx, unit.Name, namespace.Name, corev1.PodStatus{Phase: corev1.PodRunning, HostIP: "192.168.1.1", PodIPs: []corev1.PodIP{{IP: "10.244.0.1"}}, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}, ContainerStatuses: []corev1.ContainerStatus{{Name: "unit-agent", Ready: false, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}}})
+
 			By("Reconciling unit status")
 			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: unit.Name, Namespace: namespace.Name}}
 			expectErr := reconciler.reconcileUnitStatus(ctx, req, unit)

@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -33,6 +34,21 @@ const namespace = "upm-system"
 
 var _ = Describe("controller", Ordered, func() {
 	BeforeAll(func() {
+		// These tests require a reachable Kubernetes cluster (typically kind) and kubectl.
+		if _, err := exec.LookPath("kubectl"); err != nil {
+			Skip("e2e requires kubectl in PATH")
+		}
+		// Require an explicit opt-in, or at least a reachable cluster.
+		if os.Getenv("RUN_E2E") == "" {
+			Skip("set RUN_E2E=1 to run e2e tests")
+		}
+
+		// quick connectivity check
+		cmd := exec.Command("kubectl", "version", "--request-timeout=5s")
+		if _, err := utils.Run(cmd); err != nil {
+			Skip(fmt.Sprintf("e2e requires a reachable cluster (kubectl not connected): %v", err))
+		}
+
 		By("installing prometheus operator")
 		Expect(utils.InstallPrometheusOperator()).To(Succeed())
 
@@ -40,7 +56,7 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(utils.InstallCertManager()).To(Succeed())
 
 		By("creating manager namespace")
-		cmd := exec.Command("kubectl", "create", "ns", namespace)
+		cmd = exec.Command("kubectl", "create", "ns", namespace)
 		_, _ = utils.Run(cmd)
 	})
 

@@ -90,21 +90,24 @@ func (r *UnitSetReconciler) reconcileConfigmap(
 	unitNames, _ := unitset.UnitNames()
 	errs := []error{}
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, unitName := range unitNames {
+		unitName := unitName
 		wg.Add(1)
-		go func(unitName string) {
+		go func() {
 			defer wg.Done()
 
-			if unitName != "" {
-				err = r.reconcileConfigTemplateValue(ctx, req, unitset, unitName)
-				if err != nil {
-					errs = append(errs, err)
-					return
-				}
+			if unitName == "" {
+				return
 			}
 
-		}(unitName)
-
+			if err := r.reconcileConfigTemplateValue(ctx, req, unitset, unitName); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+				return
+			}
+		}()
 	}
 	wg.Wait()
 

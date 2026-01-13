@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
@@ -315,34 +318,28 @@ func (r *UnitSetReconciler) checkUnitNeedsUpgrade(
 
 // performParallelUpdate handles parallel update strategy (all at once)
 func (r *UnitSetReconciler) performParallelUpdate(ctx context.Context, units []string, updateUnit func(string) error) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(units))
+	_ = ctx
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
 
 	for _, unit := range units {
-		wg.Add(1)
-		go func(unit string) {
-			defer wg.Done()
-
-			if err := updateUnit(unit); err != nil {
-				errChan <- fmt.Errorf("parallel update failed for unit [%s]: %w", unit, err)
+		unit := unit
+		g.Go(func() error {
+			select {
+			case <-gctx.Done():
+				return gctx.Err()
+			default:
 			}
-		}(unit)
+			if err := updateUnit(unit); err != nil {
+				return fmt.Errorf("parallel update failed for unit [%s]: %w", unit, err)
+			}
+			return nil
+		})
 	}
 
-	// Wait for all goroutines to complete
-	wg.Wait()
-	close(errChan)
-
-	// Collect all errors
-	var errs []error
-	for err := range errChan {
-		errs = append(errs, err)
+	if err := g.Wait(); err != nil {
+		return err
 	}
-
-	if len(errs) > 0 {
-		return utilerrors.NewAggregate(errs)
-	}
-
 	return nil
 }
 
@@ -451,9 +448,14 @@ func mergePodTemplate(
 	envVars []v1.EnvVar,
 	pvcs []v1.PersistentVolumeClaim) upmiov1alpha2.Unit {
 
+	_ = ctx
+	_ = pvcs
+
 	unit := kUnit.DeepCopy()
 
-	unit.Spec.Template = podTemplate.Template
+	// Copy the desired template per call to avoid sharing mutable slices (Env/VolumeMounts/Volumes) across goroutines.
+	tmplCopy := podTemplate.Template.DeepCopy()
+	unit.Spec.Template = *tmplCopy
 	unit.Spec.Template.Spec.Subdomain = unitset.HeadlessServiceName()
 
 	enableServiceLinks := true
@@ -635,10 +637,12 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 	}
 
 	var (
-		wg   sync.WaitGroup
 		errs []error
 		mu   sync.Mutex
 	)
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
 
 	ifNeedUpdateObservedGeneration := false
 
@@ -654,19 +658,20 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 
 		ifNeedUpdateObservedGeneration = true
 
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-
-			if err := r.updateUnitResources(ctx, req, unitset, name); err != nil {
+		unitName := unitName
+		g.Go(func() error {
+			uctx, cancel := context.WithTimeout(gctx, 10*time.Second)
+			defer cancel()
+			if err := r.updateUnitResources(uctx, req, unitset, unitName); err != nil {
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()
 			}
-		}(unitName)
+			return nil
+		})
 	}
 
-	wg.Wait()
+	_ = g.Wait()
 	if len(errs) > 0 {
 		return fmt.Errorf("[reconcileResources] error:[%s]", utilerrors.NewAggregate(errs))
 	}
@@ -849,7 +854,7 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	ifNeedUpdateObservedGeneration := false
+	var needUpdateObservedGeneration atomic.Bool
 
 	for _, unit := range kUnits {
 		wg.Add(1)
@@ -905,7 +910,7 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 					return nil
 				}
 
-				ifNeedUpdateObservedGeneration = true
+				needUpdateObservedGeneration.Store(true)
 
 				return r.Update(ctx, latest)
 			})
@@ -924,7 +929,7 @@ func (r *UnitSetReconciler) reconcileUnitLabelsAnnotations(
 		return fmt.Errorf("[reconcileUnitLabelsAnnotations] error: [%s]", agg.Error())
 	}
 
-	if ifNeedUpdateObservedGeneration {
+	if needUpdateObservedGeneration.Load() {
 		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
 		if err != nil {
 			return fmt.Errorf("[reconcileUnitLabelsAnnotations] error: [%s]", err.Error())

@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
+	"sync/atomic"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
@@ -13,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,58 +33,44 @@ func (r *UnitSetReconciler) reconcileUnit(
 
 	// PVC name needs to be filled in during unit generation
 	volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
-	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumeMounts len:[%d],[%v]", req.String(), len(volumeMounts), volumeMounts)
-	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] volumes len:[%d],[%v]", req.String(), len(volumes), volumes)
-	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] envVars len:[%d],[%v]", req.String(), len(envVars), envVars)
-	//klog.V(4).Infof("[reconcileUnit][generateVolumeMountsAndEnvs] unitset:[%s] pvcs len:[%d],[%v]", req.String(), len(pvcs), pvcs)
 
-	errs := []error{}
-	ifNeedUpdateObservedGeneration := false
-	var wg sync.WaitGroup
-	var errsMutex sync.Mutex
+	// Create missing units with bounded concurrency + per-unit timeout to avoid goroutine leak.
+	var needUpdateObservedGeneration atomic.Bool
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+
 	for _, unitName := range unitNames {
-		wg.Add(1)
-		go func(unitName string) {
-			defer wg.Done()
+		unitName := unitName
+		g.Go(func() error {
+			// bound each unit operation
+			uctx, cancel := context.WithTimeout(gctx, 5*time.Second)
+			defer cancel()
 
 			kUnit := upmiov1alpha2.Unit{}
-			err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, &kUnit)
+			err := r.Get(uctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, &kUnit)
 			if apierrors.IsNotFound(err) {
-
-				unitTemplate, err := r.generateUnitTemplate(ctx, req, unitName, unitset, podTemplate, ports, volumeMounts, volumes, envVars, pvcs)
+				unitTemplate, err := r.generateUnitTemplate(uctx, req, unitName, unitset, podTemplate, ports, volumeMounts, volumes, envVars, pvcs)
 				if err != nil {
-					errsMutex.Lock()
-					errs = append(errs, fmt.Errorf("[reconcileUnit] generateUnitTemplate: unitName:[%s] err:[%v]", unitName, err))
-					errsMutex.Unlock()
-					return
-					//return fmt.Errorf("[reconcileUnit] generateUnitTemplate err:[%v]", err)
+					return fmt.Errorf("[reconcileUnit] generateUnitTemplate: unitName:[%s] err:[%v]", unitName, err)
 				}
 
 				unit := fillUnitPersonalizedInfo(unitTemplate, unitset, unitNamesWithIndex, unitName)
+				needUpdateObservedGeneration.Store(true)
 
-				ifNeedUpdateObservedGeneration = true
-
-				err = r.Create(ctx, unit)
+				err = r.Create(uctx, unit)
 				if err != nil && !apierrors.IsAlreadyExists(err) {
-					errsMutex.Lock()
-					errs = append(errs, err)
-					errsMutex.Unlock()
-					return
+					return err
 				}
-
-			} else if err != nil {
-				errsMutex.Lock()
-				errs = append(errs, err)
-				errsMutex.Unlock()
-				return
+				return nil
 			}
-
-		}(unitName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 	}
-	wg.Wait()
 
-	err := utilerrors.NewAggregate(errs)
-	if err != nil {
+	if err := g.Wait(); err != nil {
 		return fmt.Errorf("reconcileUnit error:[%s]", err.Error())
 	}
 
@@ -96,12 +84,12 @@ func (r *UnitSetReconciler) reconcileUnit(
 		// remove units
 		_, rmErr := r.removeUnits(ctx, unitset, kUnits)
 		if rmErr != nil {
-			return err
+			return rmErr
 		}
-		ifNeedUpdateObservedGeneration = true
+		needUpdateObservedGeneration.Store(true)
 	}
 
-	if ifNeedUpdateObservedGeneration {
+	if needUpdateObservedGeneration.Load() {
 		// update observedGeneration of unitset status
 		err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
 		if err != nil {

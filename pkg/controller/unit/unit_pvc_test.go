@@ -174,8 +174,8 @@ var _ = Describe("UnitPVC Reconciler", func() {
 			Expect(claim.Spec.Resources.Requests.Storage().String()).To(Equal("1Gi"))
 			Expect(claim.Labels).To(HaveKey("app"))
 			Expect(claim.Labels["app"]).To(Equal("test-app"))
-			Expect(claim.OwnerReferences).To(HaveLen(1))
-			Expect(claim.OwnerReferences[0].Name).To(Equal(unit.Name))
+			// By design, PVCs are NOT owned by Unit (user decides whether PVC should be deleted).
+			Expect(claim.OwnerReferences).To(BeEmpty())
 		})
 
 		It("should copy unit labels to PVC", func() {

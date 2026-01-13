@@ -36,6 +36,10 @@ var (
 	maxConcurrentReconciles = 10
 )
 
+const (
+	requeueAfter = 10 * time.Second
+)
+
 // ProjectReconciler reconciles a Project object
 type ProjectReconciler struct {
 	client.Client
@@ -72,13 +76,13 @@ func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	if err := r.Get(ctx, req.NamespacedName, project); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{
-				RequeueAfter: 3 * time.Second,
+				RequeueAfter: requeueAfter,
 			}, nil
 		}
 
 		klog.Errorf("unable to fetch project [%s], error: [%v]", req.String(), err.Error())
 		return ctrl.Result{
-			RequeueAfter: 3 * time.Second,
+			RequeueAfter: requeueAfter,
 		}, err
 	}
 
@@ -97,7 +101,7 @@ func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	}()
 
 	return ctrl.Result{
-		RequeueAfter: 3 * time.Second,
+		RequeueAfter: requeueAfter,
 	}, retErr
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
-	internalAgent "github.com/upmio/unit-operator/pkg/client/unit-agent"
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
 	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
@@ -62,7 +61,12 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 
 		processState := ""
 		if podutil.IsContainerRunningAndReady(pod, vars.UnitAgentName) {
-			processState, err = internalAgent.GetServiceProcessState(
+			agent := r.Agent
+			if agent == nil {
+				agent = defaultUnitAgentClient{}
+			}
+
+			processState, err = agent.GetServiceProcessState(
 				vars.UnitAgentHostType,
 				upmiov1alpha2.UnitsetHeadlessSvcName(unit),
 				agentHost,
@@ -111,10 +115,25 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 		unit.Status.PersistentVolumeClaim = pvcInfo
 	}
 
+	// ConfigTemplateName/ConfigValueName are required for Unit status sync checks.
+	// If they are empty, fail fast with a clear error (and avoid k8s client "resource name may not be empty").
+	if unit.Spec.ConfigTemplateName == "" || unit.Spec.ConfigValueName == "" {
+		unit.Status.ConfigSyncStatus = upmiov1alpha2.ConfigSyncStatus{
+			LastTransitionTime: metaV1.Now(),
+			Status:             "False",
+		}
+
+		if hasUnitStatusChanged(orig.Status, unit.Status) {
+			_ = r.Status().Update(ctx, unit)
+		}
+
+		return fmt.Errorf("[reconcileUnitStatus] required config names are empty: configTemplateName=%q configValueName=%q", unit.Spec.ConfigTemplateName, unit.Spec.ConfigValueName)
+	}
+
 	configTemplateCm := v1.ConfigMap{}
 	configTemplateCmErr := r.Get(ctx, client.ObjectKey{Name: unit.Spec.ConfigTemplateName, Namespace: req.Namespace}, &configTemplateCm)
 	if configTemplateCmErr != nil {
-		klog.Errorf("[reconcileUnitStatus] get configTemplate cm:[%s] failed: %s", unit.Spec.ConfigTemplateName, configTemplateCmErr.Error())
+		return fmt.Errorf("[reconcileUnitStatus] get configTemplate cm:[%s] failed: %s", unit.Spec.ConfigTemplateName, configTemplateCmErr.Error())
 	}
 
 	configValueCm := v1.ConfigMap{}
@@ -124,9 +143,17 @@ func (r *UnitReconciler) reconcileUnitStatus(ctx context.Context, req ctrl.Reque
 	}
 
 	newConfigSyncStatus := "True"
-	if unit.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion] != configTemplateCm.ResourceVersion ||
-		unit.Annotations[upmiov1alpha2.AnnotationConfigValueVersion] != configValueCm.ResourceVersion {
+	// If annotations are missing/empty, we cannot prove the unit has synced configs; treat as not synced.
+	if unit.Annotations == nil {
 		newConfigSyncStatus = "False"
+	} else {
+		tv, okT := unit.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion]
+		vv, okV := unit.Annotations[upmiov1alpha2.AnnotationConfigValueVersion]
+		if !okT || !okV {
+			newConfigSyncStatus = "False"
+		} else if tv != configTemplateCm.ResourceVersion || vv != configValueCm.ResourceVersion {
+			newConfigSyncStatus = "False"
+		}
 	}
 
 	if orig.Status.ConfigSyncStatus.Status != newConfigSyncStatus {

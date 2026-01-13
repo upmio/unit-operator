@@ -27,7 +27,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -50,35 +49,52 @@ var _ = Describe("Unit Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		unit := &upmiov1alpha2.Unit{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind Unit")
-			err := k8sClient.Get(ctx, typeNamespacedName, unit)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &upmiov1alpha2.Unit{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-						Annotations: map[string]string{
-							upmiov1alpha2.AnnotationMainContainerName: "main",
-						},
+			ctx = context.Background()
+			typeNamespacedName = types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+			// Create the Unit resource instance
+			resource := &upmiov1alpha2.Unit{}
+			resource.Name = resourceName
+			resource.Namespace = "default"
+			resource.Spec = upmiov1alpha2.UnitSpec{
+				Startup:            true,
+				ConfigTemplateName: fmt.Sprintf("%s-config-template", resourceName),
+				ConfigValueName:    fmt.Sprintf("%s-config-value", resourceName),
+				Template: corev1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{{
+							Name:    "main",
+							Image:   "busybox:1.36",
+							Command: []string{"sh", "-c", "sleep 1"},
+							Env:     []v1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "ENV2", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "metadata.name"}}}},
+						}},
 					},
-					Spec: upmiov1alpha2.UnitSpec{
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{{
-									Name:    "main",
-									Image:   "busybox:1.36",
-									Command: []string{"sh", "-c", "sleep 1"},
-									Env:     []v1.EnvVar{{Name: "ENV1", Value: "value1"}, {Name: "ENV2", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "metadata.name"}}}},
-								}},
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+
+			// Create required configmaps and sync annotations
+			ct := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: resource.Spec.ConfigTemplateName, Namespace: "default"}}
+			cv := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: resource.Spec.ConfigValueName, Namespace: "default"}}
+			_ = k8sClient.Create(ctx, ct)
+			_ = k8sClient.Create(ctx, cv)
+
+			if resource.Annotations == nil {
+				resource.Annotations = map[string]string{}
+			}
+			// Use actual RVs if present
+			ctFetched := &corev1.ConfigMap{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: ct.Name, Namespace: "default"}, ctFetched); err == nil {
+				resource.Annotations[upmiov1alpha2.AnnotationConfigTemplateVersion] = ctFetched.ResourceVersion
+			}
+			cvFetched := &corev1.ConfigMap{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: cv.Name, Namespace: "default"}, cvFetched); err == nil {
+				resource.Annotations[upmiov1alpha2.AnnotationConfigValueVersion] = cvFetched.ResourceVersion
+			}
+
+			// Create Unit
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
 			// Pre-create a pod matching the Unit template to avoid upgrade path, then set status to initialized/scheduled
 			pod := &v1.Pod{
@@ -114,18 +130,17 @@ var _ = Describe("Unit Controller", func() {
 				Client:   k8sClient,
 				Scheme:   k8sClient.Scheme(),
 				Recorder: recorder,
+				Agent:    fakeUnitAgentClient{},
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})
 
 		It("should return nil when unit not found", func() {
-			controllerReconciler := &UnitReconciler{Client: k8sClient, Scheme: k8sClient.Scheme(), Recorder: recorder}
+			controllerReconciler := &UnitReconciler{Client: k8sClient, Scheme: k8sClient.Scheme(), Recorder: recorder, Agent: fakeUnitAgentClient{}}
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "no-such-unit", Namespace: "default"}})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -202,3 +217,10 @@ var _ = Describe("Unit Extra Coverage", func() {
 })
 
 func TestUnitExtra(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Unit Extra Suite") }
+
+// fakeUnitAgentClient avoids real unit-agent gRPC calls in tests.
+type fakeUnitAgentClient struct{}
+
+func (fakeUnitAgentClient) GetServiceProcessState(_, _, _, _, _ string) (string, error) {
+	return "running", nil
+}

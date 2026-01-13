@@ -71,7 +71,7 @@ spec:
                     items:
                       type: string
                     type: array
-                  root_secret:
+                  rootSecret:
                     description: RootSecret Root secret name
                     type: string
                 type: object
