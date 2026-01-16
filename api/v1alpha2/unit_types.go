@@ -41,6 +41,7 @@ type UnitSpec struct {
 	// The unitset is then assigned a value to the field.
 	// unitset is not processed logically
 	// and is passed as a parameter when the unit agent is called.
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	ConfigTemplateName string `json:"configTemplateName,omitempty"`
 
@@ -49,18 +50,15 @@ type UnitSpec struct {
 	// The value is then assigned to the field.
 	// unitset does no logical processing
 	// and is passed as a parameter in the call to the unit agent
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	ConfigValueName string `json:"configValueName,omitempty"`
 
 	// VolumeClaimTemplates is a user's request for and claim to a persistent volume
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	VolumeClaimTemplates []corev1.PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty"`
 
 	// Template describes the data a pod should have when created from a template
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	Template corev1.PodTemplateSpec `json:"template,omitempty"`
 

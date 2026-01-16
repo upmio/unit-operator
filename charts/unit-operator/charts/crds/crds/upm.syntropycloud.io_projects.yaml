@@ -47,9 +47,11 @@ spec:
                 properties:
                   commonName:
                     description: CommonName is the common name for the CA certificate.
+                    minLength: 1
                     type: string
                   duration:
                     description: Duration is the validity period of the CA certificate.
+                    pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                     type: string
                   enabled:
                     description: Enabled indicates whether the CA is enabled.
@@ -61,18 +63,25 @@ spec:
                       algorithm:
                         description: Algorithm is the cryptographic algorithm used
                           for the private key.
+                        enum:
+                        - RSA
+                        - ECDSA
+                        - Ed25519
                         type: string
                       size:
                         description: Size is the size of the private key in bits.
+                        minimum: 1
                         type: integer
                     type: object
                   renewBefore:
                     description: RenewBefore is the time before expiration when the
                       certificate should be renewed.
+                    pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                     type: string
                   secretName:
                     description: SecretName is the name of the Kubernetes secret storing
                       the CA.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                 type: object
             type: object

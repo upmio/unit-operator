@@ -38,18 +38,22 @@ type CAInfo struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// CommonName is the common name for the CA certificate.
+	// +kubebuilder:validation:MinLength=1
 	//+optional
 	CommonName string `json:"commonName,omitempty"`
 
 	// SecretName is the name of the Kubernetes secret storing the CA.
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +optional
 	SecretName string `json:"secretName,omitempty"`
 
 	// Duration is the validity period of the CA certificate.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
 	// +optional
 	Duration string `json:"duration,omitempty"`
 
 	// RenewBefore is the time before expiration when the certificate should be renewed.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
 	// +optional
 	RenewBefore string `json:"renewBefore,omitempty"`
 
@@ -62,10 +66,12 @@ type CAInfo struct {
 type PrivateKeyInfo struct {
 
 	// Algorithm is the cryptographic algorithm used for the private key.
+	// +kubebuilder:validation:Enum=RSA;ECDSA;Ed25519
 	// +optional
 	Algorithm string `json:"algorithm,omitempty"`
 
 	// Size is the size of the private key in bits.
+	// +kubebuilder:validation:Minimum=1
 	// +optional
 	Size int `json:"size,omitempty"`
 }

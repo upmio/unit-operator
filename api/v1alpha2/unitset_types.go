@@ -28,26 +28,26 @@ import (
 type UnitSetSpec struct {
 
 	// Type is the type of the unitset
+	// +kubebuilder:validation:MinLength=1
 	Type string `json:"type,omitempty"`
 
 	// Edition of the unit set
+	// +kubebuilder:validation:MinLength=1
 	Edition string `json:"edition,omitempty"`
 
 	// Version of the unit set, e.g.:8.0.40
+	// +kubebuilder:validation:MinLength=1
 	Version string `json:"version,omitempty"`
 
 	// Units Number of units in the unitset
+	// +kubebuilder:validation:Minimum=1
 	Units int `json:"units,omitempty"`
 
 	// Resources Resource requirements for the units
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Env Environment variables for the units
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
 
@@ -68,6 +68,7 @@ type UnitSetSpec struct {
 	NodeAffinityPreset []NodeAffinityPresetSpec `json:"nodeAffinityPreset,omitempty"`
 
 	// PodAntiAffinityPreset Pod anti-affinity policy
+	// +kubebuilder:validation:Enum=soft;hard
 	// +optional
 	PodAntiAffinityPreset string `json:"podAntiAffinityPreset,omitempty"`
 
@@ -79,8 +80,7 @@ type UnitSetSpec struct {
 	// +optional
 	EmptyDir []EmptyDirSpec `json:"emptyDir,omitempty"`
 
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
+	// ExtraVolume defines the configuration for extra volume
 	// +optional
 	ExtraVolume []ExtraVolumeInfo `json:"extraVolume,omitempty"`
 
@@ -100,6 +100,7 @@ type ExtraVolumeInfo struct {
 	Volume corev1.Volume `json:"volume,omitempty"`
 
 	// VolumeMountPath Volume mount path
+	// +kubebuilder:validation:Pattern=`^/.*`
 	// +optional
 	VolumeMountPath string `json:"volumeMountPath,omitempty"`
 }
@@ -108,6 +109,7 @@ type PodMonitorInfo struct {
 
 	// Enable define if need create pod monitor
 	// default: false
+	// +kubebuilder:default=false
 	// +optional
 	Enable bool `json:"enable,omitempty"`
 }
@@ -115,10 +117,12 @@ type PodMonitorInfo struct {
 type CertificateProfile struct {
 
 	// Organizations List of organization names
+	// +kubebuilder:validation:Items={MinLength=1}
 	// +optional
 	Organizations []string `json:"organizations,omitempty"`
 
 	// RootSecret Root secret name
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +optional
 	RootSecret string `json:"rootSecret,omitempty"`
 }
@@ -137,6 +141,7 @@ type SecretInfo struct {
 type ExternalServiceSpec struct {
 
 	// Type of the external service (e.g., NodePort)
+	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer;ExternalName
 	// +optional
 	Type string `json:"type,omitempty"`
 }
@@ -145,6 +150,7 @@ type ExternalServiceSpec struct {
 type UnitServiceSpec struct {
 
 	// Type of the unit service (e.g., ClusterIP)
+	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer;ExternalName
 	// +optional
 	Type string `json:"type,omitempty"`
 }
@@ -165,6 +171,7 @@ type CertificateSecretSpec struct {
 type UpdateStrategySpec struct {
 
 	// Type of update strategy (e.g., RollingUpdate)
+	// +kubebuilder:validation:Enum=RollingUpdate;OnDelete
 	// +optional
 	Type string `json:"type,omitempty"`
 
@@ -177,10 +184,12 @@ type UpdateStrategySpec struct {
 type RollingUpdateSpec struct {
 
 	// Partition Number of partitions for the update
+	// +kubebuilder:validation:Minimum=0
 	// +optional
 	Partition int32 `json:"partition,omitempty"`
 
 	// MaxUnavailable Maximum number of unavailable pods during update
+	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MaxUnavailable int32 `json:"maxUnavailable,omitempty"`
 }
@@ -189,10 +198,12 @@ type RollingUpdateSpec struct {
 type NodeAffinityPresetSpec struct {
 
 	// Key for the node affinity
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Key string `json:"key,omitempty"`
 
 	// Values for the node affinity
+	// +kubebuilder:validation:MinItems=1
 	// +optional
 	Values []string `json:"values,omitempty"`
 }
@@ -201,10 +212,12 @@ type NodeAffinityPresetSpec struct {
 type StorageSpec struct {
 
 	// Name of the storage
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Name string `json:"name,omitempty"`
 
 	// Size of the storage
+	// +kubebuilder:validation:Pattern=`^([0-9]+)(\.[0-9]+)?(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)?$`
 	// +optional
 	Size string `json:"size,omitempty"`
 
@@ -213,6 +226,7 @@ type StorageSpec struct {
 	StorageClassName string `json:"storageClassName,omitempty"`
 
 	// MountPath Mount path
+	// +kubebuilder:validation:Pattern=`^/.*`
 	// +optional
 	MountPath string `json:"mountPath,omitempty"`
 }
@@ -220,14 +234,17 @@ type StorageSpec struct {
 type EmptyDirSpec struct {
 
 	// Name of the storage
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Name string `json:"name,omitempty"`
 
 	// Size of the storage
+	// +kubebuilder:validation:Pattern=`^([0-9]+)(\.[0-9]+)?(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)?$`
 	// +optional
 	Size string `json:"size,omitempty"`
 
 	// MountPath Mount path
+	// +kubebuilder:validation:Pattern=`^/.*`
 	// +optional
 	MountPath string `json:"mountPath,omitempty"`
 }

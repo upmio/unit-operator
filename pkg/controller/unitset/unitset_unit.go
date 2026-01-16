@@ -471,19 +471,6 @@ func fillPodAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 						TopologyKey: "kubernetes.io/hostname",
 					},
 				},
-				//PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
-				//	{
-				//		Weight: 100,
-				//		PodAffinityTerm: v1.PodAffinityTerm{
-				//			LabelSelector: &metav1.LabelSelector{
-				//				MatchExpressions: []metav1.LabelSelectorRequirement{
-				//					matchExpressions,
-				//				},
-				//			},
-				//			TopologyKey: "kubernetes.io/hostname",
-				//		},
-				//	},
-				//},
 			}
 
 			unit.Spec.Template.Spec.TopologySpreadConstraints =
@@ -497,6 +484,7 @@ func fillPodAffinity(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) {
 						},
 					},
 				})
+
 		case "hard":
 			matchExpressions := metav1.LabelSelectorRequirement{
 				Key:      upmiov1alpha2.UnitsetName,
@@ -606,9 +594,6 @@ func updateContainerEnvs(unit *upmiov1alpha2.Unit, firstEnvs, secondEnvs []v1.En
 		var thirdEnvs = []v1.EnvVar{}
 		//thirdEnvs := unit.Spec.Template.Spec.Containers[i].Env
 		if len(unit.Spec.Template.Spec.Containers[i].Env) != 0 {
-			//for _, env := range unit.Spec.Template.Spec.Containers[i].Env {
-			//	thirdEnvs = append(thirdEnvs, env)
-			//}
 			thirdEnvs = append(thirdEnvs, unit.Spec.Template.Spec.Containers[i].Env...)
 		}
 		klog.V(4).Infof("---[fillEnvs] unit:[%s] Container:[%s], [thirdEnvs] len:[%d], Envs:[%v]",
