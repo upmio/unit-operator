@@ -352,7 +352,7 @@ func (r *UnitSetReconciler) updateUnitImageVersion(
 	volumeMounts []v1.VolumeMount,
 	volumes []v1.Volume,
 	envVars []v1.EnvVar,
-	pvcs []v1.PersistentVolumeClaim,
+	pvcs []upmiov1alpha2.UnitVolumeClaimTemplate,
 	unit string) error {
 
 	// get old unit
@@ -446,7 +446,7 @@ func mergePodTemplate(
 	volumeMounts []v1.VolumeMount,
 	volumes []v1.Volume,
 	envVars []v1.EnvVar,
-	pvcs []v1.PersistentVolumeClaim) upmiov1alpha2.Unit {
+	pvcs []upmiov1alpha2.UnitVolumeClaimTemplate) upmiov1alpha2.Unit {
 
 	_ = ctx
 	_ = pvcs

@@ -252,7 +252,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	volumeMounts []v1.VolumeMount,
 	volumes []v1.Volume,
 	envVars []v1.EnvVar,
-	pvcs []v1.PersistentVolumeClaim) (upmiov1alpha2.Unit, error) {
+	pvcs []upmiov1alpha2.UnitVolumeClaimTemplate) (upmiov1alpha2.Unit, error) {
 
 	if unitset == nil {
 		return upmiov1alpha2.Unit{}, fmt.Errorf("[generateUnitTemplate] unitset is nil")
@@ -292,9 +292,9 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 
 	if len(pvcs) != 0 {
 		for _, pvc := range pvcs {
-			newPvc := pvc.DeepCopy()
-			klog.Infof("[generateUnitTemplate] append PVC info [%s/%s]", pvc.Namespace, pvc.Name)
-			unit.Spec.VolumeClaimTemplates = append(unit.Spec.VolumeClaimTemplates, *newPvc)
+
+			klog.Infof("[generateUnitTemplate] append PVC info [%s]", pvc.Name)
+			unit.Spec.VolumeClaimTemplates = append(unit.Spec.VolumeClaimTemplates, pvc)
 		}
 	}
 
@@ -720,9 +720,9 @@ func containerAddMounter(container *v1.Container, mounter v1.VolumeMount) {
 	}
 }
 
-func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMount, []v1.Volume, []v1.EnvVar, []v1.PersistentVolumeClaim) {
+func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMount, []v1.Volume, []v1.EnvVar, []upmiov1alpha2.UnitVolumeClaimTemplate) {
 
-	var volumeClaimTemplates []v1.PersistentVolumeClaim
+	var volumeClaimTemplates []upmiov1alpha2.UnitVolumeClaimTemplate
 	var volumeMount []v1.VolumeMount
 	var volumes []v1.Volume
 	var envs []v1.EnvVar
@@ -734,10 +734,8 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 			klog.Infof("generateVolumeMountsAndEnvs: storage name: %s", storageInfo.Name)
 
 			sc := storageInfo.StorageClassName
-			volumeClaimTemplate := v1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: storageInfo.Name,
-				},
+			volumeClaimTemplate := upmiov1alpha2.UnitVolumeClaimTemplate{
+				Name: storageInfo.Name,
 				Spec: v1.PersistentVolumeClaimSpec{
 					AccessModes: []v1.PersistentVolumeAccessMode{
 						v1.ReadWriteOnce,

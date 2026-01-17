@@ -92,7 +92,7 @@ func (r *UnitReconciler) reconcilePersistentVolumeClaims(ctx context.Context, re
 	return nil
 }
 
-func convert2PVC(unit *upmiov1alpha2.Unit, persistentVolumeClaim v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
+func convert2PVC(unit *upmiov1alpha2.Unit, persistentVolumeClaim upmiov1alpha2.UnitVolumeClaimTemplate) (*v1.PersistentVolumeClaim, error) {
 
 	// These PVCs are not linked to the Unit via ownerReferences because PVCs may need to be retained when the Unit is deleted.
 	// The PVC lifecycle should be decided by the user, not automatically tied to the Unit's lifecycle.

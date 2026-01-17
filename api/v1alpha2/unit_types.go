@@ -56,7 +56,7 @@ type UnitSpec struct {
 
 	// VolumeClaimTemplates is a user's request for and claim to a persistent volume
 	// +optional
-	VolumeClaimTemplates []corev1.PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty"`
+	VolumeClaimTemplates []UnitVolumeClaimTemplate `json:"volumeClaimTemplates,omitempty"`
 
 	// Template describes the data a pod should have when created from a template
 	// +optional
@@ -65,6 +65,33 @@ type UnitSpec struct {
 	// FailedPodRecoveryPolicy indicates whether failed pod recovery is enabled
 	// +optional
 	FailedPodRecoveryPolicy *FailedPodRecoveryPolicy `json:"failedPodRecoveryPolicy,omitempty"`
+}
+
+type UnitVolumeClaimTemplate struct {
+	// Refers to the name of a storage defined in either:
+	// The value of `name` must match the `name` field of a volumeMount specified in the corresponding `volumeMounts` array.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Specifies the labels for the PVC of the volume.
+	//
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Specifies the annotations for the PVC of the volume.
+	//
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Defines the desired characteristics of a PersistentVolumeClaim that will be created for the volume
+	// with the mount name specified in the `name` field.
+	//
+	// When a Pod is created for this ClusterComponent, a new PVC will be created based on the specification
+	// defined in the `spec` field. The PVC will be associated with the volume mount specified by the `name` field.
+	//
+	// +optional
+	Spec corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 }
 
 type FailedPodRecoveryPolicy struct {
