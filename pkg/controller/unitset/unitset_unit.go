@@ -31,7 +31,7 @@ func (r *UnitSetReconciler) reconcileUnit(
 	unitNames, unitNamesWithIndex := unitset.UnitNames()
 	klog.Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
 
-	// PVC name needs to be filled in during unit generation
+	// volume's PVC name needs to be filled in during unit generation
 	volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
 
 	// Create missing units with bounded concurrency + per-unit timeout to avoid goroutine leak.
@@ -724,7 +724,11 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 	var envs []v1.EnvVar
 
 	if len(unitset.Spec.Storage) != 0 {
-		for _, storageInfo := range unitset.Spec.Storage {
+		for _, one := range unitset.Spec.Storage {
+			storageInfo := one
+			klog.Infof("generateVolumeMountsAndEnvs: storageInfo: %v", storageInfo)
+			klog.Infof("generateVolumeMountsAndEnvs: storage name: %s", storageInfo.Name)
+			sc := storageInfo.StorageClassName
 			volumeClaimTemplates = append(volumeClaimTemplates, v1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: storageInfo.Name,
@@ -738,7 +742,7 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 							v1.ResourceStorage: resource.MustParse(storageInfo.Size),
 						},
 					},
-					StorageClassName: &storageInfo.StorageClassName,
+					StorageClassName: &sc,
 				},
 			})
 
