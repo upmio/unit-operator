@@ -454,8 +454,21 @@ func mergePodTemplate(
 	unit := kUnit.DeepCopy()
 
 	// Copy the desired template per call to avoid sharing mutable slices (Env/VolumeMounts/Volumes) across goroutines.
-	tmplCopy := podTemplate.Template.DeepCopy()
-	unit.Spec.Template = *tmplCopy
+	//tmplCopy := podTemplate.Template.DeepCopy()
+	//unit.Spec.Template = *tmplCopy
+
+	if unit.Spec.Template.Labels == nil {
+		unit.Spec.Template.Labels = make(map[string]string)
+	}
+	unit.Spec.Template.Labels = podTemplate.Template.Labels
+
+	if unit.Spec.Template.Annotations == nil {
+		unit.Spec.Template.Annotations = make(map[string]string)
+	}
+	unit.Spec.Template.Annotations = podTemplate.Template.Annotations
+
+	unit.Spec.Template.Spec = *podTemplate.Template.Spec.DeepCopy()
+
 	unit.Spec.Template.Spec.Subdomain = unitset.HeadlessServiceName()
 
 	enableServiceLinks := true

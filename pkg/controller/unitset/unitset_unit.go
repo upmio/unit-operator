@@ -285,7 +285,7 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 		Spec: upmiov1alpha2.UnitSpec{
 			Startup:                 true,
 			ConfigTemplateName:      unitset.ConfigTemplateName(),
-			Template:                v1.PodTemplateSpec{},
+			Template:                upmiov1alpha2.UnitPodTemplateSpec{},
 			FailedPodRecoveryPolicy: &failedPodRecoveryPolicy,
 		},
 	}
@@ -315,7 +315,17 @@ func (r *UnitSetReconciler) generateUnitTemplate(
 	unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] = unitset.Spec.Type
 	unit.Annotations[upmiov1alpha2.AnnotationMainContainerVersion] = unitset.Spec.Version
 
-	unit.Spec.Template = *podTemplate.Template.DeepCopy()
+	if unit.Spec.Template.Labels == nil {
+		unit.Spec.Template.Labels = make(map[string]string)
+	}
+	unit.Spec.Template.Labels = podTemplate.Template.Labels
+
+	if unit.Spec.Template.Annotations == nil {
+		unit.Spec.Template.Annotations = make(map[string]string)
+	}
+	unit.Spec.Template.Annotations = podTemplate.Template.Annotations
+
+	unit.Spec.Template.Spec = *podTemplate.Template.Spec.DeepCopy()
 
 	unit.Spec.Template.Spec.Subdomain = unitset.HeadlessServiceName()
 	enableServiceLinks := true
