@@ -98,21 +98,15 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 	unit := &upmiov1alpha2.Unit{}
 	if err := r.Get(ctx, req.NamespacedName, unit); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{
-				RequeueAfter: requeueAfter,
-			}, nil
+			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
 
 		klog.Errorf("unable to fetch Unit [%s], error: [%v]", req.String(), err.Error())
-		return ctrl.Result{
-			RequeueAfter: requeueAfter,
-		}, err
+		return ctrl.Result{}, err
 	}
 
 	if r.checkPodIsMarkedForDeleted(ctx, req, unit) {
-		return ctrl.Result{
-			RequeueAfter: requeueAfter,
-		}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	retErr = r.reconcileUnit(ctx, req, unit)
@@ -126,9 +120,11 @@ func (r *UnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res c
 		}
 	}()
 
-	return ctrl.Result{
-		RequeueAfter: requeueAfter,
-	}, retErr
+	if retErr != nil {
+		return ctrl.Result{}, retErr
+	}
+
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (r *UnitReconciler) reconcileUnit(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
