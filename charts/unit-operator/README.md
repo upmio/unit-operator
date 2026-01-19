@@ -141,6 +141,7 @@ There are two primary ways to customize the deployment:
 | `startupProbe.failureThreshold` | int | `15`                    | Startup probe failure threshold |
 | `startupProbe.successThreshold` | int | `1`                     | Startup probe success threshold |
 | `tolerations` | list | `[]`                    | Taints tolerations |
+| `inPlacePodVerticalScaling` | bool | `false`                 | Add `--InPlacePodVerticalScaling` to controller args; enables UnitSet management of `spec.containers[*].resizePolicy` (CPU/memory restartPolicy default `RestartContainer`) |
 
 ### Documentation
 

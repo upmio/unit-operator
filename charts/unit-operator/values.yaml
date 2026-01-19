@@ -190,3 +190,10 @@ startupProbe:
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 ##
 tolerations: []
+
+## Enable in-place pod vertical scaling support for UnitSet.
+##
+## When enabled, the controller will manage `spec.containers[*].resizePolicy` for UnitSet.
+## Default behavior: both CPU and memory restartPolicy are `RestartContainer`.
+##
+inPlacePodVerticalScaling: false

@@ -38,6 +38,7 @@ spec:
           args:
             - "--health-probe-bind-address=:{{ .Values.healthCheckPort }}"
             - "--log-dir=/tmp"
+            - "--in-place-pod-vertical-scaling={{ .Values.inPlacePodVerticalScaling }}"
           ports:
             - name: healthz
               containerPort: {{ .Values.healthCheckPort }}
