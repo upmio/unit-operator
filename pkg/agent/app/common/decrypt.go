@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/base64"
+
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 )
 

@@ -3,10 +3,10 @@ package sentinel
 import (
 	"context"
 	"fmt"
+
 	composev1alpha1 "github.com/upmio/compose-operator/api/v1alpha1"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	"github.com/upmio/unit-operator/pkg/agent/app/event"
 	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ var (
 type service struct {
 	sentinelOps   SentinelOperationServer
 	composeClient client.Client
-	recorder      event.IEventRecorder
+	recorder      common.IEventRecorder
 	UnimplementedSentinelOperationServer
 	logger *zap.SugaredLogger
 
@@ -48,7 +48,7 @@ func (s *service) Config() error {
 		return err
 	}
 
-	if s.recorder, err = event.NewIEventRecorder(); err != nil {
+	if s.recorder, err = common.NewIEventRecorder(); err != nil {
 		return err
 	}
 
@@ -68,7 +68,7 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisReplicationRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "redis sentinel update redis replication", map[string]interface{}{
+	common.LogRequestSafely(s.logger, "redis-sentinel update redis replication", map[string]interface{}{
 		"namespace":              req.GetNamespace(),
 		"master_host":            req.GetMasterHost(),
 		"master_port":            req.GetMasterPort(),
@@ -95,33 +95,23 @@ func (s *service) UpdateRedisReplication(ctx context.Context, req *UpdateRedisRe
 	}
 
 	// 3. Find the master host in replica set and swap
-	found := false
 	for index, node := range instance.Spec.Replica {
 		if req.GetMasterHost() == node.AnnounceHost && req.GetMasterPort() == int64(node.AnnouncePort) {
-			msg := fmt.Sprintf("found node host %s:%d in replica, will update", req.GetMasterHost(), req.GetMasterPort())
-			s.logger.Info(msg)
-			if err := s.recorder.SendNormalEventToUnit(req.GetSelfUnitName(), req.GetNamespace(), "Failover", msg); err != nil {
-				s.logger.Errorf("failed to send normal event: %v", err)
+
+			instance.Spec.Source, instance.Spec.Replica[index] = node, instance.Spec.Source
+			// 4. Update the redis replication resource
+			if err := s.composeClient.Update(ctx, instance); err != nil {
+				return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
+					"failed to update redis replication", err)
 			}
 
-			found = true
-			instance.Spec.Source, instance.Spec.Replica[index] = node, instance.Spec.Source
+			return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
+				"update redis replication successfully")
 		}
 	}
 
-	if !found {
-		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
-			fmt.Sprintf("cannot find host %s:%d in redis replication", req.GetMasterHost(), req.GetMasterPort()), nil)
-	}
-
-	// 4. Update the redis replication resource
-	if err := s.composeClient.Update(ctx, instance); err != nil {
-		return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
-			"failed to update redis replication", err)
-	}
-
-	return common.LogAndReturnSuccessWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
-		"update redis replication successfully")
+	return common.LogAndReturnErrorWithEvent(s.logger, s.recorder, newSentinelResponse, req.GetSelfUnitName(), req.GetNamespace(), "Failover",
+		fmt.Sprintf("cannot find host %s:%d in redis replication", req.GetMasterHost(), req.GetMasterPort()), nil)
 }
 
 func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
@@ -154,7 +144,6 @@ func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Re
 	}()
 
 	// 3. Execute set variable
-
 	masterName := "mymaster"
 	if err := c.Do(ctx, "SENTINEL", "SET", masterName, req.GetKey(), req.GetValue()).Err(); err != nil {
 		return common.LogAndReturnError(s.logger, newSentinelResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)

@@ -3,12 +3,14 @@ package common
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/upmio/unit-operator/pkg/agent/vars"
+	"go.uber.org/zap"
 )
 
 // CommandExecutor encapsulates command execution logic
@@ -55,7 +57,7 @@ func (e *CommandExecutor) ExecutePipedCommands(cmd1 *exec.Cmd, cmd2 *exec.Cmd, l
 
 	// Handle stderr logging in goroutines
 	wg := sync.WaitGroup{}
-	logDir := os.Getenv("LOG_MOUNT")
+	logDir := os.Getenv(vars.LogMountEnvKey)
 	wg.Add(3)
 
 	go e.handleStderr(&wg, stderr1, filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd1.Args[0], logPrefix)))
@@ -116,7 +118,7 @@ func (e *CommandExecutor) ExecuteCommand(cmd *exec.Cmd, logPrefix string) error 
 		e.logger.Errorf("failed to read %s stderr: %v", cmd.Args[0], err)
 	}
 
-	logDir := os.Getenv("LOG_MOUNT")
+	logDir := os.Getenv(vars.LogMountEnvKey)
 	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd.Args[0], logPrefix))
 	if err := os.WriteFile(logPath, stderrBytes, 0644); err != nil {
 		e.logger.Errorf("failed to write %s stderr to file %s: %v", cmd.Args[0], logPath, err)
