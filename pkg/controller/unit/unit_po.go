@@ -119,45 +119,68 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 }
 
 func (r *UnitReconciler) resizePod(ctx context.Context, unit *upmiov1alpha2.Unit, pod *v1.Pod) error {
-	mainContainerResources := v1.ResourceRequirements{}
-	for _, container := range unit.Spec.Template.Spec.Containers {
-		if container.Name == unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] {
-			mainContainerResources = container.Resources
+	mainContainerName := unit.Annotations[upmiov1alpha2.AnnotationMainContainerName]
+	if mainContainerName == "" {
+		return fmt.Errorf("missing annotation %q for main container name", upmiov1alpha2.AnnotationMainContainerName)
+	}
+
+	// Find desired resources from Unit template
+	var desiredResources *v1.ResourceRequirements
+	for i := range unit.Spec.Template.Spec.Containers {
+		c := &unit.Spec.Template.Spec.Containers[i]
+		if c.Name == mainContainerName {
+			desiredResources = &c.Resources
 			break
 		}
 	}
+	if desiredResources == nil {
+		return fmt.Errorf("main container %q not found in unit template", mainContainerName)
+	}
 
-	resizePolicy := []v1.ContainerResizePolicy{
+	// Find the container index in the existing Pod
+	containerIdx := -1
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == mainContainerName {
+			containerIdx = i
+			break
+		}
+	}
+	if containerIdx < 0 {
+		return fmt.Errorf("main container %q not found in pod spec", mainContainerName)
+	}
+
+	// Avoid resize calls if there's no actual change.
+	cur := pod.Spec.Containers[containerIdx].Resources
+	if reflect.DeepEqual(cur.Requests, desiredResources.Requests) && reflect.DeepEqual(cur.Limits, desiredResources.Limits) {
+		return nil
+	}
+
+	// K8s 1.35 in-place resize is served via the Pod /resize subresource. It validates that
+	// the container list isn't modified. A merge patch like {spec:{containers:[{name,resources}]}}
+	// is treated as a list replacement and fails validation (and may miss required fields like image).
+	// So we use JSONPatch with explicit paths to only update the existing container's resources.
+	ops := []map[string]interface{}{
 		{
-			ResourceName:  "cpu",
-			RestartPolicy: v1.RestartContainer,
+			"op":    "replace",
+			"path":  fmt.Sprintf("/spec/containers/%d/resources/requests", containerIdx),
+			"value": desiredResources.Requests,
 		},
 		{
-			ResourceName:  "memory",
-			RestartPolicy: v1.RestartContainer,
+			"op":    "replace",
+			"path":  fmt.Sprintf("/spec/containers/%d/resources/limits", containerIdx),
+			"value": desiredResources.Limits,
 		},
 	}
 
-	patch := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"containers": []map[string]interface{}{
-				{
-					"name":         unit.Annotations[upmiov1alpha2.AnnotationMainContainerName],
-					"resources":    mainContainerResources,
-					"resizePolicy": resizePolicy,
-				},
-			},
-		},
-	}
-
-	patchBytes, err := json.Marshal(patch)
+	patchBytes, err := json.Marshal(ops)
 	if err != nil {
 		return err
 	}
 
-	return r.SubResource("resize").Patch(ctx,
+	return r.SubResource("resize").Patch(
+		ctx,
 		&v1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: pod.Namespace, Name: pod.Name}},
-		client.RawPatch(types.MergePatchType, patchBytes),
+		client.RawPatch(types.JSONPatchType, patchBytes),
 	)
 }
 
@@ -554,6 +577,7 @@ func (r *UnitReconciler) waitUntilPodScheduled(ctx context.Context, podName, nam
 }
 
 func (r *UnitReconciler) podAutoRecovery(ctx context.Context, req ctrl.Request, unit *upmiov1alpha2.Unit) error {
+	_ = req
 	pod := &v1.Pod{}
 	podNamespacedName := client.ObjectKey{Name: unit.Name, Namespace: unit.Namespace}
 	err := r.Get(ctx, podNamespacedName, pod)

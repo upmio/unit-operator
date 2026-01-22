@@ -18,6 +18,7 @@ package unit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -30,7 +31,68 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// --- helpers for resizePod tests ---
+
+type capturedPatch struct {
+	Typ  types.PatchType
+	Data []byte
+}
+
+type fakeSubResourceClient struct {
+	captured *capturedPatch
+	retErr   error
+}
+
+func (f *fakeSubResourceClient) Get(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceGetOption) error {
+	_ = ctx
+	_ = obj
+	_ = subResource
+	_ = opts
+	return fmt.Errorf("not implemented")
+}
+
+func (f *fakeSubResourceClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	_ = ctx
+	_ = obj
+	_ = subResource
+	_ = opts
+	return fmt.Errorf("not implemented")
+}
+
+func (f *fakeSubResourceClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+	_ = ctx
+	_ = obj
+	_ = opts
+	return fmt.Errorf("not implemented")
+}
+
+func (f *fakeSubResourceClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+	_ = ctx
+	_ = obj
+	_ = opts
+
+	if f.captured != nil {
+		f.captured.Typ = patch.Type()
+		data, _ := patch.Data(nil)
+		f.captured.Data = data
+	}
+	return f.retErr
+}
+
+type fakeClientWithResize struct {
+	client.Client
+	resize *fakeSubResourceClient
+}
+
+func (f *fakeClientWithResize) SubResource(subResource string) client.SubResourceClient {
+	if subResource == "resize" {
+		return f.resize
+	}
+	return f.Client.SubResource(subResource)
+}
 
 var _ = Describe("UnitPO Reconciler", func() {
 	var (
@@ -72,11 +134,9 @@ var _ = Describe("UnitPO Reconciler", func() {
 				},
 			},
 			Spec: upmiov1alpha2.UnitSpec{
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"template-label": "template-value"},
-						Annotations: map[string]string{"template-annotation": "template-value"},
-					},
+				Template: upmiov1alpha2.UnitPodTemplateSpec{
+					Labels:      map[string]string{"template-label": "template-value"},
+					Annotations: map[string]string{"template-annotation": "template-value"},
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{
 							{
@@ -691,5 +751,133 @@ var _ = Describe("UnitPO Reconciler", func() {
 		//	_, err := reconciler.waitUntilPodScheduled(ctx, "test-unit", "default")
 		//	Expect(err).To(HaveOccurred())
 		//})
+	})
+
+	Context("resizePod", func() {
+		It("should patch only main container resources via JSONPatch and not replace containers", func() {
+			ctx := context.Background()
+
+			suffix := time.Now().UnixNano()
+			name := fmt.Sprintf("test-resize-%d", suffix)
+
+			u := &upmiov1alpha2.Unit{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: "default",
+					Annotations: map[string]string{
+						upmiov1alpha2.AnnotationMainContainerName: "main-container",
+					},
+				},
+				Spec: upmiov1alpha2.UnitSpec{
+					Template: upmiov1alpha2.UnitPodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main-container",
+									Image: "nginx:1.0.0",
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("250m"), corev1.ResourceMemory: resource.MustParse("256Mi")},
+										Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("512Mi")},
+									},
+								},
+								{Name: "sidecar", Image: "busybox:1"},
+							},
+						},
+					},
+				},
+			}
+
+			p := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "main-container",
+							Image: "nginx:1.0.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
+								Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m"), corev1.ResourceMemory: resource.MustParse("256Mi")},
+							},
+						},
+						{Name: "sidecar", Image: "busybox:1"},
+					},
+				},
+			}
+
+			gotPatch := &capturedPatch{}
+			resizeCli := &fakeSubResourceClient{captured: gotPatch}
+			cli := &fakeClientWithResize{Client: k8sClient, resize: resizeCli}
+
+			r := &UnitReconciler{Client: cli, Scheme: scheme.Scheme, Recorder: recorder}
+			Expect(r.resizePod(ctx, u, p)).To(Succeed())
+
+			Expect(gotPatch.Typ).To(Equal(types.JSONPatchType))
+			Expect(gotPatch.Data).NotTo(BeEmpty())
+
+			var ops []map[string]any
+			Expect(json.Unmarshal(gotPatch.Data, &ops)).To(Succeed())
+			Expect(ops).To(HaveLen(2))
+			Expect(ops[0]["path"]).To(Equal("/spec/containers/0/resources/requests"))
+			Expect(ops[1]["path"]).To(Equal("/spec/containers/0/resources/limits"))
+		})
+
+		It("should no-op when resources already match", func() {
+			ctx := context.Background()
+			name := fmt.Sprintf("test-resize-noop-%d", time.Now().UnixNano())
+
+			u := &upmiov1alpha2.Unit{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: "default",
+					Annotations: map[string]string{
+						upmiov1alpha2.AnnotationMainContainerName: "main-container",
+					},
+				},
+				Spec: upmiov1alpha2.UnitSpec{Template: upmiov1alpha2.UnitPodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{
+					Name:      "main-container",
+					Image:     "nginx:1.0.0",
+					Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")}, Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m")}},
+				}}}}},
+			}
+
+			p := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{
+				Name:      "main-container",
+				Image:     "nginx:1.0.0",
+				Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")}, Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m")}},
+			}}}}
+
+			gotPatch := &capturedPatch{}
+			resizeCli := &fakeSubResourceClient{captured: gotPatch}
+			cli := &fakeClientWithResize{Client: k8sClient, resize: resizeCli}
+
+			r := &UnitReconciler{Client: cli, Scheme: scheme.Scheme, Recorder: recorder}
+			Expect(r.resizePod(ctx, u, p)).To(Succeed())
+			Expect(gotPatch.Data).To(BeNil())
+		})
+
+		It("should error when main container annotation is missing", func() {
+			ctx := context.Background()
+			u := &upmiov1alpha2.Unit{ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "default"}}
+			p := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "default"}}
+
+			cli := &fakeClientWithResize{Client: k8sClient, resize: &fakeSubResourceClient{captured: &capturedPatch{}}}
+			r := &UnitReconciler{Client: cli, Scheme: scheme.Scheme, Recorder: recorder}
+
+			Expect(r.resizePod(ctx, u, p)).To(MatchError(ContainSubstring("missing annotation")))
+		})
+
+		It("should error when main container is not found in pod", func() {
+			ctx := context.Background()
+			u := &upmiov1alpha2.Unit{
+				ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "default", Annotations: map[string]string{upmiov1alpha2.AnnotationMainContainerName: "main-container"}},
+				Spec:       upmiov1alpha2.UnitSpec{Template: upmiov1alpha2.UnitPodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "main-container", Image: "nginx"}}}}},
+			}
+			p := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "default"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "other", Image: "busybox"}}}}
+
+			cli := &fakeClientWithResize{Client: k8sClient, resize: &fakeSubResourceClient{captured: &capturedPatch{}}}
+			r := &UnitReconciler{Client: cli, Scheme: scheme.Scheme, Recorder: recorder}
+
+			Expect(r.resizePod(ctx, u, p)).To(MatchError(ContainSubstring("not found in pod spec")))
+		})
 	})
 })
