@@ -3,21 +3,23 @@ package milvus
 import (
 	"context"
 	_ "embed"
-	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/app"
-	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
-	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"text/template"
 
+	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+
 	"github.com/caarlos0/env/v9"
+)
+
+const (
+	milvusBackupConfFile = "/tmp/backup.yaml"
 )
 
 //go:embed backup.tmpl
@@ -81,6 +83,15 @@ func (s *service) Registry(server *grpc.Server) {
 }
 
 func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, error) {
+	common.LogRequestSafely(s.logger, "milvus backup", map[string]interface{}{
+		"backup_root_path": req.GetBackupRootPath(),
+		"backup_file":      req.GetBackupFile(),
+		"bucket":           req.GetS3Storage().GetBucket(),
+		"endpoint":         req.GetS3Storage().GetEndpoint(),
+		"access_key":       req.GetS3Storage().GetAccessKey(),
+		"secret_key":       req.GetS3Storage().GetSecretKey(),
+	})
+
 	// 1. Check service status
 	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to check service status", err)
@@ -118,7 +129,7 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse config template, %v", err)
 	}
 
-	f, _ := os.Create("/tmp/backup.yaml")
+	f, _ := os.Create(milvusBackupConfFile)
 	defer func() {
 		_ = f.Close()
 	}()
@@ -130,43 +141,39 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 	//3. execute milvus-backup command
 	path, err := exec.LookPath("milvus-backup")
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to found milvus-backup command, %v", err)
+		return common.LogAndReturnError(s.logger, newMilvusResponse, "milvus-backup command is not installed or not in PATH", err)
 	}
 
 	cmd := exec.CommandContext(ctx,
 		path,
 		"--config",
-		"/tmp/backup.yaml",
+		milvusBackupConfFile,
 		"create",
 		"-n",
 		req.GetBackupFile(),
 	)
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		s.logger.Error(err)
-	}
+	// Use command executor for single command
+	executor := common.NewCommandExecutor(ctx, s.logger)
 
-	s.logger.Info("start execute command...")
-
-	if err := cmd.Start(); err != nil {
-		s.logger.Error(err)
-	}
-
-	stderrBytes, err := io.ReadAll(stderr)
-	if err != nil {
-		s.logger.Error(err)
-	}
-
-	s.logger.Info("wait command to finish")
-	if err := cmd.Wait(); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, fmt.Sprintf("failed to execute milvus-backup: %v %s", err, string(stderrBytes)), nil)
+	if err := executor.ExecuteCommand(cmd, "backup"); err != nil {
+		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to execute milvus-backup", err)
 	}
 
 	return common.LogAndReturnSuccess(s.logger, newMilvusResponse, "milvus backup success")
 }
 
 func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, error) {
+	common.LogRequestSafely(s.logger, "milvus restore", map[string]interface{}{
+		"suffix":           req.GetSuffix(),
+		"backup_root_path": req.GetBackupRootPath(),
+		"backup_file":      req.GetBackupFile(),
+		"secret_key":       req.GetS3Storage().GetSecretKey(),
+		"access_key":       req.GetS3Storage().GetAccessKey(),
+		"bucket":           req.GetS3Storage().GetBucket(),
+		"endpoint":         req.GetS3Storage().GetEndpoint(),
+	})
+
 	// 1. Check if service is stopped
 	if _, err := s.slm.CheckServiceStopped(ctx, &slm.ServiceRequest{}); err != nil {
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "service status check failed", err)
@@ -204,7 +211,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse config template, %v", err)
 	}
 
-	f, _ := os.Create("/tmp/backup.yaml")
+	f, _ := os.Create(milvusBackupConfFile)
 	defer func() {
 		_ = f.Close()
 	}()
@@ -216,7 +223,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 	//3. execute milvus-backup command
 	path, err := exec.LookPath("milvus-backup")
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to found milvus-backup command, %v", err)
+		return common.LogAndReturnError(s.logger, newMilvusResponse, "milvus-backup command is not installed or not in PATH", err)
 	}
 
 	var cmd *exec.Cmd
@@ -225,7 +232,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		cmd = exec.CommandContext(ctx,
 			path,
 			"--config",
-			"/tmp/backup.yaml",
+			milvusBackupConfFile,
 			"restore",
 			"--restore_index",
 			"-n",
@@ -235,7 +242,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		cmd = exec.CommandContext(ctx,
 			path,
 			"--config",
-			"/tmp/backup.yaml",
+			milvusBackupConfFile,
 			"restore",
 			"--restore_index",
 			"-n",
@@ -245,25 +252,11 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		)
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		s.logger.Error(err)
-	}
+	// Use command executor for single command
+	executor := common.NewCommandExecutor(ctx, s.logger)
 
-	s.logger.Info("start execute command...")
-
-	if err := cmd.Start(); err != nil {
-		s.logger.Error(err)
-	}
-
-	stderrBytes, err := io.ReadAll(stderr)
-	if err != nil {
-		s.logger.Error(err)
-	}
-
-	s.logger.Info("wait command to finish")
-	if err := cmd.Wait(); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, fmt.Sprintf("failed to execute milvus-backup: %v %s", err, string(stderrBytes)), nil)
+	if err := executor.ExecuteCommand(cmd, "restore"); err != nil {
+		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to execute milvus-backup", err)
 	}
 
 	return common.LogAndReturnSuccess(s.logger, newMilvusResponse, "milvus restore success")
@@ -275,12 +268,7 @@ func decryptPassword(dirName, fileName string) (string, error) {
 		return "", err
 	}
 
-	plaintext, err := util.AES_CTR_Decrypt(content)
-	if err != nil {
-		return "", err
-	}
-
-	return string(plaintext), nil
+	return common.GetPlainTextPassword(string(content))
 }
 
 func RegistryGrpcApp() {

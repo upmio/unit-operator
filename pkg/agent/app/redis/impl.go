@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
-	"github.com/upmio/unit-operator/pkg/agent/app"
-	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/redis/go-redis/v9"
+	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -156,10 +156,10 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 		return common.LogAndReturnError(s.logger, newRedisResponse, "redis rdb file not found after snapshot", err)
 	}
 
-	var storageFactory s3storage.S3Storage
+	var storageFactory common.S3Storage
 	switch req.GetS3Storage().GetType() {
 	case S3StorageType_Minio:
-		storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+		storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
 		}
@@ -200,10 +200,10 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to backup original rdb file", err)
 	}
 
-	var storageFactory s3storage.S3Storage
+	var storageFactory common.S3Storage
 	switch req.GetS3Storage().GetType() {
 	case S3StorageType_Minio:
-		storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+		storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 		if err != nil {
 			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
 		}

@@ -2,10 +2,18 @@ package postgresql
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
+
 	"github.com/upmio/unit-operator/pkg/agent/vars"
+
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
@@ -13,12 +21,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -146,10 +148,10 @@ func (s *service) PhysicalBackup(ctx context.Context, req *PhysicalBackupRequest
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, fmt.Sprintf("failed to write pg_basebackup log to file %s", pgBaseBackupLogPath), err)
 		}
 
-		var storageFactory s3storage.S3Storage
+		var storageFactory common.S3Storage
 		switch req.GetS3Storage().GetType() {
 		case S3StorageType_Minio:
-			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
 			}
@@ -244,10 +246,10 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	}
 
 	if req.GetS3Storage() != nil {
-		var storageFactory s3storage.S3Storage
+		var storageFactory common.S3Storage
 		switch req.GetS3Storage().GetType() {
 		case S3StorageType_Minio:
-			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
 			}
@@ -289,7 +291,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			err := storageFactory.UploadContentToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), stdoutBytes)
+			err := storageFactory.StreamToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes))
 
 			errCh <- err
 
@@ -361,10 +363,10 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 			return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to get DATA_DIR environment variable", err)
 		}
 
-		var storageFactory s3storage.S3Storage
+		var storageFactory common.S3Storage
 		switch req.GetS3Storage().GetType() {
 		case S3StorageType_Minio:
-			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newPostgresqlResponse, "failed to create s3 client", err)
 			}
@@ -421,10 +423,10 @@ func (s *service) recursiveChown(rootPath string, uid, gid int) error {
 	})
 }
 
-func (s *service) extractFileFromS3(ctx context.Context, storageFactory s3storage.S3Storage, bucket, key, filename, targetDir string) error {
+func (s *service) extractFileFromS3(ctx context.Context, storageFactory common.S3Storage, bucket, key, filename, targetDir string) error {
 	fileKey := filepath.Join(key, filename)
 
-	output, err := storageFactory.DownloadContentFromS3(ctx, bucket, fileKey)
+	output, err := storageFactory.StreamFromS3(ctx, bucket, fileKey)
 
 	if err != nil {
 		return fmt.Errorf("download %s failed: %v", fileKey, err)

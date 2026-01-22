@@ -6,13 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/app/s3storage"
+
 	"github.com/upmio/unit-operator/pkg/agent/vars"
 
-	"github.com/upmio/unit-operator/pkg/agent/app"
-	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
-	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"io"
 	"net"
 	"os"
@@ -22,6 +18,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -375,10 +376,10 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 	}
 
 	if req.GetS3Storage() != nil {
-		var storageFactory s3storage.S3Storage
+		var storageFactory common.S3Storage
 		switch req.GetS3Storage().GetType() {
 		case S3StorageType_Minio:
-			storageFactory, err = s3storage.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
+			storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
 			if err != nil {
 				return common.LogAndReturnError(s.logger, newMysqlResponse, "failed to create s3 client", err)
 			}
@@ -420,7 +421,7 @@ func (s *service) LogicalBackup(ctx context.Context, req *LogicalBackupRequest) 
 
 			defer wg.Done()
 
-			err := storageFactory.UploadContentToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), stdoutBytes)
+			err := storageFactory.StreamToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), bytes.NewReader(stdoutBytes))
 
 			errCh <- err
 

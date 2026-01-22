@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 )
 
@@ -39,14 +40,8 @@ func LogAndReturnSuccess[T any](logger *zap.SugaredLogger, newResponse func(stri
 	return response, nil
 }
 
-// EventRecorder interface for sending events
-type EventRecorder interface {
-	SendWarningEventToUnit(unitName, namespace, reason, message string) error
-	SendNormalEventToUnit(unitName, namespace, reason, message string) error
-}
-
 // LogAndReturnErrorWithEvent logs error, sends warning event, and returns standardized response
-func LogAndReturnErrorWithEvent[T any](logger *zap.SugaredLogger, recorder EventRecorder, newResponse func(string) *T, unitName, namespace, reason, errMsg string, err error) (*T, error) {
+func LogAndReturnErrorWithEvent[T any](logger *zap.SugaredLogger, recorder IEventRecorder, newResponse func(string) *T, unitName, namespace, reason, errMsg string, err error) (*T, error) {
 	if err != nil {
 		errMsg = fmt.Sprintf("%s: %v", errMsg, err)
 	}
@@ -59,7 +54,7 @@ func LogAndReturnErrorWithEvent[T any](logger *zap.SugaredLogger, recorder Event
 }
 
 // LogAndReturnSuccessWithEvent logs success, sends normal event, and returns response
-func LogAndReturnSuccessWithEvent[T any](logger *zap.SugaredLogger, recorder EventRecorder, newResponse func(string) *T, unitName, namespace, reason, msg string) (*T, error) {
+func LogAndReturnSuccessWithEvent[T any](logger *zap.SugaredLogger, recorder IEventRecorder, newResponse func(string) *T, unitName, namespace, reason, msg string) (*T, error) {
 	if err := recorder.SendNormalEventToUnit(unitName, namespace, reason, msg); err != nil {
 		logger.Errorf("failed to send normal event: %v", err)
 	}
