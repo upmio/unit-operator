@@ -9,6 +9,7 @@ import (
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	podutil "github.com/upmio/unit-operator/pkg/utils/pod"
+	"github.com/upmio/unit-operator/pkg/vars"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,6 +73,17 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 			return fmt.Errorf("[reconcilePod] update unit status fail before [upgradePod], error: [%s]", err.Error())
 		}
 
+		// mem,cpu support update without recreate pod, in place vertical scaling
+		if (reason == "cpu changed" || reason == "memory changed") && vars.InPlacePodVerticalScalingEnabled {
+			err := r.resizePod(ctx, unit, pod)
+			if err != nil {
+				return fmt.Errorf("[reconcilePod] resize pod error: [%s]", err.Error())
+			}
+			r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "resize pod [%s] ok~", pod.Name)
+
+			return nil
+		}
+
 		err = r.upgradePod(ctx, req, unit, pod, reason)
 		if err != nil {
 			return err
@@ -104,6 +116,49 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 	}
 
 	return nil
+}
+
+func (r *UnitReconciler) resizePod(ctx context.Context, unit *upmiov1alpha2.Unit, pod *v1.Pod) error {
+	mainContainerResources := v1.ResourceRequirements{}
+	for _, container := range unit.Spec.Template.Spec.Containers {
+		if container.Name == unit.Annotations[upmiov1alpha2.AnnotationMainContainerName] {
+			mainContainerResources = container.Resources
+			break
+		}
+	}
+
+	resizePolicy := []v1.ContainerResizePolicy{
+		{
+			ResourceName:  "cpu",
+			RestartPolicy: v1.RestartContainer,
+		},
+		{
+			ResourceName:  "memory",
+			RestartPolicy: v1.RestartContainer,
+		},
+	}
+
+	patch := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []map[string]interface{}{
+				{
+					"name":         unit.Annotations[upmiov1alpha2.AnnotationMainContainerName],
+					"resources":    mainContainerResources,
+					"resizePolicy": resizePolicy,
+				},
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return err
+	}
+
+	return r.SubResource("resize").Patch(ctx,
+		&v1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: pod.Namespace, Name: pod.Name}},
+		client.RawPatch(types.MergePatchType, patchBytes),
+	)
 }
 
 func ifNeedPatchPod(unit *upmiov1alpha2.Unit, pod *v1.Pod) ([]byte, bool, error) {

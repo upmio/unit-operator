@@ -45,10 +45,11 @@ var (
 
 	leaderElect bool
 
-	metricsAddr   string
-	probeAddr     string
-	agentHostType string
-	versionFlag   bool
+	metricsAddr               string
+	probeAddr                 string
+	agentHostType             string
+	versionFlag               bool
+	inPlacePodVerticalScaling bool
 
 	webhookPort int
 
@@ -75,6 +76,9 @@ func init() {
 		"show the version ")
 	flag.StringVar(&agentHostType, "unit-agent-host-type", "",
 		"The host type of unit-agent.")
+
+	flag.BoolVar(&inPlacePodVerticalScaling, "in-place-pod-vertical-scaling", false,
+		"Enable in-place pod vertical scaling feature.")
 
 	flag.IntVar(&webhookPort, "webhook-port", 9443,
 		"Webhook server port")
@@ -196,6 +200,11 @@ func main() {
 
 	if agentHostType != "" {
 		vars.UnitAgentHostType = agentHostType
+	}
+
+	if inPlacePodVerticalScaling {
+		vars.InPlacePodVerticalScalingEnabled = true
+		setupLog.Info("In-Place Pod Vertical Scaling feature is enabled")
 	}
 
 	err = apiextensionsV1.AddToScheme(mgr.GetScheme())
