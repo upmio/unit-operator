@@ -149,57 +149,7 @@ func (r *UnitReconciler) resizePod(ctx context.Context, unit *upmiov1alpha2.Unit
 		return fmt.Errorf("main container %q not found in pod spec", mainContainerName)
 	}
 
-	// 1) Ensure resizePolicy is set on the main container (patch the main Pod resource, NOT /resize).
-	// The /resize subresource rejects container list changes, and including resizePolicy there will fail.
-	desiredResizePolicy := []v1.ContainerResizePolicy{
-		{ResourceName: v1.ResourceCPU, RestartPolicy: v1.RestartContainer},
-		{ResourceName: v1.ResourceMemory, RestartPolicy: v1.RestartContainer},
-	}
-
-	if !reflect.DeepEqual(pod.Spec.Containers[containerIdx].ResizePolicy, desiredResizePolicy) {
-		policyOps := []map[string]any{
-			{
-				"op":    "replace",
-				"path":  fmt.Sprintf("/spec/containers/%d/resizePolicy", containerIdx),
-				"value": desiredResizePolicy,
-			},
-		}
-		policyPatch, err := json.Marshal(policyOps)
-		if err != nil {
-			return err
-		}
-
-		err = r.Patch(
-			ctx,
-			&v1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: pod.Namespace, Name: pod.Name}},
-			client.RawPatch(types.JSONPatchType, policyPatch),
-		)
-		if err != nil {
-			return fmt.Errorf("set pod resizePolicy failed: %w", err)
-		}
-
-		r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "set pod [%s] resizePolicy ok~", pod.Name)
-	}
-
-	pod = &v1.Pod{}
-	err := r.Get(ctx, client.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, pod)
-	if err != nil {
-		return fmt.Errorf("get pod after patch resizePolicy failed: %w", err)
-	}
-
-	// Find the container index in the existing Pod
-	containerIdx = -1
-	for i := range pod.Spec.Containers {
-		if pod.Spec.Containers[i].Name == mainContainerName {
-			containerIdx = i
-			break
-		}
-	}
-	if containerIdx < 0 {
-		return fmt.Errorf("main container %q not found in pod spec", mainContainerName)
-	}
-
-	// 2) Patch /resize to update only resources.
+	// Patch /resize to update only resources.
 	cur := pod.Spec.Containers[containerIdx].Resources
 	if reflect.DeepEqual(cur.Requests, desiredResources.Requests) && reflect.DeepEqual(cur.Limits, desiredResources.Limits) {
 		return nil
