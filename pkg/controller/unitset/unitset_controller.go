@@ -236,6 +236,13 @@ func (r *UnitSetReconciler) reconcileUnitset(ctx context.Context, req ctrl.Reque
 		return err
 	}
 
+	// Reconcile ResizePolicy independently from resources
+	// This allows ResizePolicy to be updated separately without requiring resource changes
+	err = r.reconcileResizePolicy(ctx, req, unitset)
+	if err != nil {
+		return err
+	}
+
 	// Propagate UnitSet labels/annotations to managed Units
 	err = r.reconcileUnitLabelsAnnotations(ctx, req, unitset)
 	if err != nil {

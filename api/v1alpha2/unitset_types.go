@@ -47,6 +47,10 @@ type UnitSetSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// ResizePolicy resources resize policy for the container.
+	// +optional
+	ResizePolicy []corev1.ContainerResizePolicy `json:"resizePolicy,omitempty"`
+
 	// Env Environment variables for the units
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`

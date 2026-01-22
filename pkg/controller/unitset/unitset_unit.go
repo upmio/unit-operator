@@ -542,6 +542,12 @@ func fillResourcesToDefaultContainer(unit *upmiov1alpha2.Unit, unitset *upmiov1a
 	for i := range unit.Spec.Template.Spec.Containers {
 		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
 			unit.Spec.Template.Spec.Containers[i].Resources = unitset.Spec.Resources
+
+			// Set ResizePolicy for the main container to enable in-place vertical scaling.
+			// This is an immutable field and must be set at Pod creation time.
+			if len(unitset.Spec.ResizePolicy) > 0 {
+				unit.Spec.Template.Spec.Containers[i].ResizePolicy = unitset.Spec.ResizePolicy
+			}
 		}
 	}
 }
@@ -740,8 +746,8 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 	if len(unitset.Spec.Storage) != 0 {
 		for _, one := range unitset.Spec.Storage {
 			storageInfo := one
-			klog.Infof("generateVolumeMountsAndEnvs: storageInfo: %v", storageInfo)
-			klog.Infof("generateVolumeMountsAndEnvs: storage name: %s", storageInfo.Name)
+			//klog.Infof("generateVolumeMountsAndEnvs: storageInfo: %v", storageInfo)
+			//klog.Infof("generateVolumeMountsAndEnvs: storage name: %s", storageInfo.Name)
 
 			sc := storageInfo.StorageClassName
 			volumeClaimTemplate := upmiov1alpha2.UnitVolumeClaimTemplate{
@@ -758,7 +764,7 @@ func generateVolumeMountsAndEnvs(unitset *upmiov1alpha2.UnitSet) ([]v1.VolumeMou
 					StorageClassName: &sc,
 				},
 			}
-			klog.Infof("generateVolumeMountsAndEnvs: generated volumeClaimTemplate name: [%s]", volumeClaimTemplate.Name)
+			//klog.Infof("generateVolumeMountsAndEnvs: generated volumeClaimTemplate name: [%s]", volumeClaimTemplate.Name)
 			volumeClaimTemplates = append(volumeClaimTemplates, volumeClaimTemplate)
 
 			volumeMount = append(volumeMount, v1.VolumeMount{

@@ -975,3 +975,216 @@ func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSe
 	}
 	return false
 }
+
+// reconcileResizePolicy synchronizes ResizePolicy from UnitSet to all Units.
+// This is handled separately from resource updates because ResizePolicy can be changed independently.
+func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
+	// Skip if feature is not enabled or ResizePolicy is not configured
+	if len(unitset.Spec.ResizePolicy) == 0 {
+		return nil
+	}
+
+	kUnits, err := r.unitsBelongUnitset(ctx, unitset)
+	if err != nil {
+		return fmt.Errorf("[reconcileResizePolicy] error getting units: %w", err)
+	}
+
+	if len(kUnits) == 0 {
+		return nil
+	}
+
+	unitMap := make(map[string]*upmiov1alpha2.Unit, len(kUnits))
+	for _, unit := range kUnits {
+		unitMap[unit.Name] = unit
+	}
+
+	unitNames, _ := unitset.UnitNames()
+	unitNames = sortUnitNamesByOrdinal(unitNames)
+
+	// Rolling update strategy for ResizePolicy changes
+	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
+		current := unitset.Status.InUpdate
+		if current == "" {
+			// Start from first unit that needs update
+			for _, unitName := range unitNames {
+				unit, exists := unitMap[unitName]
+				if !exists {
+					continue
+				}
+				if needsResizePolicyUpdate(unit, unitset) {
+					if err := r.updateInUpdateStatus(ctx, req, unitset, unitName); err != nil {
+						return fmt.Errorf("[reconcileResizePolicy] failed to start update for unit [%s]: %w", unitName, err)
+					}
+					return nil
+				}
+			}
+			// All units are up-to-date
+			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
+				return fmt.Errorf("[reconcileResizePolicy] failed to clear update status: %w", err)
+			}
+			return nil
+		}
+
+		// Check current unit
+		unit, exists := unitMap[current]
+		if !exists || !needsResizePolicyUpdate(unit, unitset) {
+			// Move to next unit
+			next := ""
+			for i, name := range unitNames {
+				if name == current && i+1 < len(unitNames) {
+					for j := i + 1; j < len(unitNames); j++ {
+						nextUnit := unitMap[unitNames[j]]
+						if needsResizePolicyUpdate(nextUnit, unitset) {
+							next = unitNames[j]
+							break
+						}
+					}
+					break
+				}
+			}
+			if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
+				return fmt.Errorf("[reconcileResizePolicy] failed to advance update status: %w", err)
+			}
+			return nil
+		}
+
+		// Wait for unit to be ready before updating
+		if unit.Status.Phase != upmiov1alpha2.UnitReady {
+			return nil
+		}
+
+		// Update current unit
+		if err := r.updateUnitResizePolicy(ctx, req, unitset, current); err != nil {
+			return err
+		}
+
+		// Check if all units are updated
+		allUpdated := true
+		for _, unitName := range unitNames {
+			unit, exists := unitMap[unitName]
+			if !exists || needsResizePolicyUpdate(unit, unitset) || unit.Status.Phase != upmiov1alpha2.UnitReady {
+				allUpdated = false
+				break
+			}
+		}
+		if allUpdated {
+			if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
+				return fmt.Errorf("[reconcileResizePolicy] update unitset status error: %w", err)
+			}
+		}
+		return nil
+	}
+
+	// Parallel update strategy
+	var (
+		errs []error
+		mu   sync.Mutex
+	)
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+
+	needUpdate := false
+
+	for _, unitName := range unitNames {
+		unit, exists := unitMap[unitName]
+		if !exists {
+			continue
+		}
+
+		if !needsResizePolicyUpdate(unit, unitset) {
+			continue
+		}
+
+		needUpdate = true
+		unitName := unitName
+		g.Go(func() error {
+			uctx, cancel := context.WithTimeout(gctx, 10*time.Second)
+			defer cancel()
+			if err := r.updateUnitResizePolicy(uctx, req, unitset, unitName); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+	if len(errs) > 0 {
+		return fmt.Errorf("[reconcileResizePolicy] errors: %w", utilerrors.NewAggregate(errs))
+	}
+
+	if needUpdate {
+		if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
+			return fmt.Errorf("[reconcileResizePolicy] update unitset status error: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// needsResizePolicyUpdate checks if a unit needs ResizePolicy update
+func needsResizePolicyUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) bool {
+	if len(unitset.Spec.ResizePolicy) == 0 {
+		return false
+	}
+
+	for i := range unit.Spec.Template.Spec.Containers {
+		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
+			container := unit.Spec.Template.Spec.Containers[i]
+			// Check if ResizePolicy differs
+			if !equality.Semantic.DeepEqual(container.ResizePolicy, unitset.Spec.ResizePolicy) {
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
+// updateUnitResizePolicy updates a single unit's ResizePolicy
+func (r *UnitSetReconciler) updateUnitResizePolicy(
+	ctx context.Context,
+	req ctrl.Request,
+	unitset *upmiov1alpha2.UnitSet,
+	unitName string) error {
+
+	updated := false
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current := &upmiov1alpha2.Unit{}
+		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err != nil {
+			return err
+		}
+		if !needsResizePolicyUpdate(current, unitset) {
+			return nil
+		}
+		updatedUnit := mergeResizePolicy(*current, unitset)
+		updated = true
+		return r.Update(ctx, &updatedUnit)
+	})
+	if err != nil {
+		return fmt.Errorf("[reconcileResizePolicy] update unit [%s/%s] error: %w", req.Namespace, unitName, err)
+	}
+	if !updated {
+		return nil
+	}
+
+	return nil
+}
+
+// mergeResizePolicy merges ResizePolicy from UnitSet to Unit
+func mergeResizePolicy(kUnit upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) upmiov1alpha2.Unit {
+	unit := kUnit.DeepCopy()
+
+	for i := range unit.Spec.Template.Spec.Containers {
+		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
+			// Sync ResizePolicy from UnitSet
+			// Note: resizePolicy is immutable on running pods, so this update will trigger pod recreation
+			unit.Spec.Template.Spec.Containers[i].ResizePolicy = unitset.Spec.ResizePolicy
+			break
+		}
+	}
+
+	return *unit
+}

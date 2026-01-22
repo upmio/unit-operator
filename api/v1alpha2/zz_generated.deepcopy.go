@@ -625,6 +625,11 @@ func (in *UnitSetList) DeepCopyObject() runtime.Object {
 func (in *UnitSetSpec) DeepCopyInto(out *UnitSetSpec) {
 	*out = *in
 	in.Resources.DeepCopyInto(&out.Resources)
+	if in.ResizePolicy != nil {
+		in, out := &in.ResizePolicy, &out.ResizePolicy
+		*out = make([]corev1.ContainerResizePolicy, len(*in))
+		copy(*out, *in)
+	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]corev1.EnvVar, len(*in))

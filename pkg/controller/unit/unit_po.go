@@ -74,14 +74,21 @@ func (r *UnitReconciler) reconcilePod(ctx context.Context, req ctrl.Request, uni
 		}
 
 		// mem,cpu support update without recreate pod, in place vertical scaling
+		// BUT only if the Pod already has the correct ResizePolicy configured.
+		// ResizePolicy is immutable, so if it's missing or incorrect, we must recreate the Pod.
 		if (reason == "cpu changed" || reason == "memory changed") && vars.InPlacePodVerticalScalingEnabled {
-			err := r.resizePod(ctx, unit, pod)
-			if err != nil {
-				return fmt.Errorf("[reconcilePod] resize pod error: [%s]", err.Error())
-			}
-			r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "resize pod [%s] ok~", pod.Name)
+			// Check if the Pod has the required ResizePolicy
+			if canUseInPlaceResize(unit, pod) {
+				err := r.resizePod(ctx, unit, pod)
+				if err != nil {
+					return fmt.Errorf("[reconcilePod] resize pod error: [%s]", err.Error())
+				}
+				r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "resize pod [%s] ok~", pod.Name)
 
-			return nil
+				return nil
+			}
+			// Pod doesn't have correct ResizePolicy, must recreate
+			klog.Infof("Pod [%s] missing or incorrect ResizePolicy, will recreate instead of in-place resize", pod.Name)
 		}
 
 		err = r.upgradePod(ctx, req, unit, pod, reason)
@@ -458,6 +465,15 @@ func ifNeedUpgradePod(unit *upmiov1alpha2.Unit, pod *v1.Pod) (upgradeReason stri
 				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) {
 					return "env changed", true
 				}
+
+				// ResizePolicy - check if ResizePolicy changed
+				// ResizePolicy is immutable, so any mismatch requires pod recreation
+				if !reflect.DeepEqual(unitContainer.ResizePolicy, podContainer.ResizePolicy) {
+					klog.Infof("Pod [%s] ResizePolicy mismatch: unit has %v, pod has %v",
+						pod.Name, unitContainer.ResizePolicy, podContainer.ResizePolicy)
+					return "resizePolicy changed", true
+				}
+
 			} else {
 				// Any non-main container env drift requires recreation to keep pod in sync with Unit spec
 				if !LoopCompareEnv(unitContainer.Env, podContainer.Env) {
@@ -665,4 +681,49 @@ func (r *UnitReconciler) waitPodFailed(ctx context.Context, unit *upmiov1alpha2.
 	}
 
 	return err
+}
+
+// canUseInPlaceResize checks if a Pod can use in-place resize.
+// In-place resize requires that the Pod already has the correct ResizePolicy configured.
+// Since ResizePolicy is immutable, if it's missing or doesn't match the Unit spec,
+// the Pod must be recreated instead.
+func canUseInPlaceResize(unit *upmiov1alpha2.Unit, pod *v1.Pod) bool {
+	mainContainerName := unit.Annotations[upmiov1alpha2.AnnotationMainContainerName]
+	if mainContainerName == "" {
+		return false
+	}
+
+	// Find the desired ResizePolicy from Unit spec
+	var desiredResizePolicy []v1.ContainerResizePolicy
+	for i := range unit.Spec.Template.Spec.Containers {
+		if unit.Spec.Template.Spec.Containers[i].Name == mainContainerName {
+			desiredResizePolicy = unit.Spec.Template.Spec.Containers[i].ResizePolicy
+			break
+		}
+	}
+
+	// Find the actual ResizePolicy from Pod spec
+	var actualResizePolicy []v1.ContainerResizePolicy
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == mainContainerName {
+			actualResizePolicy = pod.Spec.Containers[i].ResizePolicy
+			break
+		}
+	}
+
+	// If Unit expects ResizePolicy but Pod doesn't have it, cannot use in-place resize
+	if len(desiredResizePolicy) > 0 && len(actualResizePolicy) == 0 {
+		klog.Infof("Pod [%s/%s] missing ResizePolicy, cannot use in-place resize", pod.Namespace, pod.Name)
+		return false
+	}
+
+	// If ResizePolicy doesn't match, cannot use in-place resize
+	if !reflect.DeepEqual(desiredResizePolicy, actualResizePolicy) {
+		klog.Infof("Pod [%s/%s] ResizePolicy mismatch (desired: %v, actual: %v), cannot use in-place resize",
+			pod.Namespace, pod.Name, desiredResizePolicy, actualResizePolicy)
+		return false
+	}
+
+	// ResizePolicy matches or both are empty, can use in-place resize
+	return true
 }
