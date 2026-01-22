@@ -181,6 +181,24 @@ func (r *UnitReconciler) resizePod(ctx context.Context, unit *upmiov1alpha2.Unit
 		r.Recorder.Eventf(unit, v1.EventTypeNormal, "SuccessUpdated", "set pod [%s] resizePolicy ok~", pod.Name)
 	}
 
+	pod = &v1.Pod{}
+	err := r.Get(ctx, client.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, pod)
+	if err != nil {
+		return fmt.Errorf("get pod after patch resizePolicy failed: %w", err)
+	}
+
+	// Find the container index in the existing Pod
+	containerIdx = -1
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == mainContainerName {
+			containerIdx = i
+			break
+		}
+	}
+	if containerIdx < 0 {
+		return fmt.Errorf("main container %q not found in pod spec", mainContainerName)
+	}
+
 	// 2) Patch /resize to update only resources.
 	cur := pod.Spec.Containers[containerIdx].Resources
 	if reflect.DeepEqual(cur.Requests, desiredResources.Requests) && reflect.DeepEqual(cur.Limits, desiredResources.Limits) {
