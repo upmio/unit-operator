@@ -584,6 +584,8 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 
 	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
 		current := unitset.Status.InUpdate
+
+		// Phase 1: No update in progress - find first unit that needs update
 		if current == "" {
 			for _, unitName := range unitNames {
 				unit, exists := unitMap[unitName]
@@ -597,55 +599,70 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 					return nil
 				}
 			}
+			// All units up-to-date
 			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
 				return fmt.Errorf("failed to clear resource update status: %w", err)
 			}
 			return nil
 		}
 
+		// Phase 2: Check if current unit exists
 		unit, exists := unitMap[current]
-		if !exists || !needsResourceUpdate(unit, unitset) {
-			next := ""
-			for i, name := range unitNames {
-				if name == current && i+1 < len(unitNames) {
-					for j := i + 1; j < len(unitNames); j++ {
-						nextUnit := unitMap[unitNames[j]]
-						if needsResourceUpdate(nextUnit, unitset) {
-							next = unitNames[j]
-							break
-						}
-					}
-					break
-				}
-			}
-			if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
-				return fmt.Errorf("failed to advance resource update status: %w", err)
+		if !exists {
+			// Unit doesn't exist, clear and retry
+			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
+				return fmt.Errorf("failed to clear invalid update status: %w", err)
 			}
 			return nil
 		}
 
+		// Phase 3: Check if current unit still needs update
+		if !needsResourceUpdate(unit, unitset) {
+			// Unit spec already updated, check if it's ready (update completed)
+			if unit.Status.Phase == upmiov1alpha2.UnitReady {
+				// Update completed, find next unit that needs update
+				next := ""
+				foundCurrent := false
+				for _, name := range unitNames {
+					if name == current {
+						foundCurrent = true
+						continue
+					}
+					if foundCurrent {
+						nextUnit := unitMap[name]
+						if nextUnit != nil && needsResourceUpdate(nextUnit, unitset) {
+							next = name
+							break
+						}
+					}
+				}
+
+				if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
+					return fmt.Errorf("failed to advance resource update status: %w", err)
+				}
+
+				// If all done, update observedGeneration
+				if next == "" {
+					if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
+						return fmt.Errorf("[reconcileResources] update unitset status error: %w", err)
+					}
+				}
+			}
+			// If not ready yet, wait
+			return nil
+		}
+
+		// Phase 4: Wait for unit to be ready before updating
 		if unit.Status.Phase != upmiov1alpha2.UnitReady {
 			return nil
 		}
 
+		// Phase 5: Update current unit
 		if err := r.updateUnitResources(ctx, req, unitset, current); err != nil {
 			return err
 		}
 
-		allReady := true
-		for _, unitName := range unitNames {
-			unit, exists := unitMap[unitName]
-			if !exists || needsResourceUpdate(unit, unitset) || unit.Status.Phase != upmiov1alpha2.UnitReady {
-				allReady = false
-				break
-			}
-		}
-		if allReady {
-			err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset)
-			if err != nil {
-				return fmt.Errorf("[reconcileResources] update unitset status error:[%s]", err.Error())
-			}
-		}
+		// Phase 6: Keep InUpdate as current, wait for next reconcile to check if Ready
 		return nil
 	}
 
@@ -979,10 +996,6 @@ func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSe
 // reconcileResizePolicy synchronizes ResizePolicy from UnitSet to all Units.
 // This is handled separately from resource updates because ResizePolicy can be changed independently.
 func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
-	// Skip if feature is not enabled or ResizePolicy is not configured
-	if len(unitset.Spec.ResizePolicy) == 0 {
-		return nil
-	}
 
 	kUnits, err := r.unitsBelongUnitset(ctx, unitset)
 	if err != nil {
@@ -1002,76 +1015,74 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 	unitNames = sortUnitNamesByOrdinal(unitNames)
 
 	// Rolling update strategy for ResizePolicy changes
+	// Semantics: unitset.Status.InUpdate tracks the unit currently being upgraded
+	// Completion criteria: unit.Status.Phase == UnitReady after update
 	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
 		current := unitset.Status.InUpdate
+
+		// Phase 1: No update in progress - find and mark first unit that needs update
 		if current == "" {
-			// Start from first unit that needs update
 			for _, unitName := range unitNames {
 				unit, exists := unitMap[unitName]
 				if !exists {
 					continue
 				}
 				if needsResizePolicyUpdate(unit, unitset) {
+					// Mark this unit as current upgrade target
 					if err := r.updateInUpdateStatus(ctx, req, unitset, unitName); err != nil {
 						return fmt.Errorf("[reconcileResizePolicy] failed to start update for unit [%s]: %w", unitName, err)
 					}
 					return nil
 				}
 			}
-			// All units are up-to-date
+			// All units are up-to-date, ensure InUpdate is cleared
+			return nil
+		}
+
+		// Phase 2: We have a current unit marked - check if it exists
+		unit, exists := unitMap[current]
+		if !exists {
+			// Current unit doesn't exist, clear status and retry
 			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
-				return fmt.Errorf("[reconcileResizePolicy] failed to clear update status: %w", err)
+				return fmt.Errorf("[reconcileResizePolicy] failed to clear invalid update status: %w", err)
 			}
 			return nil
 		}
 
-		// Check current unit
-		unit, exists := unitMap[current]
-		if !exists || !needsResizePolicyUpdate(unit, unitset) {
-			// Move to next unit
-			next := ""
-			for i, name := range unitNames {
-				if name == current && i+1 < len(unitNames) {
-					for j := i + 1; j < len(unitNames); j++ {
-						nextUnit := unitMap[unitNames[j]]
-						if needsResizePolicyUpdate(nextUnit, unitset) {
-							next = unitNames[j]
-							break
-						}
+		// Phase 3: Check if current unit still needs update
+		if !needsResizePolicyUpdate(unit, unitset) {
+			// Unit spec already updated, check if it's ready (update completed)
+			if unit.Status.Phase == upmiov1alpha2.UnitReady {
+				// Update completed, advance to next unit
+				next := r.findNextUnitNeedsResizePolicy(unitNames, current, unitMap, unitset)
+
+				if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
+					return fmt.Errorf("[reconcileResizePolicy] failed to advance to next unit: %w", err)
+				}
+
+				// If no more units to update, update observedGeneration
+				if next == "" {
+					if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
+						return fmt.Errorf("[reconcileResizePolicy] update unitset status error: %w", err)
 					}
-					break
 				}
 			}
-			if err := r.updateInUpdateStatus(ctx, req, unitset, next); err != nil {
-				return fmt.Errorf("[reconcileResizePolicy] failed to advance update status: %w", err)
-			}
+			// If not ready yet, wait (return without advancing)
 			return nil
 		}
 
-		// Wait for unit to be ready before updating
+		// Phase 4: Current unit needs update - wait for it to be ready before updating
 		if unit.Status.Phase != upmiov1alpha2.UnitReady {
 			return nil
 		}
 
-		// Update current unit
+		// Phase 5: Update the current unit (spec update, will trigger pod recreation)
 		if err := r.updateUnitResizePolicy(ctx, req, unitset, current); err != nil {
 			return err
 		}
 
-		// Check if all units are updated
-		allUpdated := true
-		for _, unitName := range unitNames {
-			unit, exists := unitMap[unitName]
-			if !exists || needsResizePolicyUpdate(unit, unitset) || unit.Status.Phase != upmiov1alpha2.UnitReady {
-				allUpdated = false
-				break
-			}
-		}
-		if allUpdated {
-			if err := r.reconcileUnitsetObservedGeneration(ctx, req, unitset); err != nil {
-				return fmt.Errorf("[reconcileResizePolicy] update unitset status error: %w", err)
-			}
-		}
+		// Phase 6: Update done, keep InUpdate as current, wait for next reconcile to check if Ready
+		// Do NOT advance here - we need to wait for unit to become Ready again
 		return nil
 	}
 
@@ -1124,12 +1135,32 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 	return nil
 }
 
+// findNextUnitNeedsResizePolicy finds the next unit after 'current' that needs ResizePolicy update
+// Returns empty string if no more units need update
+func (r *UnitSetReconciler) findNextUnitNeedsResizePolicy(
+	unitNames []string,
+	current string,
+	unitMap map[string]*upmiov1alpha2.Unit,
+	unitset *upmiov1alpha2.UnitSet) string {
+
+	foundCurrent := false
+	for _, name := range unitNames {
+		if name == current {
+			foundCurrent = true
+			continue
+		}
+		if foundCurrent {
+			nextUnit := unitMap[name]
+			if nextUnit != nil && needsResizePolicyUpdate(nextUnit, unitset) {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
 // needsResizePolicyUpdate checks if a unit needs ResizePolicy update
 func needsResizePolicyUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSet) bool {
-	if len(unitset.Spec.ResizePolicy) == 0 {
-		return false
-	}
-
 	for i := range unit.Spec.Template.Spec.Containers {
 		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
 			container := unit.Spec.Template.Spec.Containers[i]
