@@ -256,6 +256,12 @@ func (r *UnitSetReconciler) updateInUpdateStatus(
 			return fmt.Errorf("failed to get latest unitset: %w", err)
 		}
 
+		// Skip update if InUpdate already has the desired value
+		// This prevents unnecessary status updates and reconcile loops
+		if latest.Status.InUpdate == unitName {
+			return nil
+		}
+
 		// Update InUpdate status
 		latest.Status.InUpdate = unitName
 
@@ -600,9 +606,9 @@ func (r *UnitSetReconciler) reconcileResources(ctx context.Context, req ctrl.Req
 				}
 			}
 			// All units up-to-date
-			if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
-				return fmt.Errorf("failed to clear resource update status: %w", err)
-			}
+			//if err := r.updateInUpdateStatus(ctx, req, unitset, ""); err != nil {
+			//	return fmt.Errorf("failed to clear resource update status: %w", err)
+			//}
 			return nil
 		}
 
@@ -995,6 +1001,7 @@ func needsResourceUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.UnitSe
 
 // reconcileResizePolicy synchronizes ResizePolicy from UnitSet to all Units.
 // This is handled separately from resource updates because ResizePolicy can be changed independently.
+// Note: This method will sync both additions AND deletions of ResizePolicy to maintain consistency.
 func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.Request, unitset *upmiov1alpha2.UnitSet) error {
 
 	kUnits, err := r.unitsBelongUnitset(ctx, unitset)
