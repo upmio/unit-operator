@@ -1035,6 +1035,7 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 				if !exists {
 					continue
 				}
+				klog.Infof("[reconcileResizePolicy] updating unit [%s/%s] when [unitset.Status.InUpdate is null] ", unitset.Namespace, unitset.Name)
 				if needsResizePolicyUpdate(unit, unitset) {
 					// Mark this unit as current upgrade target
 					if err := r.updateInUpdateStatus(ctx, req, unitset, unitName); err != nil {
@@ -1058,6 +1059,7 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 		}
 
 		// Phase 3: Check if current unit still needs update
+		klog.Infof("[reconcileResizePolicy] [Phase 3] checking if unit [%s/%s] needs ResizePolicy update", unitset.Namespace, current)
 		if !needsResizePolicyUpdate(unit, unitset) {
 			// Unit spec already updated, check if it's ready (update completed)
 			if unit.Status.Phase == upmiov1alpha2.UnitReady {
@@ -1087,6 +1089,7 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 		}
 
 		// Phase 5: Update the current unit (spec update, will trigger pod recreation)
+		klog.Infof("[reconcileResizePolicy] [Phase 5]updating ResizePolicy for unit [%s/%s]", unitset.Namespace, current)
 		if err := r.updateUnitResizePolicy(ctx, req, unitset, current); err != nil {
 			return err
 		}
@@ -1200,9 +1203,9 @@ func (r *UnitSetReconciler) updateUnitResizePolicy(
 		if err := r.Get(ctx, client.ObjectKey{Name: unitName, Namespace: req.Namespace}, current); err != nil {
 			return err
 		}
-		if !needsResizePolicyUpdate(current, unitset) {
-			return nil
-		}
+		//if !needsResizePolicyUpdate(current, unitset) {
+		//	return nil
+		//}
 
 		updatedUnit := mergeResizePolicy(*current, unitset)
 		updated = true
