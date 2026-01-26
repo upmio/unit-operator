@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/klog/v2"
 
 	upmiov1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/vars"
@@ -1080,7 +1081,9 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 
 		// Phase 4: Current unit needs update - wait for it to be ready before updating
 		if unit.Status.Phase != upmiov1alpha2.UnitReady {
-			return nil
+			klog.Infof("[reconcileResizePolicy] waiting for unit [%s] to become Ready before updating", current)
+			klog.Infof("[reconcileResizePolicy] current unit phase: %s", unit.Status.Phase)
+			return fmt.Errorf("[reconcileResizePolicy] waiting for unit [%s] to become Ready before updating", current)
 		}
 
 		// Phase 5: Update the current unit (spec update, will trigger pod recreation)
@@ -1172,6 +1175,8 @@ func needsResizePolicyUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.Un
 		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
 			container := unit.Spec.Template.Spec.Containers[i]
 			// Check if ResizePolicy differs
+			klog.Infof("[needsResizePolicyUpdate] main container resizePolicy:[%v]", container.ResizePolicy)
+			klog.Infof("[needsResizePolicyUpdate] unitset resizePolicy:[%v]", unitset.Spec.ResizePolicy)
 			if !equality.Semantic.DeepEqual(container.ResizePolicy, unitset.Spec.ResizePolicy) {
 				return true
 			}
@@ -1188,6 +1193,7 @@ func (r *UnitSetReconciler) updateUnitResizePolicy(
 	unitset *upmiov1alpha2.UnitSet,
 	unitName string) error {
 
+	klog.Infof("[updateUnitResizePolicy] updating unit [%s]", unitName)
 	updated := false
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		current := &upmiov1alpha2.Unit{}
@@ -1197,13 +1203,16 @@ func (r *UnitSetReconciler) updateUnitResizePolicy(
 		if !needsResizePolicyUpdate(current, unitset) {
 			return nil
 		}
+
 		updatedUnit := mergeResizePolicy(*current, unitset)
 		updated = true
 		return r.Update(ctx, &updatedUnit)
 	})
+
 	if err != nil {
 		return fmt.Errorf("[reconcileResizePolicy] update unit [%s/%s] error: %w", req.Namespace, unitName, err)
 	}
+
 	if !updated {
 		return nil
 	}

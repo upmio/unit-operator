@@ -167,8 +167,8 @@ func (r *UnitSetReconciler) reconcileUnitService(
 	ports []v1.ContainerPort) error {
 
 	if unitset.Spec.UnitService.Type == "" {
-		klog.Infof("reconcileUnitService: unitset: [%s] spec.unitService.type is null,"+
-			"no need generate unit service", req.String())
+		//klog.Infof("reconcileUnitService: unitset: [%s] spec.unitService.type is null,"+
+		//	"no need generate unit service", req.String())
 		return nil
 	}
 
