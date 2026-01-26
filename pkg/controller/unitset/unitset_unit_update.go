@@ -1022,11 +1022,28 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 	unitNames, _ := unitset.UnitNames()
 	unitNames = sortUnitNamesByOrdinal(unitNames)
 
+	// check if any unit needs update
+	ifNeedUpdate := false
+	for _, unitName := range unitNames {
+		unit, exists := unitMap[unitName]
+		if !exists {
+			continue
+		}
+		if needsResizePolicyUpdate(unit, unitset) {
+			ifNeedUpdate = true
+			break
+		}
+	}
+	if !ifNeedUpdate {
+		return nil
+	}
+
 	// Rolling update strategy for ResizePolicy changes
 	// Semantics: unitset.Status.InUpdate tracks the unit currently being upgraded
 	// Completion criteria: unit.Status.Phase == UnitReady after update
 	if strings.EqualFold(unitset.Spec.UpdateStrategy.Type, updateStrategyRollingUpdate) {
 		current := unitset.Status.InUpdate
+		klog.Infof("[reconcileResizePolicy] unitset:[%s] [RollingUpdate] current InUpdate unit: [%s]", unitset.Name, current)
 
 		// Phase 1: No update in progress - find and mark first unit that needs update
 		if current == "" {
@@ -1041,6 +1058,7 @@ func (r *UnitSetReconciler) reconcileResizePolicy(ctx context.Context, req ctrl.
 					if err := r.updateInUpdateStatus(ctx, req, unitset, unitName); err != nil {
 						return fmt.Errorf("[reconcileResizePolicy] failed to start update for unit [%s]: %w", unitName, err)
 					}
+
 					return nil
 				}
 			}
@@ -1178,11 +1196,14 @@ func needsResizePolicyUpdate(unit *upmiov1alpha2.Unit, unitset *upmiov1alpha2.Un
 		if unit.Spec.Template.Spec.Containers[i].Name == unitset.Spec.Type {
 			container := unit.Spec.Template.Spec.Containers[i]
 			// Check if ResizePolicy differs
-			klog.Infof("[needsResizePolicyUpdate] main container resizePolicy:[%v]", container.ResizePolicy)
+			klog.Infof("[needsResizePolicyUpdate] unitset:[%s], unit:[%s]", unitset.Name, unit.Name)
+			klog.Infof("[needsResizePolicyUpdate] unit main container resizePolicy:[%v]", container.ResizePolicy)
 			klog.Infof("[needsResizePolicyUpdate] unitset resizePolicy:[%v]", unitset.Spec.ResizePolicy)
 			if !equality.Semantic.DeepEqual(container.ResizePolicy, unitset.Spec.ResizePolicy) {
+				klog.Infof("[needsResizePolicyUpdate] unit [%s] needs ResizePolicy update", unit.Name)
 				return true
 			}
+
 			return false
 		}
 	}

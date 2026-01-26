@@ -29,7 +29,7 @@ func (r *UnitSetReconciler) reconcileUnit(
 	ports []v1.ContainerPort) error {
 
 	unitNames, unitNamesWithIndex := unitset.UnitNames()
-	klog.Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
+	//klog.Infof("reconcileUnit units len:[%d],[%v]", len(unitNames), unitNames)
 
 	// volume's PVC name needs to be filled in during unit generation
 	volumeMounts, volumes, envVars, pvcs := generateVolumeMountsAndEnvs(unitset)
