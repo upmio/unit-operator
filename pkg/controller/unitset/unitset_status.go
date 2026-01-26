@@ -227,9 +227,10 @@ func (r *UnitSetReconciler) reconcileUnitsetStatus(ctx context.Context, req ctrl
 
 	if len(inUpdateUnits) > 0 {
 		unitset.Status.InUpdate = strings.Join(inUpdateUnits, ",")
-	} else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
-		unitset.Status.InUpdate = ""
 	}
+	//else if unitImageSyncedCount == orig.Spec.Units && unitResourceSyncedCount == orig.Spec.Units {
+	//	unitset.Status.InUpdate = ""
+	//}
 
 	//if equality.Semantic.DeepEqual(orig.Status, unitset.Status) {
 	//	return nil
