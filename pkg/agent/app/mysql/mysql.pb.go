@@ -7,6 +7,7 @@
 package mysql
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,49 +22,49 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type PhysicalBackupTool int32
+type Tool int32
 
 const (
-	PhysicalBackupTool_Xtrabackup PhysicalBackupTool = 0
-	PhysicalBackupTool_Meb        PhysicalBackupTool = 1
+	Tool_Xtrabackup Tool = 0
+	Tool_Meb        Tool = 1
 )
 
-// Enum value maps for PhysicalBackupTool.
+// Enum value maps for Tool.
 var (
-	PhysicalBackupTool_name = map[int32]string{
+	Tool_name = map[int32]string{
 		0: "Xtrabackup",
 		1: "Meb",
 	}
-	PhysicalBackupTool_value = map[string]int32{
+	Tool_value = map[string]int32{
 		"Xtrabackup": 0,
 		"Meb":        1,
 	}
 )
 
-func (x PhysicalBackupTool) Enum() *PhysicalBackupTool {
-	p := new(PhysicalBackupTool)
+func (x Tool) Enum() *Tool {
+	p := new(Tool)
 	*p = x
 	return p
 }
 
-func (x PhysicalBackupTool) String() string {
+func (x Tool) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (PhysicalBackupTool) Descriptor() protoreflect.EnumDescriptor {
+func (Tool) Descriptor() protoreflect.EnumDescriptor {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[0].Descriptor()
 }
 
-func (PhysicalBackupTool) Type() protoreflect.EnumType {
+func (Tool) Type() protoreflect.EnumType {
 	return &file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[0]
 }
 
-func (x PhysicalBackupTool) Number() protoreflect.EnumNumber {
+func (x Tool) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use PhysicalBackupTool.Descriptor instead.
-func (PhysicalBackupTool) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Tool.Descriptor instead.
+func (Tool) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{0}
 }
 
@@ -116,106 +117,14 @@ func (LogicalBackupMode) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{1}
 }
 
-type ArchMode int32
-
-const (
-	ArchMode_Replication      ArchMode = 0
-	ArchMode_GroupReplication ArchMode = 1
-)
-
-// Enum value maps for ArchMode.
-var (
-	ArchMode_name = map[int32]string{
-		0: "Replication",
-		1: "GroupReplication",
-	}
-	ArchMode_value = map[string]int32{
-		"Replication":      0,
-		"GroupReplication": 1,
-	}
-)
-
-func (x ArchMode) Enum() *ArchMode {
-	p := new(ArchMode)
-	*p = x
-	return p
-}
-
-func (x ArchMode) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ArchMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[2].Descriptor()
-}
-
-func (ArchMode) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[2]
-}
-
-func (x ArchMode) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ArchMode.Descriptor instead.
-func (ArchMode) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{2}
-}
-
-type S3StorageType int32
-
-const (
-	S3StorageType_Minio S3StorageType = 0
-)
-
-// Enum value maps for S3StorageType.
-var (
-	S3StorageType_name = map[int32]string{
-		0: "Minio",
-	}
-	S3StorageType_value = map[string]int32{
-		"Minio": 0,
-	}
-)
-
-func (x S3StorageType) Enum() *S3StorageType {
-	p := new(S3StorageType)
-	*p = x
-	return p
-}
-
-func (x S3StorageType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[3].Descriptor()
-}
-
-func (S3StorageType) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes[3]
-}
-
-func (x S3StorageType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use S3StorageType.Descriptor instead.
-func (S3StorageType) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{3}
-}
-
 type CloneRequest struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	SourceCloneUser     string                 `protobuf:"bytes,1,opt,name=source_clone_user,json=sourceCloneUser,proto3" json:"source_clone_user,omitempty"`
-	SourceClonePassword string                 `protobuf:"bytes,2,opt,name=source_clone_password,json=sourceClonePassword,proto3" json:"source_clone_password,omitempty"`
-	SourceHost          string                 `protobuf:"bytes,3,opt,name=source_host,json=sourceHost,proto3" json:"source_host,omitempty"`
-	SourcePort          int64                  `protobuf:"varint,4,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
-	SocketFile          string                 `protobuf:"bytes,5,opt,name=socket_file,json=socketFile,proto3" json:"socket_file,omitempty"`
-	Username            string                 `protobuf:"bytes,6,opt,name=username,proto3" json:"username,omitempty"`
-	Password            string                 `protobuf:"bytes,7,opt,name=password,proto3" json:"password,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SourceCloneUser string                 `protobuf:"bytes,1,opt,name=source_clone_user,json=sourceCloneUser,proto3" json:"source_clone_user,omitempty"`
+	SourceHost      string                 `protobuf:"bytes,2,opt,name=source_host,json=sourceHost,proto3" json:"source_host,omitempty"`
+	SourcePort      int64                  `protobuf:"varint,3,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	Username        string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CloneRequest) Reset() {
@@ -255,13 +164,6 @@ func (x *CloneRequest) GetSourceCloneUser() string {
 	return ""
 }
 
-func (x *CloneRequest) GetSourceClonePassword() string {
-	if x != nil {
-		return x.SourceClonePassword
-	}
-	return ""
-}
-
 func (x *CloneRequest) GetSourceHost() string {
 	if x != nil {
 		return x.SourceHost
@@ -276,13 +178,6 @@ func (x *CloneRequest) GetSourcePort() int64 {
 	return 0
 }
 
-func (x *CloneRequest) GetSocketFile() string {
-	if x != nil {
-		return x.SocketFile
-	}
-	return ""
-}
-
 func (x *CloneRequest) GetUsername() string {
 	if x != nil {
 		return x.Username
@@ -290,163 +185,21 @@ func (x *CloneRequest) GetUsername() string {
 	return ""
 }
 
-func (x *CloneRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type S3Storage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
-	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=mysql.S3StorageType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S3Storage) Reset() {
-	*x = S3Storage{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S3Storage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S3Storage) ProtoMessage() {}
-
-func (x *S3Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
-func (*S3Storage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *S3Storage) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *S3Storage) GetBucket() string {
-	if x != nil {
-		return x.Bucket
-	}
-	return ""
-}
-
-func (x *S3Storage) GetAccessKey() string {
-	if x != nil {
-		return x.AccessKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSecretKey() string {
-	if x != nil {
-		return x.SecretKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSsl() bool {
-	if x != nil {
-		return x.Ssl
-	}
-	return false
-}
-
-func (x *S3Storage) GetType() S3StorageType {
-	if x != nil {
-		return x.Type
-	}
-	return S3StorageType_Minio
-}
-
-type LocalStorage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LocalStorage) Reset() {
-	*x = LocalStorage{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LocalStorage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LocalStorage) ProtoMessage() {}
-
-func (x *LocalStorage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LocalStorage.ProtoReflect.Descriptor instead.
-func (*LocalStorage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *LocalStorage) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
 type LogicalBackupRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	BackupFile        string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	ConfFile          string                 `protobuf:"bytes,2,opt,name=conf_file,json=confFile,proto3" json:"conf_file,omitempty"`
-	SocketFile        string                 `protobuf:"bytes,3,opt,name=socket_file,json=socketFile,proto3" json:"socket_file,omitempty"`
-	Username          string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
-	Password          string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
-	Database          string                 `protobuf:"bytes,6,opt,name=database,proto3" json:"database,omitempty"`
-	Table             string                 `protobuf:"bytes,7,opt,name=table,proto3" json:"table,omitempty"`
-	LogicalBackupMode LogicalBackupMode      `protobuf:"varint,8,opt,name=logical_backup_mode,json=logicalBackupMode,proto3,enum=mysql.LogicalBackupMode" json:"logical_backup_mode,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*LogicalBackupRequest_S3Storage
-	//	*LogicalBackupRequest_LocalStorage
-	StorageType   isLogicalBackupRequest_StorageType `protobuf_oneof:"StorageType"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Username          string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Database          string                 `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
+	Table             string                 `protobuf:"bytes,4,opt,name=table,proto3" json:"table,omitempty"`
+	LogicalBackupMode LogicalBackupMode      `protobuf:"varint,5,opt,name=logical_backup_mode,json=logicalBackupMode,proto3,enum=mysql.LogicalBackupMode" json:"logical_backup_mode,omitempty"`
+	ObjectStorage     *common.ObjectStorage  `protobuf:"bytes,6,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *LogicalBackupRequest) Reset() {
 	*x = LogicalBackupRequest{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -458,7 +211,7 @@ func (x *LogicalBackupRequest) String() string {
 func (*LogicalBackupRequest) ProtoMessage() {}
 
 func (x *LogicalBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -471,7 +224,7 @@ func (x *LogicalBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogicalBackupRequest.ProtoReflect.Descriptor instead.
 func (*LogicalBackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{3}
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *LogicalBackupRequest) GetBackupFile() string {
@@ -481,30 +234,9 @@ func (x *LogicalBackupRequest) GetBackupFile() string {
 	return ""
 }
 
-func (x *LogicalBackupRequest) GetConfFile() string {
-	if x != nil {
-		return x.ConfFile
-	}
-	return ""
-}
-
-func (x *LogicalBackupRequest) GetSocketFile() string {
-	if x != nil {
-		return x.SocketFile
-	}
-	return ""
-}
-
 func (x *LogicalBackupRequest) GetUsername() string {
 	if x != nil {
 		return x.Username
-	}
-	return ""
-}
-
-func (x *LogicalBackupRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
 	}
 	return ""
 }
@@ -530,68 +262,26 @@ func (x *LogicalBackupRequest) GetLogicalBackupMode() LogicalBackupMode {
 	return LogicalBackupMode_Full
 }
 
-func (x *LogicalBackupRequest) GetStorageType() isLogicalBackupRequest_StorageType {
+func (x *LogicalBackupRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *LogicalBackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*LogicalBackupRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *LogicalBackupRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*LogicalBackupRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isLogicalBackupRequest_StorageType interface {
-	isLogicalBackupRequest_StorageType()
-}
-
-type LogicalBackupRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,9,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type LogicalBackupRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,10,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*LogicalBackupRequest_S3Storage) isLogicalBackupRequest_StorageType() {}
-
-func (*LogicalBackupRequest_LocalStorage) isLogicalBackupRequest_StorageType() {}
 
 type PhysicalBackupRequest struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile         string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	ConfFile           string                 `protobuf:"bytes,2,opt,name=conf_file,json=confFile,proto3" json:"conf_file,omitempty"`
-	SocketFile         string                 `protobuf:"bytes,3,opt,name=socket_file,json=socketFile,proto3" json:"socket_file,omitempty"`
-	Username           string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
-	Password           string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
-	Parallel           int64                  `protobuf:"varint,6,opt,name=parallel,proto3" json:"parallel,omitempty"`
-	PhysicalBackupTool PhysicalBackupTool     `protobuf:"varint,7,opt,name=physical_backup_tool,json=physicalBackupTool,proto3,enum=mysql.PhysicalBackupTool" json:"physical_backup_tool,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*PhysicalBackupRequest_S3Storage
-	//	*PhysicalBackupRequest_LocalStorage
-	StorageType   isPhysicalBackupRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Tool          Tool                   `protobuf:"varint,3,opt,name=tool,proto3,enum=mysql.Tool" json:"tool,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,4,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PhysicalBackupRequest) Reset() {
 	*x = PhysicalBackupRequest{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -603,7 +293,7 @@ func (x *PhysicalBackupRequest) String() string {
 func (*PhysicalBackupRequest) ProtoMessage() {}
 
 func (x *PhysicalBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -616,26 +306,12 @@ func (x *PhysicalBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PhysicalBackupRequest.ProtoReflect.Descriptor instead.
 func (*PhysicalBackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{4}
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PhysicalBackupRequest) GetBackupFile() string {
 	if x != nil {
 		return x.BackupFile
-	}
-	return ""
-}
-
-func (x *PhysicalBackupRequest) GetConfFile() string {
-	if x != nil {
-		return x.ConfFile
-	}
-	return ""
-}
-
-func (x *PhysicalBackupRequest) GetSocketFile() string {
-	if x != nil {
-		return x.SocketFile
 	}
 	return ""
 }
@@ -647,84 +323,32 @@ func (x *PhysicalBackupRequest) GetUsername() string {
 	return ""
 }
 
-func (x *PhysicalBackupRequest) GetPassword() string {
+func (x *PhysicalBackupRequest) GetTool() Tool {
 	if x != nil {
-		return x.Password
+		return x.Tool
 	}
-	return ""
+	return Tool_Xtrabackup
 }
 
-func (x *PhysicalBackupRequest) GetParallel() int64 {
+func (x *PhysicalBackupRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.Parallel
-	}
-	return 0
-}
-
-func (x *PhysicalBackupRequest) GetPhysicalBackupTool() PhysicalBackupTool {
-	if x != nil {
-		return x.PhysicalBackupTool
-	}
-	return PhysicalBackupTool_Xtrabackup
-}
-
-func (x *PhysicalBackupRequest) GetStorageType() isPhysicalBackupRequest_StorageType {
-	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *PhysicalBackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*PhysicalBackupRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *PhysicalBackupRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*PhysicalBackupRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isPhysicalBackupRequest_StorageType interface {
-	isPhysicalBackupRequest_StorageType()
-}
-
-type PhysicalBackupRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,8,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type PhysicalBackupRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,9,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*PhysicalBackupRequest_S3Storage) isPhysicalBackupRequest_StorageType() {}
-
-func (*PhysicalBackupRequest_LocalStorage) isPhysicalBackupRequest_StorageType() {}
 
 type RestoreRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	Parallel   int64                  `protobuf:"varint,2,opt,name=parallel,proto3" json:"parallel,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*RestoreRequest_S3Storage
-	//	*RestoreRequest_LocalStorage
-	StorageType   isRestoreRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	Tool          Tool                   `protobuf:"varint,2,opt,name=tool,proto3,enum=mysql.Tool" json:"tool,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[5]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -736,7 +360,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[5]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -749,7 +373,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{5}
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RestoreRequest) GetBackupFile() string {
@@ -759,67 +383,30 @@ func (x *RestoreRequest) GetBackupFile() string {
 	return ""
 }
 
-func (x *RestoreRequest) GetParallel() int64 {
+func (x *RestoreRequest) GetTool() Tool {
 	if x != nil {
-		return x.Parallel
+		return x.Tool
 	}
-	return 0
+	return Tool_Xtrabackup
 }
 
-func (x *RestoreRequest) GetStorageType() isRestoreRequest_StorageType {
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.StorageType
-	}
-	return nil
-}
-
-func (x *RestoreRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_S3Storage); ok {
-			return x.S3Storage
-		}
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *RestoreRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isRestoreRequest_StorageType interface {
-	isRestoreRequest_StorageType()
-}
-
-type RestoreRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,3,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type RestoreRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,4,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*RestoreRequest_S3Storage) isRestoreRequest_StorageType() {}
-
-func (*RestoreRequest_LocalStorage) isRestoreRequest_StorageType() {}
 
 type GtidPurgeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SocketFile    string                 `protobuf:"bytes,1,opt,name=socket_file,json=socketFile,proto3" json:"socket_file,omitempty"`
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
-	ArchMode      ArchMode               `protobuf:"varint,4,opt,name=arch_mode,json=archMode,proto3,enum=mysql.ArchMode" json:"arch_mode,omitempty"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GtidPurgeRequest) Reset() {
 	*x = GtidPurgeRequest{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[6]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -831,7 +418,7 @@ func (x *GtidPurgeRequest) String() string {
 func (*GtidPurgeRequest) ProtoMessage() {}
 
 func (x *GtidPurgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[6]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -844,14 +431,7 @@ func (x *GtidPurgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GtidPurgeRequest.ProtoReflect.Descriptor instead.
 func (*GtidPurgeRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *GtidPurgeRequest) GetSocketFile() string {
-	if x != nil {
-		return x.SocketFile
-	}
-	return ""
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GtidPurgeRequest) GetUsername() string {
@@ -861,34 +441,18 @@ func (x *GtidPurgeRequest) GetUsername() string {
 	return ""
 }
 
-func (x *GtidPurgeRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *GtidPurgeRequest) GetArchMode() ArchMode {
-	if x != nil {
-		return x.ArchMode
-	}
-	return ArchMode_Replication
-}
-
 type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	SocketFile    string                 `protobuf:"bytes,3,opt,name=socket_file,json=socketFile,proto3" json:"socket_file,omitempty"`
-	Username      string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SetVariableRequest) Reset() {
 	*x = SetVariableRequest{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[7]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -900,7 +464,7 @@ func (x *SetVariableRequest) String() string {
 func (*SetVariableRequest) ProtoMessage() {}
 
 func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[7]
+	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -913,7 +477,7 @@ func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVariableRequest.ProtoReflect.Descriptor instead.
 func (*SetVariableRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{7}
+	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SetVariableRequest) GetKey() string {
@@ -930,67 +494,9 @@ func (x *SetVariableRequest) GetValue() string {
 	return ""
 }
 
-func (x *SetVariableRequest) GetSocketFile() string {
-	if x != nil {
-		return x.SocketFile
-	}
-	return ""
-}
-
 func (x *SetVariableRequest) GetUsername() string {
 	if x != nil {
 		return x.Username
-	}
-	return ""
-}
-
-func (x *SetVariableRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Response) ProtoMessage() {}
-
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *Response) GetMessage() string {
-	if x != nil {
-		return x.Message
 	}
 	return ""
 }
@@ -999,102 +505,54 @@ var File_pkg_agent_app_mysql_pb_mysql_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc = "" +
 	"\n" +
-	"\"pkg/agent/app/mysql/pb/mysql.proto\x12\x05mysql\"\x89\x02\n" +
+	"\"pkg/agent/app/mysql/pb/mysql.proto\x12\x05mysql\x1a$pkg/agent/app/common/pb/common.proto\"\x98\x01\n" +
 	"\fCloneRequest\x12*\n" +
-	"\x11source_clone_user\x18\x01 \x01(\tR\x0fsourceCloneUser\x122\n" +
-	"\x15source_clone_password\x18\x02 \x01(\tR\x13sourceClonePassword\x12\x1f\n" +
-	"\vsource_host\x18\x03 \x01(\tR\n" +
+	"\x11source_clone_user\x18\x01 \x01(\tR\x0fsourceCloneUser\x12\x1f\n" +
+	"\vsource_host\x18\x02 \x01(\tR\n" +
 	"sourceHost\x12\x1f\n" +
-	"\vsource_port\x18\x04 \x01(\x03R\n" +
-	"sourcePort\x12\x1f\n" +
-	"\vsocket_file\x18\x05 \x01(\tR\n" +
-	"socketFile\x12\x1a\n" +
-	"\busername\x18\x06 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\a \x01(\tR\bpassword\"\xb9\x01\n" +
-	"\tS3Storage\x12\x1a\n" +
-	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
-	"\n" +
-	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
-	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
-	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12(\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x14.mysql.S3StorageTypeR\x04type\"\"\n" +
-	"\fLocalStorage\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\xa7\x03\n" +
+	"\vsource_port\x18\x03 \x01(\x03R\n" +
+	"sourcePort\x12\x1a\n" +
+	"\busername\x18\x04 \x01(\tR\busername\"\x8d\x02\n" +
 	"\x14LogicalBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12\x1b\n" +
-	"\tconf_file\x18\x02 \x01(\tR\bconfFile\x12\x1f\n" +
-	"\vsocket_file\x18\x03 \x01(\tR\n" +
-	"socketFile\x12\x1a\n" +
-	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\x12\x1a\n" +
-	"\bdatabase\x18\x06 \x01(\tR\bdatabase\x12\x14\n" +
-	"\x05table\x18\a \x01(\tR\x05table\x12H\n" +
-	"\x13logical_backup_mode\x18\b \x01(\x0e2\x18.mysql.LogicalBackupModeR\x11logicalBackupMode\x121\n" +
-	"\n" +
-	"s3_storage\x18\t \x01(\v2\x10.mysql.S3StorageH\x00R\ts3Storage\x12:\n" +
-	"\rlocal_storage\x18\n" +
-	" \x01(\v2\x13.mysql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\x95\x03\n" +
+	"backupFile\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bdatabase\x18\x03 \x01(\tR\bdatabase\x12\x14\n" +
+	"\x05table\x18\x04 \x01(\tR\x05table\x12H\n" +
+	"\x13logical_backup_mode\x18\x05 \x01(\x0e2\x18.mysql.LogicalBackupModeR\x11logicalBackupMode\x12<\n" +
+	"\x0eobject_storage\x18\x06 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"\xb3\x01\n" +
 	"\x15PhysicalBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12\x1b\n" +
-	"\tconf_file\x18\x02 \x01(\tR\bconfFile\x12\x1f\n" +
-	"\vsocket_file\x18\x03 \x01(\tR\n" +
-	"socketFile\x12\x1a\n" +
-	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\x12\x1a\n" +
-	"\bparallel\x18\x06 \x01(\x03R\bparallel\x12K\n" +
-	"\x14physical_backup_tool\x18\a \x01(\x0e2\x19.mysql.PhysicalBackupToolR\x12physicalBackupTool\x121\n" +
-	"\n" +
-	"s3_storage\x18\b \x01(\v2\x10.mysql.S3StorageH\x00R\ts3Storage\x12:\n" +
-	"\rlocal_storage\x18\t \x01(\v2\x13.mysql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\xcb\x01\n" +
+	"backupFile\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1f\n" +
+	"\x04tool\x18\x03 \x01(\x0e2\v.mysql.ToolR\x04tool\x12<\n" +
+	"\x0eobject_storage\x18\x04 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"\x90\x01\n" +
 	"\x0eRestoreRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12\x1a\n" +
-	"\bparallel\x18\x02 \x01(\x03R\bparallel\x121\n" +
-	"\n" +
-	"s3_storage\x18\x03 \x01(\v2\x10.mysql.S3StorageH\x00R\ts3Storage\x12:\n" +
-	"\rlocal_storage\x18\x04 \x01(\v2\x13.mysql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\x99\x01\n" +
-	"\x10GtidPurgeRequest\x12\x1f\n" +
-	"\vsocket_file\x18\x01 \x01(\tR\n" +
-	"socketFile\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\x12,\n" +
-	"\tarch_mode\x18\x04 \x01(\x0e2\x0f.mysql.ArchModeR\barchMode\"\x95\x01\n" +
+	"backupFile\x12\x1f\n" +
+	"\x04tool\x18\x02 \x01(\x0e2\v.mysql.ToolR\x04tool\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\".\n" +
+	"\x10GtidPurgeRequest\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\"X\n" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1f\n" +
-	"\vsocket_file\x18\x03 \x01(\tR\n" +
-	"socketFile\x12\x1a\n" +
-	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*-\n" +
-	"\x12PhysicalBackupTool\x12\x0e\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
+	"\busername\x18\x03 \x01(\tR\busername*\x1f\n" +
+	"\x04Tool\x12\x0e\n" +
 	"\n" +
 	"Xtrabackup\x10\x00\x12\a\n" +
 	"\x03Meb\x10\x01*6\n" +
 	"\x11LogicalBackupMode\x12\b\n" +
 	"\x04Full\x10\x00\x12\f\n" +
 	"\bDatabase\x10\x01\x12\t\n" +
-	"\x05Table\x10\x02*1\n" +
-	"\bArchMode\x12\x0f\n" +
-	"\vReplication\x10\x00\x12\x14\n" +
-	"\x10GroupReplication\x10\x01*\x1a\n" +
-	"\rS3StorageType\x12\t\n" +
-	"\x05Minio\x10\x002\xe4\x02\n" +
-	"\x0eMysqlOperation\x12-\n" +
-	"\x05Clone\x12\x13.mysql.CloneRequest\x1a\x0f.mysql.Response\x12?\n" +
-	"\x0ePhysicalBackup\x12\x1c.mysql.PhysicalBackupRequest\x1a\x0f.mysql.Response\x12=\n" +
-	"\rLogicalBackup\x12\x1b.mysql.LogicalBackupRequest\x1a\x0f.mysql.Response\x121\n" +
-	"\aRestore\x12\x15.mysql.RestoreRequest\x1a\x0f.mysql.Response\x125\n" +
-	"\tGtidPurge\x12\x17.mysql.GtidPurgeRequest\x1a\x0f.mysql.Response\x129\n" +
-	"\vSetVariable\x12\x19.mysql.SetVariableRequest\x1a\x0f.mysql.ResponseB4Z2github.com/upmio/unit-operator/pkg/agent/app/mysqlb\x06proto3"
+	"\x05Table\x10\x022\xd8\x02\n" +
+	"\x0eMysqlOperation\x12+\n" +
+	"\x05Clone\x12\x13.mysql.CloneRequest\x1a\r.common.Empty\x12=\n" +
+	"\x0ePhysicalBackup\x12\x1c.mysql.PhysicalBackupRequest\x1a\r.common.Empty\x12;\n" +
+	"\rLogicalBackup\x12\x1b.mysql.LogicalBackupRequest\x1a\r.common.Empty\x12/\n" +
+	"\aRestore\x12\x15.mysql.RestoreRequest\x1a\r.common.Empty\x123\n" +
+	"\tGtidPurge\x12\x17.mysql.GtidPurgeRequest\x1a\r.common.Empty\x127\n" +
+	"\vSetVariable\x12\x19.mysql.SetVariableRequest\x1a\r.common.EmptyB4Z2github.com/upmio/unit-operator/pkg/agent/app/mysqlb\x06proto3"
 
 var (
 	file_pkg_agent_app_mysql_pb_mysql_proto_rawDescOnce sync.Once
@@ -1108,51 +566,44 @@ func file_pkg_agent_app_mysql_pb_mysql_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_mysql_pb_mysql_proto_rawDescData
 }
 
-var file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_pkg_agent_app_mysql_pb_mysql_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_pkg_agent_app_mysql_pb_mysql_proto_goTypes = []any{
-	(PhysicalBackupTool)(0),       // 0: mysql.PhysicalBackupTool
+	(Tool)(0),                     // 0: mysql.Tool
 	(LogicalBackupMode)(0),        // 1: mysql.LogicalBackupMode
-	(ArchMode)(0),                 // 2: mysql.ArchMode
-	(S3StorageType)(0),            // 3: mysql.S3StorageType
-	(*CloneRequest)(nil),          // 4: mysql.CloneRequest
-	(*S3Storage)(nil),             // 5: mysql.S3Storage
-	(*LocalStorage)(nil),          // 6: mysql.LocalStorage
-	(*LogicalBackupRequest)(nil),  // 7: mysql.LogicalBackupRequest
-	(*PhysicalBackupRequest)(nil), // 8: mysql.PhysicalBackupRequest
-	(*RestoreRequest)(nil),        // 9: mysql.RestoreRequest
-	(*GtidPurgeRequest)(nil),      // 10: mysql.GtidPurgeRequest
-	(*SetVariableRequest)(nil),    // 11: mysql.SetVariableRequest
-	(*Response)(nil),              // 12: mysql.Response
+	(*CloneRequest)(nil),          // 2: mysql.CloneRequest
+	(*LogicalBackupRequest)(nil),  // 3: mysql.LogicalBackupRequest
+	(*PhysicalBackupRequest)(nil), // 4: mysql.PhysicalBackupRequest
+	(*RestoreRequest)(nil),        // 5: mysql.RestoreRequest
+	(*GtidPurgeRequest)(nil),      // 6: mysql.GtidPurgeRequest
+	(*SetVariableRequest)(nil),    // 7: mysql.SetVariableRequest
+	(*common.ObjectStorage)(nil),  // 8: common.ObjectStorage
+	(*common.Empty)(nil),          // 9: common.Empty
 }
 var file_pkg_agent_app_mysql_pb_mysql_proto_depIdxs = []int32{
-	3,  // 0: mysql.S3Storage.type:type_name -> mysql.S3StorageType
-	1,  // 1: mysql.LogicalBackupRequest.logical_backup_mode:type_name -> mysql.LogicalBackupMode
-	5,  // 2: mysql.LogicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
-	6,  // 3: mysql.LogicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
-	0,  // 4: mysql.PhysicalBackupRequest.physical_backup_tool:type_name -> mysql.PhysicalBackupTool
-	5,  // 5: mysql.PhysicalBackupRequest.s3_storage:type_name -> mysql.S3Storage
-	6,  // 6: mysql.PhysicalBackupRequest.local_storage:type_name -> mysql.LocalStorage
-	5,  // 7: mysql.RestoreRequest.s3_storage:type_name -> mysql.S3Storage
-	6,  // 8: mysql.RestoreRequest.local_storage:type_name -> mysql.LocalStorage
-	2,  // 9: mysql.GtidPurgeRequest.arch_mode:type_name -> mysql.ArchMode
-	4,  // 10: mysql.MysqlOperation.Clone:input_type -> mysql.CloneRequest
-	8,  // 11: mysql.MysqlOperation.PhysicalBackup:input_type -> mysql.PhysicalBackupRequest
-	7,  // 12: mysql.MysqlOperation.LogicalBackup:input_type -> mysql.LogicalBackupRequest
-	9,  // 13: mysql.MysqlOperation.Restore:input_type -> mysql.RestoreRequest
-	10, // 14: mysql.MysqlOperation.GtidPurge:input_type -> mysql.GtidPurgeRequest
-	11, // 15: mysql.MysqlOperation.SetVariable:input_type -> mysql.SetVariableRequest
-	12, // 16: mysql.MysqlOperation.Clone:output_type -> mysql.Response
-	12, // 17: mysql.MysqlOperation.PhysicalBackup:output_type -> mysql.Response
-	12, // 18: mysql.MysqlOperation.LogicalBackup:output_type -> mysql.Response
-	12, // 19: mysql.MysqlOperation.Restore:output_type -> mysql.Response
-	12, // 20: mysql.MysqlOperation.GtidPurge:output_type -> mysql.Response
-	12, // 21: mysql.MysqlOperation.SetVariable:output_type -> mysql.Response
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	1,  // 0: mysql.LogicalBackupRequest.logical_backup_mode:type_name -> mysql.LogicalBackupMode
+	8,  // 1: mysql.LogicalBackupRequest.object_storage:type_name -> common.ObjectStorage
+	0,  // 2: mysql.PhysicalBackupRequest.tool:type_name -> mysql.Tool
+	8,  // 3: mysql.PhysicalBackupRequest.object_storage:type_name -> common.ObjectStorage
+	0,  // 4: mysql.RestoreRequest.tool:type_name -> mysql.Tool
+	8,  // 5: mysql.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	2,  // 6: mysql.MysqlOperation.Clone:input_type -> mysql.CloneRequest
+	4,  // 7: mysql.MysqlOperation.PhysicalBackup:input_type -> mysql.PhysicalBackupRequest
+	3,  // 8: mysql.MysqlOperation.LogicalBackup:input_type -> mysql.LogicalBackupRequest
+	5,  // 9: mysql.MysqlOperation.Restore:input_type -> mysql.RestoreRequest
+	6,  // 10: mysql.MysqlOperation.GtidPurge:input_type -> mysql.GtidPurgeRequest
+	7,  // 11: mysql.MysqlOperation.SetVariable:input_type -> mysql.SetVariableRequest
+	9,  // 12: mysql.MysqlOperation.Clone:output_type -> common.Empty
+	9,  // 13: mysql.MysqlOperation.PhysicalBackup:output_type -> common.Empty
+	9,  // 14: mysql.MysqlOperation.LogicalBackup:output_type -> common.Empty
+	9,  // 15: mysql.MysqlOperation.Restore:output_type -> common.Empty
+	9,  // 16: mysql.MysqlOperation.GtidPurge:output_type -> common.Empty
+	9,  // 17: mysql.MysqlOperation.SetVariable:output_type -> common.Empty
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_mysql_pb_mysql_proto_init() }
@@ -1160,25 +611,13 @@ func file_pkg_agent_app_mysql_pb_mysql_proto_init() {
 	if File_pkg_agent_app_mysql_pb_mysql_proto != nil {
 		return
 	}
-	file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[3].OneofWrappers = []any{
-		(*LogicalBackupRequest_S3Storage)(nil),
-		(*LogicalBackupRequest_LocalStorage)(nil),
-	}
-	file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[4].OneofWrappers = []any{
-		(*PhysicalBackupRequest_S3Storage)(nil),
-		(*PhysicalBackupRequest_LocalStorage)(nil),
-	}
-	file_pkg_agent_app_mysql_pb_mysql_proto_msgTypes[5].OneofWrappers = []any{
-		(*RestoreRequest_S3Storage)(nil),
-		(*RestoreRequest_LocalStorage)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc), len(file_pkg_agent_app_mysql_pb_mysql_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   9,
+			NumEnums:      2,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

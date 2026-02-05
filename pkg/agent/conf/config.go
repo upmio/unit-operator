@@ -2,8 +2,9 @@ package conf
 
 import (
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"sync"
+
+	"github.com/BurntSushi/toml"
 )
 
 var config *Config

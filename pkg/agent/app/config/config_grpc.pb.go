@@ -4,6 +4,7 @@ package config
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,8 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SyncConfigServiceClient interface {
-	SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*Response, error)
-	RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*Response, error)
+	SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type syncConfigServiceClient struct {
@@ -30,18 +30,9 @@ func NewSyncConfigServiceClient(cc grpc.ClientConnInterface) SyncConfigServiceCl
 	return &syncConfigServiceClient{cc}
 }
 
-func (c *syncConfigServiceClient) SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *syncConfigServiceClient) SyncConfig(ctx context.Context, in *SyncConfigRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/config.SyncConfigService/SyncConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *syncConfigServiceClient) RewriteConfig(ctx context.Context, in *RewriteConfigRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
-	err := c.cc.Invoke(ctx, "/config.SyncConfigService/RewriteConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +43,7 @@ func (c *syncConfigServiceClient) RewriteConfig(ctx context.Context, in *Rewrite
 // All implementations must embed UnimplementedSyncConfigServiceServer
 // for forward compatibility
 type SyncConfigServiceServer interface {
-	SyncConfig(context.Context, *SyncConfigRequest) (*Response, error)
-	RewriteConfig(context.Context, *RewriteConfigRequest) (*Response, error)
+	SyncConfig(context.Context, *SyncConfigRequest) (*common.Empty, error)
 	mustEmbedUnimplementedSyncConfigServiceServer()
 }
 
@@ -61,11 +51,8 @@ type SyncConfigServiceServer interface {
 type UnimplementedSyncConfigServiceServer struct {
 }
 
-func (UnimplementedSyncConfigServiceServer) SyncConfig(context.Context, *SyncConfigRequest) (*Response, error) {
+func (UnimplementedSyncConfigServiceServer) SyncConfig(context.Context, *SyncConfigRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncConfig not implemented")
-}
-func (UnimplementedSyncConfigServiceServer) RewriteConfig(context.Context, *RewriteConfigRequest) (*Response, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RewriteConfig not implemented")
 }
 func (UnimplementedSyncConfigServiceServer) mustEmbedUnimplementedSyncConfigServiceServer() {}
 
@@ -98,24 +85,6 @@ func _SyncConfigService_SyncConfig_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SyncConfigService_RewriteConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RewriteConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SyncConfigServiceServer).RewriteConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/config.SyncConfigService/RewriteConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SyncConfigServiceServer).RewriteConfig(ctx, req.(*RewriteConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // SyncConfigService_ServiceDesc is the grpc.ServiceDesc for SyncConfigService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -126,10 +95,6 @@ var SyncConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SyncConfig",
 			Handler:    _SyncConfigService_SyncConfig_Handler,
-		},
-		{
-			MethodName: "RewriteConfig",
-			Handler:    _SyncConfigService_RewriteConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

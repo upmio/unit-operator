@@ -94,6 +94,8 @@ spec:
                 - proxysql
                 - redis
                 - redis-sentinel
+                - mongodb
+                - milvus
                 type: string
             required:
             - action

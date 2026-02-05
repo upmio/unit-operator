@@ -1,19 +1,20 @@
-package common
+package util
 
 import (
-	"go.uber.org/zap"
 	"regexp"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 var (
 	// sensitiveFieldPattern matches field names that contain sensitive information
 	// Matches fields containing "key" or "password" (case insensitive)
-	sensitiveFieldPattern = regexp.MustCompile(`(?i)(key|password)`)
+	sensitiveFieldPattern = regexp.MustCompile(`(?i)(access_key|secret_key|token|password)`)
 )
 
-// SanitizeForLogging sanitizes sensitive information for logging
-func SanitizeForLogging(data map[string]interface{}) map[string]interface{} {
+// sanitizeForLogging sanitizes sensitive information for logging
+func sanitizeForLogging(data map[string]interface{}) map[string]interface{} {
 	sanitized := make(map[string]interface{})
 	for k, v := range data {
 		if isSensitiveField(k) {
@@ -34,7 +35,7 @@ func isSensitiveField(fieldName string) bool {
 
 // LogRequestSafely logs request information with sensitive data masked
 func LogRequestSafely(logger *zap.SugaredLogger, operation string, data map[string]interface{}) {
-	sanitized := SanitizeForLogging(data)
+	sanitized := sanitizeForLogging(data)
 	fields := make([]interface{}, 0, len(sanitized)*2)
 	for k, v := range sanitized {
 		fields = append(fields, k, v)

@@ -22,7 +22,7 @@ func RegistryGrpcApp(app GRPCApp) {
 	// re-registration of already registered services is prohibited
 	_, ok := grpcApps[app.Name()]
 	if ok {
-		panic(fmt.Sprintf("grpc app %s has registed", app.Name()))
+		panic(fmt.Sprintf("grpc app %s has registered", app.Name()))
 	}
 
 	grpcApps[app.Name()] = app
@@ -39,7 +39,7 @@ func LoadedGrpcApp() (apps []string) {
 func GetGrpcApp(name string) GRPCApp {
 	app, ok := grpcApps[name]
 	if !ok {
-		panic(fmt.Sprintf("grpc app %s not registed", name))
+		panic(fmt.Sprintf("grpc app %s not registered", name))
 	}
 
 	return app

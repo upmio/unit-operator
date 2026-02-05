@@ -3,28 +3,23 @@ package unit_agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/klog/v2"
-
 	"github.com/upmio/unit-operator/pkg/agent/app/config"
-	"github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/app/slm"
+	"google.golang.org/grpc"
 )
 
 func SyncConfig(agentHostType, unitsetHeadlessSvc, host, port, namespace, templateConfigmapName, valueConfigmapName, mainContainerName string, extendConfigmaps []string) (string, error) {
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		klog.Errorf("[SyncConfig] make connection err:[%s]", err.Error())
-		return "", fmt.Errorf("sync config make connection error:[%s]", err.Error())
+		log.Fatal(err)
 	}
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
 	client := config.NewSyncConfigServiceClient(conn)
 
@@ -36,9 +31,9 @@ func SyncConfig(agentHostType, unitsetHeadlessSvc, host, port, namespace, templa
 		ExtendValueConfigmaps: extendConfigmaps,
 	}
 
-	resp, err := client.SyncConfig(context.Background(), &req)
+	_, err = client.SyncConfig(context.Background(), &req)
 	if err != nil {
-		return resp.GetMessage(), err
+		return "", err
 	}
 
 	return "", nil
@@ -48,34 +43,29 @@ func ServiceLifecycleManagement(agentHostType, unitsetHeadlessSvc, host, namespa
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		klog.Errorf("[ServiceLifecycleManagement] make connection err:[%s]", err.Error())
-		return "", fmt.Errorf("service lifecycle management make connection error:[%s]", err.Error())
+		log.Fatal(err)
 	}
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
-	req := service.ServiceRequest{}
-
-	client := service.NewServiceLifecycleClient(conn)
+	client := slm.NewServiceLifecycleClient(conn)
 
 	switch actionType {
 	case "start":
-		resp, err := client.StartService(context.Background(), &req)
+		_, err = client.StartProcess(context.Background(), nil)
 		if err != nil {
-			return resp.GetMessage(), err
+			return "", err
 		}
 	case "stop":
-		resp, err := client.StopService(context.Background(), &req)
+		_, err = client.StopProcess(context.Background(), nil)
 		if err != nil {
-			return resp.GetMessage(), err
+			return "", err
 		}
 	case "restart":
-		resp, err := client.RestartService(context.Background(), &req)
+		_, err = client.RestartProcess(context.Background(), nil)
 		if err != nil {
-			return resp.GetMessage(), err
+			return "", err
 		}
 	default:
 		return "", fmt.Errorf("[%s] server not support", actionType)
@@ -88,24 +78,20 @@ func GetServiceProcessState(agentHostType, unitsetHeadlessSvc, host, namespace, 
 
 	addr := fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port)
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		return "unknown", err
+		log.Fatal(err)
 	}
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
-	req := service.ServiceRequest{}
+	client := slm.NewServiceLifecycleClient(conn)
 
-	client := service.NewServiceLifecycleClient(conn)
-
-	resp, err := client.GetServiceStatus(context.Background(), &req)
+	_, err = client.CheckProcessStarted(context.Background(), nil)
 	if err != nil {
 		return "unknown", err
 	}
 
-	return parserProcessState(int32(resp.GetServiceStatus())), nil
+	return parserProcessState(1), nil
 }
 
 func fmtUnitAgentDomainAddr(agentHostType, unitsetHeadlessSvc, host, namespace, port string) string {

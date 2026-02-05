@@ -3,19 +3,16 @@ syntax = "proto3";
 package proxysql;
 option go_package="github.com/upmio/unit-operator/pkg/agent/app/proxysql";
 
+import "pkg/agent/app/common/pb/common.proto";
+
 message SetVariableRequest {
   string key = 1;
   string value = 2;
   string section = 3;
   string username = 4;
-  string password = 5;
-}
-
-message Response {
-  string message = 1;
 }
 
 service ProxysqlOperation {
-  rpc SetVariable (SetVariableRequest) returns (Response);
+  rpc SetVariable (SetVariableRequest) returns (common.Empty);
 }
 

@@ -7,6 +7,7 @@
 package mongodb
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,196 +22,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type S3StorageType int32
-
-const (
-	S3StorageType_Minio S3StorageType = 0
-)
-
-// Enum value maps for S3StorageType.
-var (
-	S3StorageType_name = map[int32]string{
-		0: "Minio",
-	}
-	S3StorageType_value = map[string]int32{
-		"Minio": 0,
-	}
-)
-
-func (x S3StorageType) Enum() *S3StorageType {
-	p := new(S3StorageType)
-	*p = x
-	return p
-}
-
-func (x S3StorageType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_enumTypes[0].Descriptor()
-}
-
-func (S3StorageType) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_mongodb_pb_mongodb_proto_enumTypes[0]
-}
-
-func (x S3StorageType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use S3StorageType.Descriptor instead.
-func (S3StorageType) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{0}
-}
-
-type S3Storage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
-	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=mongodb.S3StorageType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S3Storage) Reset() {
-	*x = S3Storage{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S3Storage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S3Storage) ProtoMessage() {}
-
-func (x *S3Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
-func (*S3Storage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *S3Storage) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *S3Storage) GetBucket() string {
-	if x != nil {
-		return x.Bucket
-	}
-	return ""
-}
-
-func (x *S3Storage) GetAccessKey() string {
-	if x != nil {
-		return x.AccessKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSecretKey() string {
-	if x != nil {
-		return x.SecretKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSsl() bool {
-	if x != nil {
-		return x.Ssl
-	}
-	return false
-}
-
-func (x *S3Storage) GetType() S3StorageType {
-	if x != nil {
-		return x.Type
-	}
-	return S3StorageType_Minio
-}
-
-type LocalStorage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LocalStorage) Reset() {
-	*x = LocalStorage{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LocalStorage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LocalStorage) ProtoMessage() {}
-
-func (x *LocalStorage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LocalStorage.ProtoReflect.Descriptor instead.
-func (*LocalStorage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *LocalStorage) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
 type BackupRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile     string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	Uri            string                 `protobuf:"bytes,2,opt,name=uri,proto3" json:"uri,omitempty"`
-	ReplicaSetName string                 `protobuf:"bytes,3,opt,name=replica_set_name,json=replicaSetName,proto3" json:"replica_set_name,omitempty"`
-	Username       string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
-	Password       string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*BackupRequest_S3Storage
-	//	*BackupRequest_LocalStorage
-	StorageType   isBackupRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BackupRequest) Reset() {
 	*x = BackupRequest{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +45,7 @@ func (x *BackupRequest) String() string {
 func (*BackupRequest) ProtoMessage() {}
 
 func (x *BackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,26 +58,12 @@ func (x *BackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
 func (*BackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{2}
+	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *BackupRequest) GetBackupFile() string {
 	if x != nil {
 		return x.BackupFile
-	}
-	return ""
-}
-
-func (x *BackupRequest) GetUri() string {
-	if x != nil {
-		return x.Uri
-	}
-	return ""
-}
-
-func (x *BackupRequest) GetReplicaSetName() string {
-	if x != nil {
-		return x.ReplicaSetName
 	}
 	return ""
 }
@@ -266,72 +75,25 @@ func (x *BackupRequest) GetUsername() string {
 	return ""
 }
 
-func (x *BackupRequest) GetPassword() string {
+func (x *BackupRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *BackupRequest) GetStorageType() isBackupRequest_StorageType {
-	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *BackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*BackupRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *BackupRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*BackupRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isBackupRequest_StorageType interface {
-	isBackupRequest_StorageType()
-}
-
-type BackupRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,6,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type BackupRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,7,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*BackupRequest_S3Storage) isBackupRequest_StorageType() {}
-
-func (*BackupRequest_LocalStorage) isBackupRequest_StorageType() {}
 
 type RestoreRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile     string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	ReplicaSetName string                 `protobuf:"bytes,2,opt,name=replica_set_name,json=replicaSetName,proto3" json:"replica_set_name,omitempty"`
-	Username       string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
-	Password       string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*RestoreRequest_S3Storage
-	//	*RestoreRequest_LocalStorage
-	StorageType   isRestoreRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -343,7 +105,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,19 +118,12 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{3}
+	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RestoreRequest) GetBackupFile() string {
 	if x != nil {
 		return x.BackupFile
-	}
-	return ""
-}
-
-func (x *RestoreRequest) GetReplicaSetName() string {
-	if x != nil {
-		return x.ReplicaSetName
 	}
 	return ""
 }
@@ -380,67 +135,26 @@ func (x *RestoreRequest) GetUsername() string {
 	return ""
 }
 
-func (x *RestoreRequest) GetPassword() string {
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *RestoreRequest) GetStorageType() isRestoreRequest_StorageType {
-	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *RestoreRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *RestoreRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isRestoreRequest_StorageType interface {
-	isRestoreRequest_StorageType()
-}
-
-type RestoreRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,5,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type RestoreRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,6,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*RestoreRequest_S3Storage) isRestoreRequest_StorageType() {}
-
-func (*RestoreRequest_LocalStorage) isRestoreRequest_StorageType() {}
 
 type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"` // "bool" | "int" | "string" | "float"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SetVariableRequest) Reset() {
 	*x = SetVariableRequest{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +166,7 @@ func (x *SetVariableRequest) String() string {
 func (*SetVariableRequest) ProtoMessage() {}
 
 func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +179,7 @@ func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVariableRequest.ProtoReflect.Descriptor instead.
 func (*SetVariableRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{4}
+	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SetVariableRequest) GetKey() string {
@@ -489,53 +203,9 @@ func (x *SetVariableRequest) GetUsername() string {
 	return ""
 }
 
-func (x *SetVariableRequest) GetPassword() string {
+func (x *SetVariableRequest) GetType() string {
 	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Response) ProtoMessage() {}
-
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *Response) GetMessage() string {
-	if x != nil {
-		return x.Message
+		return x.Type
 	}
 	return ""
 }
@@ -544,52 +214,26 @@ var File_pkg_agent_app_mongodb_pb_mongodb_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDesc = "" +
 	"\n" +
-	"&pkg/agent/app/mongodb/pb/mongodb.proto\x12\amongodb\"\xbb\x01\n" +
-	"\tS3Storage\x12\x1a\n" +
-	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
-	"\n" +
-	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
-	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
-	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12*\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x16.mongodb.S3StorageTypeR\x04type\"\"\n" +
-	"\fLocalStorage\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\xa6\x02\n" +
+	"&pkg/agent/app/mongodb/pb/mongodb.proto\x12\amongodb\x1a$pkg/agent/app/common/pb/common.proto\"\x8a\x01\n" +
 	"\rBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12\x10\n" +
-	"\x03uri\x18\x02 \x01(\tR\x03uri\x12(\n" +
-	"\x10replica_set_name\x18\x03 \x01(\tR\x0ereplicaSetName\x12\x1a\n" +
-	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\x123\n" +
-	"\n" +
-	"s3_storage\x18\x06 \x01(\v2\x12.mongodb.S3StorageH\x00R\ts3Storage\x12<\n" +
-	"\rlocal_storage\x18\a \x01(\v2\x15.mongodb.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\x95\x02\n" +
+	"backupFile\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"\x8b\x01\n" +
 	"\x0eRestoreRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12(\n" +
-	"\x10replica_set_name\x18\x02 \x01(\tR\x0ereplicaSetName\x12\x1a\n" +
-	"\busername\x18\x03 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x04 \x01(\tR\bpassword\x123\n" +
-	"\n" +
-	"s3_storage\x18\x05 \x01(\v2\x12.mongodb.S3StorageH\x00R\ts3Storage\x12<\n" +
-	"\rlocal_storage\x18\x06 \x01(\v2\x15.mongodb.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"t\n" +
+	"backupFile\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"l\n" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
-	"\busername\x18\x03 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x04 \x01(\tR\bpassword\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*\x1a\n" +
-	"\rS3StorageType\x12\t\n" +
-	"\x05Minio\x10\x002\xbd\x01\n" +
-	"\x10MongoDBOperation\x123\n" +
-	"\x06Backup\x12\x16.mongodb.BackupRequest\x1a\x11.mongodb.Response\x125\n" +
-	"\aRestore\x12\x17.mongodb.RestoreRequest\x1a\x11.mongodb.Response\x12=\n" +
-	"\vSetVariable\x12\x1b.mongodb.SetVariableRequest\x1a\x11.mongodb.ResponseB6Z4github.com/upmio/unit-operator/pkg/agent/app/mongodbb\x06proto3"
+	"\busername\x18\x03 \x01(\tR\busername\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type2\xb1\x01\n" +
+	"\x10MongoDBOperation\x12/\n" +
+	"\x06Backup\x12\x16.mongodb.BackupRequest\x1a\r.common.Empty\x121\n" +
+	"\aRestore\x12\x17.mongodb.RestoreRequest\x1a\r.common.Empty\x129\n" +
+	"\vSetVariable\x12\x1b.mongodb.SetVariableRequest\x1a\r.common.EmptyB6Z4github.com/upmio/unit-operator/pkg/agent/app/mongodbb\x06proto3"
 
 var (
 	file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescOnce sync.Once
@@ -603,34 +247,28 @@ func file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDescData
 }
 
-var file_pkg_agent_app_mongodb_pb_mongodb_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pkg_agent_app_mongodb_pb_mongodb_proto_goTypes = []any{
-	(S3StorageType)(0),         // 0: mongodb.S3StorageType
-	(*S3Storage)(nil),          // 1: mongodb.S3Storage
-	(*LocalStorage)(nil),       // 2: mongodb.LocalStorage
-	(*BackupRequest)(nil),      // 3: mongodb.BackupRequest
-	(*RestoreRequest)(nil),     // 4: mongodb.RestoreRequest
-	(*SetVariableRequest)(nil), // 5: mongodb.SetVariableRequest
-	(*Response)(nil),           // 6: mongodb.Response
+	(*BackupRequest)(nil),        // 0: mongodb.BackupRequest
+	(*RestoreRequest)(nil),       // 1: mongodb.RestoreRequest
+	(*SetVariableRequest)(nil),   // 2: mongodb.SetVariableRequest
+	(*common.ObjectStorage)(nil), // 3: common.ObjectStorage
+	(*common.Empty)(nil),         // 4: common.Empty
 }
 var file_pkg_agent_app_mongodb_pb_mongodb_proto_depIdxs = []int32{
-	0, // 0: mongodb.S3Storage.type:type_name -> mongodb.S3StorageType
-	1, // 1: mongodb.BackupRequest.s3_storage:type_name -> mongodb.S3Storage
-	2, // 2: mongodb.BackupRequest.local_storage:type_name -> mongodb.LocalStorage
-	1, // 3: mongodb.RestoreRequest.s3_storage:type_name -> mongodb.S3Storage
-	2, // 4: mongodb.RestoreRequest.local_storage:type_name -> mongodb.LocalStorage
-	3, // 5: mongodb.MongoDBOperation.Backup:input_type -> mongodb.BackupRequest
-	4, // 6: mongodb.MongoDBOperation.Restore:input_type -> mongodb.RestoreRequest
-	5, // 7: mongodb.MongoDBOperation.SetVariable:input_type -> mongodb.SetVariableRequest
-	6, // 8: mongodb.MongoDBOperation.Backup:output_type -> mongodb.Response
-	6, // 9: mongodb.MongoDBOperation.Restore:output_type -> mongodb.Response
-	6, // 10: mongodb.MongoDBOperation.SetVariable:output_type -> mongodb.Response
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3, // 0: mongodb.BackupRequest.object_storage:type_name -> common.ObjectStorage
+	3, // 1: mongodb.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	0, // 2: mongodb.MongoDBOperation.Backup:input_type -> mongodb.BackupRequest
+	1, // 3: mongodb.MongoDBOperation.Restore:input_type -> mongodb.RestoreRequest
+	2, // 4: mongodb.MongoDBOperation.SetVariable:input_type -> mongodb.SetVariableRequest
+	4, // 5: mongodb.MongoDBOperation.Backup:output_type -> common.Empty
+	4, // 6: mongodb.MongoDBOperation.Restore:output_type -> common.Empty
+	4, // 7: mongodb.MongoDBOperation.SetVariable:output_type -> common.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_mongodb_pb_mongodb_proto_init() }
@@ -638,27 +276,18 @@ func file_pkg_agent_app_mongodb_pb_mongodb_proto_init() {
 	if File_pkg_agent_app_mongodb_pb_mongodb_proto != nil {
 		return
 	}
-	file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[2].OneofWrappers = []any{
-		(*BackupRequest_S3Storage)(nil),
-		(*BackupRequest_LocalStorage)(nil),
-	}
-	file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes[3].OneofWrappers = []any{
-		(*RestoreRequest_S3Storage)(nil),
-		(*RestoreRequest_LocalStorage)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDesc), len(file_pkg_agent_app_mongodb_pb_mongodb_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   6,
+			NumEnums:      0,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pkg_agent_app_mongodb_pb_mongodb_proto_goTypes,
 		DependencyIndexes: file_pkg_agent_app_mongodb_pb_mongodb_proto_depIdxs,
-		EnumInfos:         file_pkg_agent_app_mongodb_pb_mongodb_proto_enumTypes,
 		MessageInfos:      file_pkg_agent_app_mongodb_pb_mongodb_proto_msgTypes,
 	}.Build()
 	File_pkg_agent_app_mongodb_pb_mongodb_proto = out.File

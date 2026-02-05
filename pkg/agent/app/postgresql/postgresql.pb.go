@@ -7,6 +7,7 @@
 package postgresql
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -70,197 +71,21 @@ func (LogicalBackupMode) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{0}
 }
 
-type S3StorageType int32
-
-const (
-	S3StorageType_Minio S3StorageType = 0
-)
-
-// Enum value maps for S3StorageType.
-var (
-	S3StorageType_name = map[int32]string{
-		0: "Minio",
-	}
-	S3StorageType_value = map[string]int32{
-		"Minio": 0,
-	}
-)
-
-func (x S3StorageType) Enum() *S3StorageType {
-	p := new(S3StorageType)
-	*p = x
-	return p
-}
-
-func (x S3StorageType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes[1].Descriptor()
-}
-
-func (S3StorageType) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes[1]
-}
-
-func (x S3StorageType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use S3StorageType.Descriptor instead.
-func (S3StorageType) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{1}
-}
-
-type S3Storage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
-	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=postgresql.S3StorageType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S3Storage) Reset() {
-	*x = S3Storage{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S3Storage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S3Storage) ProtoMessage() {}
-
-func (x *S3Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
-func (*S3Storage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *S3Storage) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *S3Storage) GetBucket() string {
-	if x != nil {
-		return x.Bucket
-	}
-	return ""
-}
-
-func (x *S3Storage) GetAccessKey() string {
-	if x != nil {
-		return x.AccessKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSecretKey() string {
-	if x != nil {
-		return x.SecretKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSsl() bool {
-	if x != nil {
-		return x.Ssl
-	}
-	return false
-}
-
-func (x *S3Storage) GetType() S3StorageType {
-	if x != nil {
-		return x.Type
-	}
-	return S3StorageType_Minio
-}
-
-type LocalStorage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LocalStorage) Reset() {
-	*x = LocalStorage{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LocalStorage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LocalStorage) ProtoMessage() {}
-
-func (x *LocalStorage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LocalStorage.ProtoReflect.Descriptor instead.
-func (*LocalStorage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *LocalStorage) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
 type LogicalBackupRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	BackupFile        string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
 	Username          string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Password          string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
-	Database          string                 `protobuf:"bytes,4,opt,name=database,proto3" json:"database,omitempty"`
-	Table             string                 `protobuf:"bytes,5,opt,name=table,proto3" json:"table,omitempty"`
-	LogicalBackupMode LogicalBackupMode      `protobuf:"varint,6,opt,name=logicalBackupMode,proto3,enum=postgresql.LogicalBackupMode" json:"logicalBackupMode,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*LogicalBackupRequest_S3Storage
-	//	*LogicalBackupRequest_LocalStorage
-	StorageType   isLogicalBackupRequest_StorageType `protobuf_oneof:"StorageType"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Database          string                 `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
+	Table             string                 `protobuf:"bytes,4,opt,name=table,proto3" json:"table,omitempty"`
+	LogicalBackupMode LogicalBackupMode      `protobuf:"varint,5,opt,name=logical_backup_mode,json=logicalBackupMode,proto3,enum=postgresql.LogicalBackupMode" json:"logical_backup_mode,omitempty"`
+	ObjectStorage     *common.ObjectStorage  `protobuf:"bytes,6,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *LogicalBackupRequest) Reset() {
 	*x = LogicalBackupRequest{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -272,7 +97,7 @@ func (x *LogicalBackupRequest) String() string {
 func (*LogicalBackupRequest) ProtoMessage() {}
 
 func (x *LogicalBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -285,7 +110,7 @@ func (x *LogicalBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogicalBackupRequest.ProtoReflect.Descriptor instead.
 func (*LogicalBackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{2}
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LogicalBackupRequest) GetBackupFile() string {
@@ -298,13 +123,6 @@ func (x *LogicalBackupRequest) GetBackupFile() string {
 func (x *LogicalBackupRequest) GetUsername() string {
 	if x != nil {
 		return x.Username
-	}
-	return ""
-}
-
-func (x *LogicalBackupRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
 	}
 	return ""
 }
@@ -330,64 +148,25 @@ func (x *LogicalBackupRequest) GetLogicalBackupMode() LogicalBackupMode {
 	return LogicalBackupMode_Full
 }
 
-func (x *LogicalBackupRequest) GetStorageType() isLogicalBackupRequest_StorageType {
+func (x *LogicalBackupRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *LogicalBackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*LogicalBackupRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *LogicalBackupRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*LogicalBackupRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isLogicalBackupRequest_StorageType interface {
-	isLogicalBackupRequest_StorageType()
-}
-
-type LogicalBackupRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,7,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type LogicalBackupRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,8,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*LogicalBackupRequest_S3Storage) isLogicalBackupRequest_StorageType() {}
-
-func (*LogicalBackupRequest_LocalStorage) isLogicalBackupRequest_StorageType() {}
 
 type PhysicalBackupRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	Username   string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Password   string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*PhysicalBackupRequest_S3Storage
-	//	*PhysicalBackupRequest_LocalStorage
-	StorageType   isPhysicalBackupRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PhysicalBackupRequest) Reset() {
 	*x = PhysicalBackupRequest{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +178,7 @@ func (x *PhysicalBackupRequest) String() string {
 func (*PhysicalBackupRequest) ProtoMessage() {}
 
 func (x *PhysicalBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +191,7 @@ func (x *PhysicalBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PhysicalBackupRequest.ProtoReflect.Descriptor instead.
 func (*PhysicalBackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{3}
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *PhysicalBackupRequest) GetBackupFile() string {
@@ -429,69 +208,24 @@ func (x *PhysicalBackupRequest) GetUsername() string {
 	return ""
 }
 
-func (x *PhysicalBackupRequest) GetPassword() string {
+func (x *PhysicalBackupRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *PhysicalBackupRequest) GetStorageType() isPhysicalBackupRequest_StorageType {
-	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
-
-func (x *PhysicalBackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*PhysicalBackupRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *PhysicalBackupRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*PhysicalBackupRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isPhysicalBackupRequest_StorageType interface {
-	isPhysicalBackupRequest_StorageType()
-}
-
-type PhysicalBackupRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,4,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type PhysicalBackupRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,5,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*PhysicalBackupRequest_S3Storage) isPhysicalBackupRequest_StorageType() {}
-
-func (*PhysicalBackupRequest_LocalStorage) isPhysicalBackupRequest_StorageType() {}
 
 type RestoreRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	BackupFile string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	// Types that are valid to be assigned to StorageType:
-	//
-	//	*RestoreRequest_S3Storage
-	//	*RestoreRequest_LocalStorage
-	StorageType   isRestoreRequest_StorageType `protobuf_oneof:"StorageType"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,2,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +237,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[4]
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +250,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{4}
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RestoreRequest) GetBackupFile() string {
@@ -526,69 +260,37 @@ func (x *RestoreRequest) GetBackupFile() string {
 	return ""
 }
 
-func (x *RestoreRequest) GetStorageType() isRestoreRequest_StorageType {
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.StorageType
+		return x.ObjectStorage
 	}
 	return nil
 }
 
-func (x *RestoreRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_S3Storage); ok {
-			return x.S3Storage
-		}
-	}
-	return nil
-}
-
-func (x *RestoreRequest) GetLocalStorage() *LocalStorage {
-	if x != nil {
-		if x, ok := x.StorageType.(*RestoreRequest_LocalStorage); ok {
-			return x.LocalStorage
-		}
-	}
-	return nil
-}
-
-type isRestoreRequest_StorageType interface {
-	isRestoreRequest_StorageType()
-}
-
-type RestoreRequest_S3Storage struct {
-	S3Storage *S3Storage `protobuf:"bytes,2,opt,name=s3_storage,json=s3Storage,proto3,oneof"`
-}
-
-type RestoreRequest_LocalStorage struct {
-	LocalStorage *LocalStorage `protobuf:"bytes,3,opt,name=local_storage,json=localStorage,proto3,oneof"`
-}
-
-func (*RestoreRequest_S3Storage) isRestoreRequest_StorageType() {}
-
-func (*RestoreRequest_LocalStorage) isRestoreRequest_StorageType() {}
-
-type Response struct {
+type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[5]
+func (x *SetVariableRequest) Reset() {
+	*x = SetVariableRequest{}
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Response) String() string {
+func (x *SetVariableRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Response) ProtoMessage() {}
+func (*SetVariableRequest) ProtoMessage() {}
 
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[5]
+func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -599,14 +301,28 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{5}
+// Deprecated: Use SetVariableRequest.ProtoReflect.Descriptor instead.
+func (*SetVariableRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *Response) GetMessage() string {
+func (x *SetVariableRequest) GetKey() string {
 	if x != nil {
-		return x.Message
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetVariableRequest) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *SetVariableRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
 	}
 	return ""
 }
@@ -616,58 +332,37 @@ var File_pkg_agent_app_postgresql_pb_postgresql_proto protoreflect.FileDescripto
 const file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc = "" +
 	"\n" +
 	",pkg/agent/app/postgresql/pb/postgresql.proto\x12\n" +
-	"postgresql\"\xbe\x01\n" +
-	"\tS3Storage\x12\x1a\n" +
-	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
-	"\n" +
-	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
-	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
-	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12-\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x19.postgresql.S3StorageTypeR\x04type\"\"\n" +
-	"\fLocalStorage\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\xf6\x02\n" +
+	"postgresql\x1a$pkg/agent/app/common/pb/common.proto\"\x92\x02\n" +
 	"\x14LogicalBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
 	"backupFile\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x1a\n" +
-	"\bdatabase\x18\x04 \x01(\tR\bdatabase\x12\x14\n" +
-	"\x05table\x18\x05 \x01(\tR\x05table\x12K\n" +
-	"\x11logicalBackupMode\x18\x06 \x01(\x0e2\x1d.postgresql.LogicalBackupModeR\x11logicalBackupMode\x126\n" +
-	"\n" +
-	"s3_storage\x18\a \x01(\v2\x15.postgresql.S3StorageH\x00R\ts3Storage\x12?\n" +
-	"\rlocal_storage\x18\b \x01(\v2\x18.postgresql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\xf8\x01\n" +
+	"\bdatabase\x18\x03 \x01(\tR\bdatabase\x12\x14\n" +
+	"\x05table\x18\x04 \x01(\tR\x05table\x12M\n" +
+	"\x13logical_backup_mode\x18\x05 \x01(\x0e2\x1d.postgresql.LogicalBackupModeR\x11logicalBackupMode\x12<\n" +
+	"\x0eobject_storage\x18\x06 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"\x92\x01\n" +
 	"\x15PhysicalBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
 	"backupFile\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\x126\n" +
-	"\n" +
-	"s3_storage\x18\x04 \x01(\v2\x15.postgresql.S3StorageH\x00R\ts3Storage\x12?\n" +
-	"\rlocal_storage\x18\x05 \x01(\v2\x18.postgresql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"\xb9\x01\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"o\n" +
 	"\x0eRestoreRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x126\n" +
-	"\n" +
-	"s3_storage\x18\x02 \x01(\v2\x15.postgresql.S3StorageH\x00R\ts3Storage\x12?\n" +
-	"\rlocal_storage\x18\x03 \x01(\v2\x18.postgresql.LocalStorageH\x00R\flocalStorageB\r\n" +
-	"\vStorageType\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*6\n" +
+	"backupFile\x12<\n" +
+	"\x0eobject_storage\x18\x02 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"X\n" +
+	"\x12SetVariableRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
+	"\busername\x18\x03 \x01(\tR\busername*6\n" +
 	"\x11LogicalBackupMode\x12\b\n" +
 	"\x04Full\x10\x00\x12\f\n" +
 	"\bDatabase\x10\x01\x12\t\n" +
-	"\x05Table\x10\x02*\x1a\n" +
-	"\rS3StorageType\x12\t\n" +
-	"\x05Minio\x10\x002\xe6\x01\n" +
-	"\x13PostgresqlOperation\x12I\n" +
-	"\x0ePhysicalBackup\x12!.postgresql.PhysicalBackupRequest\x1a\x14.postgresql.Response\x12G\n" +
-	"\rLogicalBackup\x12 .postgresql.LogicalBackupRequest\x1a\x14.postgresql.Response\x12;\n" +
-	"\aRestore\x12\x1a.postgresql.RestoreRequest\x1a\x14.postgresql.ResponseB9Z7github.com/upmio/unit-operator/pkg/agent/app/postgresqlb\x06proto3"
+	"\x05Table\x10\x022\x8f\x02\n" +
+	"\x13PostgresqlOperation\x12B\n" +
+	"\x0ePhysicalBackup\x12!.postgresql.PhysicalBackupRequest\x1a\r.common.Empty\x12@\n" +
+	"\rLogicalBackup\x12 .postgresql.LogicalBackupRequest\x1a\r.common.Empty\x124\n" +
+	"\aRestore\x12\x1a.postgresql.RestoreRequest\x1a\r.common.Empty\x12<\n" +
+	"\vSetVariable\x12\x1e.postgresql.SetVariableRequest\x1a\r.common.EmptyB9Z7github.com/upmio/unit-operator/pkg/agent/app/postgresqlb\x06proto3"
 
 var (
 	file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescOnce sync.Once
@@ -681,38 +376,35 @@ func file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDescData
 }
 
-var file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pkg_agent_app_postgresql_pb_postgresql_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pkg_agent_app_postgresql_pb_postgresql_proto_goTypes = []any{
 	(LogicalBackupMode)(0),        // 0: postgresql.LogicalBackupMode
-	(S3StorageType)(0),            // 1: postgresql.S3StorageType
-	(*S3Storage)(nil),             // 2: postgresql.S3Storage
-	(*LocalStorage)(nil),          // 3: postgresql.LocalStorage
-	(*LogicalBackupRequest)(nil),  // 4: postgresql.LogicalBackupRequest
-	(*PhysicalBackupRequest)(nil), // 5: postgresql.PhysicalBackupRequest
-	(*RestoreRequest)(nil),        // 6: postgresql.RestoreRequest
-	(*Response)(nil),              // 7: postgresql.Response
+	(*LogicalBackupRequest)(nil),  // 1: postgresql.LogicalBackupRequest
+	(*PhysicalBackupRequest)(nil), // 2: postgresql.PhysicalBackupRequest
+	(*RestoreRequest)(nil),        // 3: postgresql.RestoreRequest
+	(*SetVariableRequest)(nil),    // 4: postgresql.SetVariableRequest
+	(*common.ObjectStorage)(nil),  // 5: common.ObjectStorage
+	(*common.Empty)(nil),          // 6: common.Empty
 }
 var file_pkg_agent_app_postgresql_pb_postgresql_proto_depIdxs = []int32{
-	1,  // 0: postgresql.S3Storage.type:type_name -> postgresql.S3StorageType
-	0,  // 1: postgresql.LogicalBackupRequest.logicalBackupMode:type_name -> postgresql.LogicalBackupMode
-	2,  // 2: postgresql.LogicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
-	3,  // 3: postgresql.LogicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
-	2,  // 4: postgresql.PhysicalBackupRequest.s3_storage:type_name -> postgresql.S3Storage
-	3,  // 5: postgresql.PhysicalBackupRequest.local_storage:type_name -> postgresql.LocalStorage
-	2,  // 6: postgresql.RestoreRequest.s3_storage:type_name -> postgresql.S3Storage
-	3,  // 7: postgresql.RestoreRequest.local_storage:type_name -> postgresql.LocalStorage
-	5,  // 8: postgresql.PostgresqlOperation.PhysicalBackup:input_type -> postgresql.PhysicalBackupRequest
-	4,  // 9: postgresql.PostgresqlOperation.LogicalBackup:input_type -> postgresql.LogicalBackupRequest
-	6,  // 10: postgresql.PostgresqlOperation.Restore:input_type -> postgresql.RestoreRequest
-	7,  // 11: postgresql.PostgresqlOperation.PhysicalBackup:output_type -> postgresql.Response
-	7,  // 12: postgresql.PostgresqlOperation.LogicalBackup:output_type -> postgresql.Response
-	7,  // 13: postgresql.PostgresqlOperation.Restore:output_type -> postgresql.Response
-	11, // [11:14] is the sub-list for method output_type
-	8,  // [8:11] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0, // 0: postgresql.LogicalBackupRequest.logical_backup_mode:type_name -> postgresql.LogicalBackupMode
+	5, // 1: postgresql.LogicalBackupRequest.object_storage:type_name -> common.ObjectStorage
+	5, // 2: postgresql.PhysicalBackupRequest.object_storage:type_name -> common.ObjectStorage
+	5, // 3: postgresql.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	2, // 4: postgresql.PostgresqlOperation.PhysicalBackup:input_type -> postgresql.PhysicalBackupRequest
+	1, // 5: postgresql.PostgresqlOperation.LogicalBackup:input_type -> postgresql.LogicalBackupRequest
+	3, // 6: postgresql.PostgresqlOperation.Restore:input_type -> postgresql.RestoreRequest
+	4, // 7: postgresql.PostgresqlOperation.SetVariable:input_type -> postgresql.SetVariableRequest
+	6, // 8: postgresql.PostgresqlOperation.PhysicalBackup:output_type -> common.Empty
+	6, // 9: postgresql.PostgresqlOperation.LogicalBackup:output_type -> common.Empty
+	6, // 10: postgresql.PostgresqlOperation.Restore:output_type -> common.Empty
+	6, // 11: postgresql.PostgresqlOperation.SetVariable:output_type -> common.Empty
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_postgresql_pb_postgresql_proto_init() }
@@ -720,25 +412,13 @@ func file_pkg_agent_app_postgresql_pb_postgresql_proto_init() {
 	if File_pkg_agent_app_postgresql_pb_postgresql_proto != nil {
 		return
 	}
-	file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[2].OneofWrappers = []any{
-		(*LogicalBackupRequest_S3Storage)(nil),
-		(*LogicalBackupRequest_LocalStorage)(nil),
-	}
-	file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[3].OneofWrappers = []any{
-		(*PhysicalBackupRequest_S3Storage)(nil),
-		(*PhysicalBackupRequest_LocalStorage)(nil),
-	}
-	file_pkg_agent_app_postgresql_pb_postgresql_proto_msgTypes[4].OneofWrappers = []any{
-		(*RestoreRequest_S3Storage)(nil),
-		(*RestoreRequest_LocalStorage)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc), len(file_pkg_agent_app_postgresql_pb_postgresql_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

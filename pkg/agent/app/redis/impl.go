@@ -12,13 +12,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/app/slm"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 var (
-	// service service instance
+	// service instance
 	svr = &service{}
 )
 
@@ -28,58 +30,22 @@ type service struct {
 	logger *zap.SugaredLogger
 
 	slm slm.ServiceLifecycleServer
-}
 
-// Common helper methods
-
-// newRedisResponse creates a new Sentinel Response with the given message
-func newRedisResponse(message string) *Response {
-	return &Response{Message: message}
-}
-
-// newRedisClient creates a Redis connection
-func (s *service) newRedisClient(ctx context.Context, encrypt string) (*redis.Client, error) {
-	password, err := common.GetPlainTextPassword(encrypt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt password, %v", err)
-	}
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: password,
-		DB:       0,
-	})
-
-	_, err = rdb.Ping(ctx).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to ping redis server, %v", err)
-	}
-
-	return rdb, nil
-}
-
-func (s *service) closeRedisClient(client *redis.Client) {
-	if client == nil {
-		return
-	}
-	if err := client.Close(); err != nil {
-		s.logger.Errorf("failed to close redis client: %v", err)
-	}
-}
-
-// getEnvVarOrError gets environment variable or returns error if not found
-func getEnvVarOrError(key string) (string, error) {
-	value := os.Getenv(key)
-	if value == "" {
-		return "", fmt.Errorf("environment variable %s is not set", key)
-	}
-	return value, nil
+	dataDir string
 }
 
 func (s *service) Config() error {
 	s.redisOps = app.GetGrpcApp(appName).(RedisOperationServer)
-	s.logger = zap.L().Named("[REDIS]").Sugar()
-	s.slm = app.GetGrpcApp("service").(slm.ServiceLifecycleServer)
+	s.logger = zap.L().Named(appName).Sugar()
+
+	s.slm = app.GetGrpcApp("slm").(slm.ServiceLifecycleServer)
+
+	dataDir, err := util.IsEnvVarSet(vars.DataDirEnvKey)
+	if err != nil {
+		return err
+	}
+
+	s.dataDir = dataDir
 
 	return nil
 }
@@ -92,149 +58,178 @@ func (s *service) Registry(server *grpc.Server) {
 	RegisterRedisOperationServer(server, svr)
 }
 
-func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "redis set variable", map[string]interface{}{
+func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "redis set variable", map[string]interface{}{
 		"key":      req.GetKey(),
 		"value":    req.GetValue(),
-		"password": req.GetPassword(),
+		"username": req.GetUsername(),
 	})
 
-	// 1. Check service status
-	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to check service status", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
 	}
 
-	// 2. Create connection
-	client, err := s.newRedisClient(ctx, req.GetPassword())
+	// Create connection
+	rdb, err := s.newRedisClient(ctx, req.GetUsername())
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to new redis client", err)
+		return nil, err
 	}
-	defer s.closeRedisClient(client)
+	defer s.closeRedisClient(rdb)
 
-	// 3. Execute config set
-	err = client.ConfigSet(ctx, req.GetKey(), req.GetValue()).Err()
+	// Execute config set
+	err = rdb.ConfigSet(ctx, req.GetKey(), req.GetValue()).Err()
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)
+		s.logger.Errorw("failed to set variable", zap.Error(err), zap.String("key", req.GetKey()), zap.String("value", req.GetValue()))
+		return nil, err
 	}
 
-	return common.LogAndReturnSuccess(s.logger, newRedisResponse, fmt.Sprintf("set variable %s=%s successfully", req.GetKey(), req.GetValue()))
+	s.logger.Info("set variable successfully")
+	return nil, nil
 }
 
-func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "redis backup", map[string]interface{}{
+func (s *service) Backup(ctx context.Context, req *BackupRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "redis backup", map[string]interface{}{
 		"backup_file": req.GetBackupFile(),
-		"bucket":      req.GetS3Storage().GetBucket(),
-		"endpoint":    req.GetS3Storage().GetEndpoint(),
-		"access_key":  req.GetS3Storage().GetAccessKey(),
-		"secret_key":  req.GetS3Storage().GetSecretKey(),
-		"password":    req.GetPassword(),
+		"username":    req.GetUsername(),
+		"bucket":      req.GetObjectStorage().GetBucket(),
+		"endpoint":    req.GetObjectStorage().GetEndpoint(),
+		"access_key":  req.GetObjectStorage().GetAccessKey(),
+		"secret_key":  req.GetObjectStorage().GetSecretKey(),
+		"ssl":         req.GetObjectStorage().GetSsl(),
+		"type":        req.GetObjectStorage().GetType(),
 	})
 
-	// 1. Check service status
-	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "service status check failed", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
 	}
 
-	// 2. Create connection
-	client, err := s.newRedisClient(ctx, req.GetPassword())
+	// Create connection
+	rdb, err := s.newRedisClient(ctx, req.GetUsername())
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to new redis client", err)
+		return nil, err
 	}
-	defer s.closeRedisClient(client)
+	defer s.closeRedisClient(rdb)
 
-	rdbPath, err := discoverRDBPath(ctx, client)
+	if err := ensureFreshRDBSnapshot(ctx, rdb, 2*time.Minute); err != nil {
+		s.logger.Errorw("failed to ensure fresh rdb snapshot", zap.Error(err))
+		return nil, err
+	}
+
+	// Discover RDB file path
+	rdbPath, err := discoverRDBPath(s.dataDir)
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to discover rdb path", err)
-	}
-	s.logger.Infof("discovered redis rdb path: %s", rdbPath)
-
-	if err := ensureFreshRDBSnapshot(ctx, client, 2*time.Minute); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create new redis snapshot", err)
+		s.logger.Errorw("failed to discover rdb path", zap.Error(err))
+		return nil, err
 	}
 
-	if _, err := os.Stat(rdbPath); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "redis rdb file not found after snapshot", err)
+	storageFactory, err := req.GetObjectStorage().GenerateFactory()
+	if err != nil {
+		s.logger.Errorw("failed to generate storage factory", zap.Error(err))
+		return nil, err
 	}
 
-	var storageFactory common.S3Storage
-	switch req.GetS3Storage().GetType() {
-	case S3StorageType_Minio:
-		storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
-		}
-	default:
-		return common.LogAndReturnError(s.logger, newRedisResponse, "unsupported s3 storage type", nil)
+	if err := storageFactory.PutFile(ctx, req.GetObjectStorage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
+		s.logger.Errorw("failed to put backup file", zap.Error(err))
+		return nil, err
 	}
 
-	if err := storageFactory.UploadFileToS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to upload redis backup to s3", err)
-	}
+	s.logger.Info("backup redis rdb file successfully")
 
-	return common.LogAndReturnSuccess(s.logger, newRedisResponse, "backup redis and upload to s3 success")
+	return nil, nil
 }
 
-func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "redis restore", map[string]interface{}{
+func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "redis restore", map[string]interface{}{
 		"backup_file": req.GetBackupFile(),
-		"bucket":      req.GetS3Storage().GetBucket(),
-		"endpoint":    req.GetS3Storage().GetEndpoint(),
-		"access_key":  req.GetS3Storage().GetAccessKey(),
-		"secret_key":  req.GetS3Storage().GetSecretKey(),
-		"password":    req.GetPassword(),
+		"bucket":      req.GetObjectStorage().GetBucket(),
+		"endpoint":    req.GetObjectStorage().GetEndpoint(),
+		"access_key":  req.GetObjectStorage().GetAccessKey(),
+		"secret_key":  req.GetObjectStorage().GetSecretKey(),
+		"ssl":         req.GetObjectStorage().GetSsl(),
+		"type":        req.GetObjectStorage().GetType(),
 	})
 
-	// 1. Check if service is stopped
-	if _, err := s.slm.CheckServiceStopped(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "service status check failed", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStopped(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process stopped", zap.Error(err))
+		return nil, err
 	}
 
-	// 2. Rename dump.rdb to .bak
-	dataDir, err := getEnvVarOrError("DATA_DIR")
+	// Discover RDB file path
+	rdbPath, err := discoverRDBPath(s.dataDir)
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to get DATA_DIR environment variable", err)
+		s.logger.Errorw("failed to discover rdb path", zap.Error(err))
+		return nil, err
 	}
 
-	rdbPath := filepath.Join(dataDir, "dump.rdb")
+	storageFactory, err := req.GetObjectStorage().GenerateFactory()
+	if err != nil {
+		s.logger.Errorw("failed to generate storage factory", zap.Error(err))
+		return nil, err
+	}
+
+	// Rename dump.rdb to .bak
 	if err := renameWithBak(rdbPath); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to backup original rdb file", err)
+		s.logger.Errorw("failed to rename rdb file", zap.Error(err))
+		return nil, err
 	}
 
-	var storageFactory common.S3Storage
-	switch req.GetS3Storage().GetType() {
-	case S3StorageType_Minio:
-		storageFactory, err = common.NewMinioClient(req.GetS3Storage().GetEndpoint(), req.GetS3Storage().GetAccessKey(), req.GetS3Storage().GetSecretKey(), req.GetS3Storage().GetSsl())
-		if err != nil {
-			return common.LogAndReturnError(s.logger, newRedisResponse, "failed to create s3 client", err)
-		}
-	default:
-		return common.LogAndReturnError(s.logger, newRedisResponse, "unsupported s3 storage type", nil)
-	}
-
-	if err := storageFactory.DownloadFileFromS3(ctx, req.GetS3Storage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to download rdb file from s3 storage", err)
+	if err := storageFactory.GetFile(ctx, req.GetObjectStorage().GetBucket(), req.GetBackupFile(), rdbPath); err != nil {
+		s.logger.Errorw("failed to get backup file", zap.Error(err))
+		return nil, err
 	}
 
 	if err := os.Chmod(rdbPath, 0644); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to chmod rdb file", err)
+		s.logger.Errorw("failed to chmod rdb file", zap.Error(err))
+		return nil, err
 	}
 
 	if err := os.Chown(rdbPath, 1001, 1001); err != nil {
-		return common.LogAndReturnError(s.logger, newRedisResponse, "failed to chown rdb file", err)
+		s.logger.Errorw("failed to chown rdb file", zap.Error(err))
+		return nil, err
 	}
 
-	return common.LogAndReturnSuccess(s.logger, newRedisResponse, "restore from s3 succeeded")
+	s.logger.Info("restore redis rdb file successfully")
+
+	return nil, nil
 }
 
-func redisLastSaveTime(ctx context.Context, client *redis.Client) (time.Time, error) {
-	lastSaveUnix, err := client.LastSave(ctx).Result()
+// newRedisClient creates a Redis connection
+func (s *service) newRedisClient(ctx context.Context, username string) (*redis.Client, error) {
+	password, err := util.DecryptPlainTextPassword(username)
 	if err != nil {
-		return time.Time{}, err
+		s.logger.Errorw("failed to decrypt password", zap.Error(err), zap.String("username", username))
+		return nil, err
 	}
-	if lastSaveUnix <= 0 {
-		return time.Time{}, nil
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: password,
+		DB:       0,
+	})
+
+	_, err = rdb.Ping(ctx).Result()
+	if err != nil {
+		s.logger.Errorw("failed to ping redis", zap.Error(err))
+
+		s.closeRedisClient(rdb)
+		return nil, err
 	}
-	return time.Unix(lastSaveUnix, 0), nil
+
+	return rdb, nil
+}
+
+func (s *service) closeRedisClient(client *redis.Client) {
+	if client == nil {
+		return
+	}
+	if err := client.Close(); err != nil {
+		s.logger.Errorw("failed to close redis connection", zap.Error(err))
+	}
 }
 
 func ensureFreshRDBSnapshot(ctx context.Context, client *redis.Client, timeout time.Duration) error {
@@ -267,6 +262,17 @@ func ensureFreshRDBSnapshot(ctx context.Context, client *redis.Client, timeout t
 	}
 
 	return waitForBGSave(ctx, client, prevLastSave, timeout)
+}
+
+func redisLastSaveTime(ctx context.Context, client *redis.Client) (time.Time, error) {
+	lastSaveUnix, err := client.LastSave(ctx).Result()
+	if err != nil {
+		return time.Time{}, err
+	}
+	if lastSaveUnix <= 0 {
+		return time.Time{}, nil
+	}
+	return time.Unix(lastSaveUnix, 0), nil
 }
 
 func waitForExistingBGSave(ctx context.Context, client *redis.Client, baseline time.Time, timeout time.Duration) error {
@@ -317,30 +323,6 @@ func waitForBGSave(ctx context.Context, client *redis.Client, baseline time.Time
 	}
 }
 
-func getConfigValue(ctx context.Context, client *redis.Client, key string) (string, error) {
-	resp, err := client.Do(ctx, "CONFIG", "GET", key).Result()
-	if err != nil {
-		return "", fmt.Errorf("failed to CONFIG GET %s: %w", key, err)
-	}
-
-	var (
-		result string
-	)
-
-	switch arr := resp.(type) {
-	case map[interface{}]interface{}:
-		if value, ok := arr[key]; ok {
-			result = value.(string)
-		}
-	}
-
-	if result == "" {
-		return "", fmt.Errorf("unexpected redis CONFIG GET %s response", key)
-	}
-
-	return result, nil
-}
-
 func parseRedisInfo(info string) map[string]string {
 	result := make(map[string]string)
 	lines := strings.Split(info, "\n")
@@ -357,22 +339,56 @@ func parseRedisInfo(info string) map[string]string {
 	return result
 }
 
-func discoverRDBPath(ctx context.Context, rdb *redis.Client) (string, error) {
-	dir, err := getConfigValue(ctx, rdb, "dir")
-	if err != nil {
-		return "", err
+//func getConfigValue(ctx context.Context, client *redis.Client, key string) (string, error) {
+//	resp, err := client.Do(ctx, "CONFIG", "GET", key).Result()
+//	if err != nil {
+//		return "", fmt.Errorf("failed to CONFIG GET %s: %w", key, err)
+//	}
+//
+//	var (
+//		result string
+//	)
+//
+//	switch arr := resp.(type) {
+//	case map[interface{}]interface{}:
+//		if value, ok := arr[key]; ok {
+//			result = value.(string)
+//		}
+//	}
+//
+//	if result == "" {
+//		return "", fmt.Errorf("unexpected redis CONFIG GET %s response", key)
+//	}
+//
+//	return result, nil
+//}
+
+//func discoverRDBPath(ctx context.Context, rdb *redis.Client) (string, error) {
+//	dir, err := getConfigValue(ctx, rdb, "dir")
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	dbfn, err := getConfigValue(ctx, rdb, "dbfilename")
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	if dir == "" || dbfn == "" {
+//		return "", fmt.Errorf("unexpected CONFIG GET format")
+//	}
+//
+//	return filepath.Join(dir, dbfn), nil
+//}
+
+func discoverRDBPath(dataDir string) (string, error) {
+	rdbPath := filepath.Join(dataDir, "dump.rdb")
+
+	if exists := util.IsFileExist(rdbPath); !exists {
+		return rdbPath, fmt.Errorf("rdb path %s does not exist", rdbPath)
 	}
 
-	dbfn, err := getConfigValue(ctx, rdb, "dbfilename")
-	if err != nil {
-		return "", err
-	}
-
-	if dir == "" || dbfn == "" {
-		return "", fmt.Errorf("unexpected CONFIG GET format")
-	}
-
-	return filepath.Join(dir, dbfn), nil
+	return rdbPath, nil
 }
 
 // renameWithBak renames dump.rdb to dump.rdb.bak.

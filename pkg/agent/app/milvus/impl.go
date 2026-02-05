@@ -2,20 +2,32 @@ package milvus
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	_ "embed"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
+	"time"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/app/slm"
+	"github.com/upmio/unit-operator/pkg/agent/conf"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/caarlos0/env/v9"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -25,7 +37,7 @@ const (
 //go:embed backup.tmpl
 var configTemplate string
 
-type Config struct {
+type OpsConfig struct {
 	LogMount    string `env:"LOG_MOUNT,required"`
 	SecretMount string `env:"SECRET_MOUNT,required"`
 
@@ -60,17 +72,62 @@ type service struct {
 	logger *zap.SugaredLogger
 
 	slm slm.ServiceLifecycleServer
-}
 
-// newMilvusResponse creates a new Mivlus Response with the given message
-func newMilvusResponse(message string) *Response {
-	return &Response{Message: message}
+	opsCfg          *OpsConfig
+	clientSet       kubernetes.Interface
+	namespace       string
+	etcdServiceName string
+	rootPath        string
+	certDir         string
 }
 
 func (s *service) Config() error {
 	s.milvusOps = app.GetGrpcApp(appName).(MilvusOperationServer)
-	s.logger = zap.L().Named("[MILVUS]").Sugar()
-	s.slm = app.GetGrpcApp("service").(slm.ServiceLifecycleServer)
+	s.logger = zap.L().Named(appName).Sugar()
+
+	s.slm = app.GetGrpcApp("slm").(slm.ServiceLifecycleServer)
+
+	var cfg OpsConfig
+
+	if err := env.Parse(&cfg); err != nil {
+		return err
+	}
+
+	s.opsCfg = &cfg
+
+	clientSet, err := conf.GetConf().Kube.GetClientSet()
+	if err != nil {
+		return err
+	}
+
+	s.clientSet = clientSet
+
+	namespace, err := util.IsEnvVarSet(vars.NamespaceEnvKey)
+	if err != nil {
+		return err
+	}
+
+	etcdServiceName, err := util.IsEnvVarSet(vars.EtcdServiceNameEnvKey)
+	if err != nil {
+		return err
+	}
+
+	serviceGroupName, err := util.IsEnvVarSet(vars.ServiceGroupNameEnvKey)
+	if err != nil {
+		return err
+	}
+
+	certDir, err := util.IsEnvVarSet(vars.CertMountEnvKey)
+	if err != nil {
+		return err
+
+	}
+
+	s.namespace = namespace
+	s.etcdServiceName = etcdServiceName
+	s.rootPath = serviceGroupName
+	s.certDir = certDir
+
 	return nil
 }
 
@@ -82,70 +139,30 @@ func (s *service) Registry(server *grpc.Server) {
 	RegisterMilvusOperationServer(server, svr)
 }
 
-func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "milvus backup", map[string]interface{}{
+func (s *service) Backup(ctx context.Context, req *BackupRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "milvus backup", map[string]interface{}{
 		"backup_root_path": req.GetBackupRootPath(),
 		"backup_file":      req.GetBackupFile(),
-		"bucket":           req.GetS3Storage().GetBucket(),
-		"endpoint":         req.GetS3Storage().GetEndpoint(),
-		"access_key":       req.GetS3Storage().GetAccessKey(),
-		"secret_key":       req.GetS3Storage().GetSecretKey(),
+		"bucket":           req.GetObjectStorage().GetBucket(),
+		"endpoint":         req.GetObjectStorage().GetEndpoint(),
+		"access_key":       req.GetObjectStorage().GetAccessKey(),
+		"secret_key":       req.GetObjectStorage().GetSecretKey(),
+		"ssl":              req.GetObjectStorage().GetSsl(),
+		"type":             req.GetObjectStorage().GetType(),
 	})
 
-	// 1. Check service status
-	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to check service status", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
 	}
 
-	//2. generate backup.yaml config
-	var cfg Config
-
-	if err := env.Parse(&cfg); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse env config, %v", err)
-	}
-
-	var err error
-	cfg.BackupBucket = req.GetS3Storage().GetBucket()
-	cfg.BackupUser = req.GetS3Storage().GetAccessKey()
-	cfg.BackupPassword = req.GetS3Storage().GetSecretKey()
-	cfg.BackupRootPath = req.GetBackupRootPath()
-	cfg.BackupAddress, cfg.BackupPort, err = net.SplitHostPort(req.GetS3Storage().GetEndpoint())
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to split host port, %v", err)
-	}
-
-	cfg.MinioPassword, err = decryptPassword(cfg.SecretMount, cfg.MinioUser)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to decrypt password, %v", err)
-	}
-
-	cfg.MilvusPassword, err = decryptPassword(cfg.SecretMount, cfg.MilvusUser)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to decrypt password, %v", err)
-	}
-
-	tmpl, err := template.New("config").Parse(configTemplate)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse config template, %v", err)
-	}
-
-	f, _ := os.Create(milvusBackupConfFile)
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if err := tmpl.Execute(f, cfg); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to generate config file, %v", err)
-	}
-
-	//3. execute milvus-backup command
-	path, err := exec.LookPath("milvus-backup")
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "milvus-backup command is not installed or not in PATH", err)
+	if err := s.generateConfig(req.GetObjectStorage(), req.GetBackupRootPath()); err != nil {
+		return nil, err
 	}
 
 	cmd := exec.CommandContext(ctx,
-		path,
+		"milvus-backup",
 		"--config",
 		milvusBackupConfFile,
 		"create",
@@ -154,83 +171,46 @@ func (s *service) Backup(ctx context.Context, req *BackupRequest) (*Response, er
 	)
 
 	// Use command executor for single command
-	executor := common.NewCommandExecutor(ctx, s.logger)
+	executor := common.NewCommandExecutor(s.logger)
 
 	if err := executor.ExecuteCommand(cmd, "backup"); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to execute milvus-backup", err)
+		s.logger.Errorw("failed to execute backup", zap.Error(err))
+		return nil, err
 	}
 
-	return common.LogAndReturnSuccess(s.logger, newMilvusResponse, "milvus backup success")
+	s.logger.Info("backup milvus successfully")
+	return nil, nil
 }
 
-func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "milvus restore", map[string]interface{}{
+func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "milvus restore", map[string]interface{}{
 		"suffix":           req.GetSuffix(),
 		"backup_root_path": req.GetBackupRootPath(),
 		"backup_file":      req.GetBackupFile(),
-		"secret_key":       req.GetS3Storage().GetSecretKey(),
-		"access_key":       req.GetS3Storage().GetAccessKey(),
-		"bucket":           req.GetS3Storage().GetBucket(),
-		"endpoint":         req.GetS3Storage().GetEndpoint(),
+		"bucket":           req.GetObjectStorage().GetBucket(),
+		"endpoint":         req.GetObjectStorage().GetEndpoint(),
+		"access_key":       req.GetObjectStorage().GetAccessKey(),
+		"secret_key":       req.GetObjectStorage().GetSecretKey(),
+		"ssl":              req.GetObjectStorage().GetSsl(),
+		"type":             req.GetObjectStorage().GetType(),
 	})
 
-	// 1. Check if service is stopped
-	if _, err := s.slm.CheckServiceStopped(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "service status check failed", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
 	}
 
-	//2. generate backup.yaml config
-	var cfg Config
-
-	if err := env.Parse(&cfg); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse env config, %v", err)
+	if err := s.generateConfig(req.GetObjectStorage(), req.GetBackupRootPath()); err != nil {
+		return nil, err
 	}
 
-	var err error
-	cfg.BackupBucket = req.GetS3Storage().GetBucket()
-	cfg.BackupUser = req.GetS3Storage().GetAccessKey()
-	cfg.BackupPassword = req.GetS3Storage().GetSecretKey()
-	cfg.BackupRootPath = req.GetBackupRootPath()
-	cfg.BackupAddress, cfg.BackupPort, err = net.SplitHostPort(req.GetS3Storage().GetEndpoint())
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to split host port, %v", err)
-	}
-
-	cfg.MinioPassword, err = decryptPassword(cfg.SecretMount, cfg.MinioUser)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to decrypt password, %v", err)
-	}
-
-	cfg.MilvusPassword, err = decryptPassword(cfg.SecretMount, cfg.MilvusUser)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to decrypt password, %v", err)
-	}
-
-	tmpl, err := template.New("config").Parse(configTemplate)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to parse config template, %v", err)
-	}
-
-	f, _ := os.Create(milvusBackupConfFile)
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if err := tmpl.Execute(f, cfg); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to generate config file, %v", err)
-	}
-
-	//3. execute milvus-backup command
-	path, err := exec.LookPath("milvus-backup")
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "milvus-backup command is not installed or not in PATH", err)
-	}
-
+	// Execute milvus-backup command
 	var cmd *exec.Cmd
 
 	if req.GetSuffix() == "" {
 		cmd = exec.CommandContext(ctx,
-			path,
+			"milvus-backup",
 			"--config",
 			milvusBackupConfFile,
 			"restore",
@@ -240,7 +220,7 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 		)
 	} else {
 		cmd = exec.CommandContext(ctx,
-			path,
+			"milvus-backup",
 			"--config",
 			milvusBackupConfFile,
 			"restore",
@@ -253,22 +233,194 @@ func (s *service) Restore(ctx context.Context, req *RestoreRequest) (*Response, 
 	}
 
 	// Use command executor for single command
-	executor := common.NewCommandExecutor(ctx, s.logger)
+	executor := common.NewCommandExecutor(s.logger)
 
 	if err := executor.ExecuteCommand(cmd, "restore"); err != nil {
-		return common.LogAndReturnError(s.logger, newMilvusResponse, "failed to execute milvus-backup", err)
+		s.logger.Errorw("failed to execute restore", zap.Error(err))
+		return nil, err
 	}
 
-	return common.LogAndReturnSuccess(s.logger, newMilvusResponse, "milvus restore success")
+	s.logger.Info("restore milvus successfully")
+	return nil, nil
 }
 
-func decryptPassword(dirName, fileName string) (string, error) {
-	content, err := os.ReadFile(filepath.Join(dirName, fileName))
+func (s *service) generateConfig(storage *common.ObjectStorage, backupRootPath string) error {
+	var err error
+	cfg := s.opsCfg
+	cfg.BackupBucket = storage.GetBucket()
+	cfg.BackupUser = storage.GetAccessKey()
+	cfg.BackupPassword = storage.GetSecretKey()
+	cfg.BackupRootPath = backupRootPath
+	cfg.BackupAddress, cfg.BackupPort, err = net.SplitHostPort(storage.GetEndpoint())
+
 	if err != nil {
-		return "", err
+		s.logger.Errorw("failed to parse endpoint", zap.Error(err))
+		return err
 	}
 
-	return common.GetPlainTextPassword(string(content))
+	cfg.MinioPassword, err = util.DecryptPlainTextPassword(cfg.MinioUser)
+	if err != nil {
+		s.logger.Errorw("failed to decrypt password", zap.Error(err), zap.String("username", cfg.MinioUser))
+		return err
+	}
+
+	cfg.MilvusPassword, err = util.DecryptPlainTextPassword(cfg.MilvusUser)
+	if err != nil {
+		s.logger.Errorw("failed to decrypt password", zap.Error(err), zap.String("username", cfg.MilvusUser))
+		return err
+	}
+
+	tmpl, err := template.New("config").Parse(configTemplate)
+	if err != nil {
+		s.logger.Errorw("failed to parse config template", zap.Error(err))
+		return err
+	}
+
+	f, err := os.Create(milvusBackupConfFile)
+	if err != nil {
+		s.logger.Errorw("failed to create backup config file", zap.Error(err))
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if err := tmpl.Execute(f, cfg); err != nil {
+		s.logger.Errorw("failed to execute config template", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "milvus set variable", map[string]interface{}{
+		"key":   req.GetKey(),
+		"value": req.GetValue(),
+	})
+
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
+	}
+
+	// Create etcd connection
+	client, err := s.newEtcdClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer s.closeEtcdClient(client)
+
+	// Execute set variable
+	etcdPrefix := fmt.Sprintf("%s/config/%s", s.rootPath, s.normalizeConfigKeyToPath(req.GetKey()))
+	_, err = client.Put(ctx, etcdPrefix, req.GetValue())
+	if err != nil {
+		s.logger.Errorw("failed to set variable", zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Info("set variable successfully")
+	return nil, nil
+}
+
+// Accept "a.b.c" or "a/b/c" or "a.b/c" and normalize to "a/b/c"
+func (s *service) normalizeConfigKeyToPath(k string) string {
+	k = strings.TrimSpace(k)
+	k = strings.TrimPrefix(k, "/")
+	k = strings.TrimSuffix(k, "/")
+	// 先把 '.' 替换成 '/'，再把多余的 '//' 压缩
+	k = strings.ReplaceAll(k, ".", "/")
+	for strings.Contains(k, "//") {
+		k = strings.ReplaceAll(k, "//", "/")
+	}
+	return k
+}
+
+func (s *service) newEtcdClient(ctx context.Context) (*clientv3.Client, error) {
+	endpoints, err := s.getEtcdEndpoint(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(endpoints) == 0 {
+		return nil, errors.New("etcd endpoints is empty")
+	}
+
+	tlsCfg, err := s.buildTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := clientv3.New(clientv3.Config{
+		Context:     ctx,
+		Endpoints:   endpoints,
+		DialTimeout: 5 * time.Second,
+		TLS:         tlsCfg,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create etcd client: %w", err)
+	}
+
+	return client, nil
+}
+
+func (s *service) closeEtcdClient(client *clientv3.Client) {
+	if client == nil {
+		return
+	}
+
+	if err := client.Close(); err != nil {
+		s.logger.Errorw("failed to close etcd connection", zap.Error(err))
+	}
+}
+
+func (s *service) buildTLSConfig() (*tls.Config, error) {
+	// Load client cert/key (mTLS)
+	certFile := filepath.Join(s.certDir, "tls.crt")
+	keyFile := filepath.Join(s.certDir, "tls.key")
+	caFile := filepath.Join(s.certDir, "ca.crt")
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load client cert/key: %w", err)
+	}
+
+	// Load CA
+	caPEM, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA file: %w", err)
+	}
+	caPool := x509.NewCertPool()
+	if ok := caPool.AppendCertsFromPEM(caPEM); !ok {
+		return nil, fmt.Errorf("append CA certs failed: %s", caFile)
+	}
+
+	tlsCfg := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caPool,
+	}
+	return tlsCfg, nil
+}
+
+func (s *service) getEtcdEndpoint(ctx context.Context) ([]string, error) {
+
+	obj, err := s.clientSet.CoreV1().Pods(s.namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("unitset_internal=%s", s.etcdServiceName),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	uri := make([]string, 0)
+	for _, pod := range obj.Items {
+		endpoint := fmt.Sprintf("%s.%s-headless-svc.%s.svc.cluster.local:2379", pod.GetName(), s.etcdServiceName, pod.GetNamespace())
+		uri = append(uri, endpoint)
+	}
+
+	return uri, nil
 }
 
 func RegistryGrpcApp() {

@@ -4,6 +4,7 @@ package redis
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,9 +19,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RedisOperationClient interface {
-	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error)
-	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error)
-	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type redisOperationClient struct {
@@ -31,8 +32,8 @@ func NewRedisOperationClient(cc grpc.ClientConnInterface) RedisOperationClient {
 	return &redisOperationClient{cc}
 }
 
-func (c *redisOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *redisOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/redis.RedisOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -40,8 +41,8 @@ func (c *redisOperationClient) SetVariable(ctx context.Context, in *SetVariableR
 	return out, nil
 }
 
-func (c *redisOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *redisOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/redis.RedisOperation/Backup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,8 +50,8 @@ func (c *redisOperationClient) Backup(ctx context.Context, in *BackupRequest, op
 	return out, nil
 }
 
-func (c *redisOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *redisOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/redis.RedisOperation/Restore", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -62,9 +63,9 @@ func (c *redisOperationClient) Restore(ctx context.Context, in *RestoreRequest, 
 // All implementations must embed UnimplementedRedisOperationServer
 // for forward compatibility
 type RedisOperationServer interface {
-	SetVariable(context.Context, *SetVariableRequest) (*Response, error)
-	Backup(context.Context, *BackupRequest) (*Response, error)
-	Restore(context.Context, *RestoreRequest) (*Response, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
+	Backup(context.Context, *BackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
 	mustEmbedUnimplementedRedisOperationServer()
 }
 
@@ -72,13 +73,13 @@ type RedisOperationServer interface {
 type UnimplementedRedisOperationServer struct {
 }
 
-func (UnimplementedRedisOperationServer) SetVariable(context.Context, *SetVariableRequest) (*Response, error) {
+func (UnimplementedRedisOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
-func (UnimplementedRedisOperationServer) Backup(context.Context, *BackupRequest) (*Response, error) {
+func (UnimplementedRedisOperationServer) Backup(context.Context, *BackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Backup not implemented")
 }
-func (UnimplementedRedisOperationServer) Restore(context.Context, *RestoreRequest) (*Response, error) {
+func (UnimplementedRedisOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
 }
 func (UnimplementedRedisOperationServer) mustEmbedUnimplementedRedisOperationServer() {}

@@ -3,13 +3,14 @@ package template
 import (
 	"errors"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends"
-	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 
 	"github.com/kelseyhightower/memkv"
 )
@@ -208,7 +209,7 @@ func (t *TemplateResource) sync() error {
 	defer func() {
 		_ = os.Remove(staged)
 	}()
-	
+
 	ok, err := util.IsConfigChanged(staged, t.Dest)
 	if err != nil {
 		return err

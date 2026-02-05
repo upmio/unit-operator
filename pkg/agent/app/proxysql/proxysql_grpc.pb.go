@@ -4,6 +4,7 @@ package proxysql
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProxysqlOperationClient interface {
-	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type proxysqlOperationClient struct {
@@ -29,8 +30,8 @@ func NewProxysqlOperationClient(cc grpc.ClientConnInterface) ProxysqlOperationCl
 	return &proxysqlOperationClient{cc}
 }
 
-func (c *proxysqlOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *proxysqlOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/proxysql.ProxysqlOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (c *proxysqlOperationClient) SetVariable(ctx context.Context, in *SetVariab
 // All implementations must embed UnimplementedProxysqlOperationServer
 // for forward compatibility
 type ProxysqlOperationServer interface {
-	SetVariable(context.Context, *SetVariableRequest) (*Response, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedProxysqlOperationServer()
 }
 
@@ -50,7 +51,7 @@ type ProxysqlOperationServer interface {
 type UnimplementedProxysqlOperationServer struct {
 }
 
-func (UnimplementedProxysqlOperationServer) SetVariable(context.Context, *SetVariableRequest) (*Response, error) {
+func (UnimplementedProxysqlOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedProxysqlOperationServer) mustEmbedUnimplementedProxysqlOperationServer() {}

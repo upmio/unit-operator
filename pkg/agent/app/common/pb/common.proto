@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/upmio/unit-operator/pkg/agent/app/common";
+
+message Empty {}
+
+enum ObjectStorageType {
+  Minio = 0;
+  Aws = 1; // preserve
+}
+
+message ObjectStorage {
+  string endpoint = 1;
+  string bucket = 2;
+  string access_key = 3;
+  string secret_key = 4;
+  bool ssl = 5;
+  ObjectStorageType type = 6;
+}

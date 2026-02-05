@@ -1,43 +1,23 @@
 package util
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/md5"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"io"
 	"os"
-	"path"
 	"syscall"
 )
 
-// Nodes is a custom flag Var representing a list of etcd nodes.
-type Nodes []string
-
-// String returns the string representation of a node var.
-func (n *Nodes) String() string {
-	return fmt.Sprintf("%s", *n)
-}
-
-// Set appends the node to the etcd node list.
-func (n *Nodes) Set(node string) error {
-	*n = append(*n, node)
-	return nil
-}
-
-func AppendPrefix(prefix string, keys []string) []string {
-	s := make([]string, len(keys))
-	for i, k := range keys {
-		s[i] = path.Join(prefix, k)
+func IsEnvVarSet(key string) (string, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return value, fmt.Errorf("environment variable %s must be set", key)
 	}
-	return s
+	return value, nil
 }
 
-// isFileExist reports whether path exits.
+// IsFileExist reports whether path exits.
 func IsFileExist(fpath string) bool {
 	if _, err := os.Stat(fpath); os.IsNotExist(err) {
 		return false
@@ -45,7 +25,7 @@ func IsFileExist(fpath string) bool {
 	return true
 }
 
-// fileInfo describes a configuration file and is returned by fileStat.
+// FileInfo describes a configuration file and is returned by fileStat.
 type FileInfo struct {
 	Uid  uint32
 	Gid  uint32
@@ -110,122 +90,4 @@ func FileStat(name string) (fi FileInfo, err error) {
 		return fi, nil
 	}
 	return fi, errors.New("file not found")
-}
-
-var (
-	// Global AES key that should be set during application startup
-	aesKey string
-)
-
-// ValidateAndSetAESKey validates the AES key from environment variable and sets it for use
-// This function should be called during application startup (e.g., in main.go)
-// Returns error if key is missing or invalid
-func ValidateAndSetAESKey() error {
-	key := os.Getenv(vars.AESEnvKey)
-	if key == "" {
-		return fmt.Errorf("AES encryption key not found in environment variable %s", vars.AESEnvKey)
-	}
-
-	// Validate key length (should be 32 characters for AES-256)
-	if len(key) != 32 {
-		return fmt.Errorf("invalid AES key length: expected 32 characters, got %d. Key: %s", len(key), key)
-	}
-
-	aesKey = key
-	return nil
-}
-
-func getAESKey() (string, error) {
-	if aesKey == "" {
-		return "", fmt.Errorf("cannot get AES key")
-	}
-	return aesKey, nil
-}
-
-// AES_CTR_Encrypt encrypts plaintext and returns base64 encoded string (for backward compatibility)
-func AES_CTR_Encrypt(plainText []byte) ([]byte, error) {
-	keyStr, err := getAESKey()
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert key to OpenSSL compatible format
-	opensslKey := hex.EncodeToString([]byte(keyStr))
-	key, err := hex.DecodeString(opensslKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create AES cipher block
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate random IV
-	iv := make([]byte, aes.BlockSize)
-	if _, err := rand.Read(iv); err != nil {
-		return nil, err
-	}
-
-	// Create CTR mode stream cipher
-	stream := cipher.NewCTR(block, iv)
-
-	// Encrypt data
-	ciphertext := make([]byte, len(plainText))
-	stream.XORKeyStream(ciphertext, plainText)
-
-	// Combine IV and ciphertext
-	encryptedData := append(iv, ciphertext...)
-
-	return encryptedData, nil
-}
-
-// AES_CTR_Decrypt decrypts base64 encoded string and returns plaintext (for backward compatibility)
-func AES_CTR_Decrypt(encryptedData []byte) ([]byte, error) {
-	keyStr, err := getAESKey()
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert key to OpenSSL compatible format
-	opensslKey := hex.EncodeToString([]byte(keyStr))
-	key, err := hex.DecodeString(opensslKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check minimum length (at least 16 bytes for IV)
-	if len(encryptedData) < aes.BlockSize {
-		return nil, fmt.Errorf("encrypted data too short")
-	}
-
-	// Extract IV (first 16 bytes)
-	iv := encryptedData[:aes.BlockSize]
-
-	// Extract ciphertext (remaining part)
-	ciphertext := encryptedData[aes.BlockSize:]
-
-	// Create AES cipher block
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create CTR mode stream cipher
-	stream := cipher.NewCTR(block, iv)
-
-	// Decrypt data
-	plaintext := make([]byte, len(ciphertext))
-	stream.XORKeyStream(plaintext, ciphertext)
-
-	return plaintext, nil
-}
-
-func GetEnvVarOrError(key string) (string, error) {
-	value := os.Getenv(key)
-	if value == "" {
-		return "", fmt.Errorf("environment variable %s is not set", key)
-	}
-	return value, nil
 }

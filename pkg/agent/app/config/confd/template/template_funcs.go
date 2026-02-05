@@ -303,11 +303,6 @@ func Base64Decode(data string) (string, error) {
 	return string(s), err
 }
 
-func AESCTRDecrypt(data string) (string, error) {
-	s, err := util.AES_CTR_Decrypt([]byte(data))
-	return string(s), err
-}
-
 func ReadContentFromFile(fpath string) (string, error) {
 	if _, err := os.Stat(fpath); os.IsNotExist(err) {
 		return "", err
@@ -395,4 +390,9 @@ func CheckLabelExists(name, namespace, key string) bool {
 	_, ok := pod.ObjectMeta.Labels[key]
 
 	return ok
+}
+
+func AESCTRDecrypt(data string) (string, error) {
+	s, err := util.AES_CTR_Decrypt([]byte(data))
+	return string(s), err
 }

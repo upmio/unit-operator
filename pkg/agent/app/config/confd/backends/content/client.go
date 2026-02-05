@@ -1,9 +1,10 @@
 package content
 
 import (
-	yaml "gopkg.in/yaml.v2"
 	"path"
 	"strconv"
+
+	"gopkg.in/yaml.v2"
 )
 
 // Client provides a shell for the yaml client

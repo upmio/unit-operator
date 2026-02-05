@@ -3,59 +3,29 @@ syntax = "proto3";
 package mongodb;
 option go_package="github.com/upmio/unit-operator/pkg/agent/app/mongodb";
 
-enum S3StorageType {
-  Minio = 0;
-}
-
-message S3Storage {
-  string endpoint = 1;
-  string bucket = 2;
-  string access_key = 3;
-  string secret_key = 4;
-  bool ssl = 5;
-  S3StorageType type =6;
-}
-
-message LocalStorage {
-  string path = 1;
-}
+import "pkg/agent/app/common/pb/common.proto";
 
 message BackupRequest {
   string backup_file = 1;
-  string uri = 2;
-  string replica_set_name= 3;
-  string username = 4;
-  string password = 5;
-  oneof StorageType {
-    S3Storage s3_storage = 6;
-    LocalStorage local_storage = 7;
-  }
+  string username = 2;
+  common.ObjectStorage object_storage = 3;
 }
 
 message RestoreRequest {
   string backup_file = 1;
-  string replica_set_name= 2;
-  string username = 3;
-  string password = 4;
-  oneof StorageType {
-    S3Storage s3_storage = 5;
-    LocalStorage local_storage = 6;
-  }
+  string username = 2;
+  common.ObjectStorage object_storage = 3;
 }
 
 message SetVariableRequest {
   string key = 1;
   string value = 2;
   string username = 3;
-  string password = 4;
-}
-
-message Response {
-  string message = 1;
+  string type  = 4;   // "bool" | "int" | "string" | "float"
 }
 
 service MongoDBOperation {
-  rpc Backup (BackupRequest) returns (Response);
-  rpc Restore (RestoreRequest ) returns (Response);
-  rpc SetVariable (SetVariableRequest) returns (Response);
+  rpc Backup (BackupRequest) returns (common.Empty);
+  rpc Restore (RestoreRequest ) returns (common.Empty);
+  rpc SetVariable (SetVariableRequest) returns (common.Empty);
 }

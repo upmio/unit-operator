@@ -19,8 +19,8 @@ import (
 )
 
 // UnitType defines the type of unit this GrpcCall will interact with.
-// Currently supported types are "mysql", "proxysql" and "postgresql".
-// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel
+// Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus" and "postgresql".
+// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel;mongodb;milvus
 type UnitType string
 
 const (
@@ -38,6 +38,12 @@ const (
 
 	// SentinelType represents a Redis Sentinel unit.
 	SentinelType UnitType = "redis-sentinel"
+
+	// MongoDBType represents a MongoDB unit
+	MongoDBType UnitType = "mongodb"
+
+	// MilvusType represents a Milvus unit
+	MilvusType UnitType = "milvus"
 )
 
 // Action defines the specific operation to be sent to the unit-agent.

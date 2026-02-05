@@ -3,16 +3,9 @@ package backends
 import (
 	"reflect"
 	"testing"
+
+	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends/content"
 )
-
-// Mock implementations for file and content clients
-type MockFileClient struct{}
-
-func (m *MockFileClient) GetValues() (map[string]string, error) { return nil, nil }
-
-type MockContentClient struct{}
-
-func (m *MockContentClient) GetValues() (map[string]string, error) { return nil, nil }
 
 func TestNew(t *testing.T) {
 	tests := []struct {
@@ -21,18 +14,12 @@ func TestNew(t *testing.T) {
 		wantClient StoreClient
 		wantErr    bool
 	}{
-		//{
-		//	name:       "Valid file backend",
-		//	config:     Config{Backend: "file", YAMLFile: "path/to/yaml"},
-		//	wantClient: &MockFileClient{},
-		//	wantErr:    false,
-		//},
-		//{
-		//	name:       "Valid content backend",
-		//	config:     Config{Backend: "content", Contents: []string{"content1", "content2"}},
-		//	wantClient: &MockContentClient{},
-		//	wantErr:    false,
-		//},
+		{
+			name:       "Valid content backend",
+			config:     Config{Backend: "content", Contents: []string{"key: value"}},
+			wantClient: content.NewContentClient([]string{"key: value"}),
+			wantErr:    false,
+		},
 		{
 			name:       "Invalid backend",
 			config:     Config{Backend: "invalid"},

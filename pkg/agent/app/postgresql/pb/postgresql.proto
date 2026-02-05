@@ -3,67 +3,43 @@ syntax = "proto3";
 package postgresql;
 option go_package="github.com/upmio/unit-operator/pkg/agent/app/postgresql";
 
+import "pkg/agent/app/common/pb/common.proto";
+
 enum LogicalBackupMode {
   Full = 0;
   Database = 1;
   Table = 2;
 }
 
-
-enum S3StorageType {
-  Minio = 0;
-}
-
-message S3Storage {
-  string endpoint = 1;
-  string bucket = 2;
-  string access_key = 3;
-  string secret_key = 4;
-  bool ssl = 5;
-  S3StorageType type =6;
-}
-
-message LocalStorage {
-  string path = 1;
-}
-
 message LogicalBackupRequest {
   string backup_file = 1;
   string username = 2;
-  string password = 3;
-  string database = 4;
-  string table = 5;
-  LogicalBackupMode logicalBackupMode = 6;
-  oneof StorageType {
-    S3Storage s3_storage = 7;
-    LocalStorage local_storage = 8;
-  }
+  string database = 3;
+  string table = 4;
+  LogicalBackupMode logical_backup_mode = 5;
+  common.ObjectStorage object_storage = 6;
 }
 
 message PhysicalBackupRequest {
   string backup_file = 1;
   string username = 2;
-  string password = 3;
-  oneof StorageType {
-    S3Storage s3_storage = 4;
-    LocalStorage local_storage = 5;
-  }
+  common.ObjectStorage object_storage = 3;
 }
 
 message RestoreRequest {
   string backup_file = 1;
-  oneof StorageType {
-    S3Storage s3_storage = 2;
-    LocalStorage local_storage = 3;
-  }
+  common.ObjectStorage object_storage = 2;
 }
 
-message Response {
-  string message = 1;
+message SetVariableRequest {
+  string key = 1;
+  string value = 2;
+  string username = 3;
 }
 
 service PostgresqlOperation {
-  rpc PhysicalBackup (PhysicalBackupRequest) returns (Response);
-  rpc LogicalBackup (LogicalBackupRequest) returns (Response);
-  rpc Restore (RestoreRequest ) returns (Response);
+  rpc PhysicalBackup (PhysicalBackupRequest) returns (common.Empty);
+  rpc LogicalBackup (LogicalBackupRequest) returns (common.Empty);
+  rpc Restore (RestoreRequest ) returns (common.Empty);
+  rpc SetVariable (SetVariableRequest) returns (common.Empty);
 }

@@ -1,9 +1,10 @@
 package protocol
 
 import (
+	"net"
+
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/conf"
-	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -21,13 +22,13 @@ func NewGrpcService() *GrpcService {
 
 	return &GrpcService{
 		s: server,
-		l: zap.L().Named("[GRPC SERVICE]").Sugar(),
+		l: zap.L().Named("grpc service").Sugar(),
 	}
 }
 
 func (g *GrpcService) Start() {
 	if err := app.LoadGrpcApp(g.s); err != nil {
-		g.l.Error("load grpc app failed", zap.Error(err))
+		g.l.Errorw("load grpc app failed", zap.Error(err))
 	}
 
 	addr := conf.GetConf().GrpcAddr()
@@ -44,7 +45,7 @@ func (g *GrpcService) Start() {
 			g.l.Info("service is stopped")
 		}
 
-		g.l.Error("start grpc service error, %s", err.Error())
+		g.l.Errorw("start grpc service error, %s", zap.Error(err))
 		return
 	}
 }

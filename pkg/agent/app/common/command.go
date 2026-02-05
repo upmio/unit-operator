@@ -7,127 +7,252 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
+	"strings"
 
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"go.uber.org/zap"
 )
 
 // CommandExecutor encapsulates command execution logic
 type CommandExecutor struct {
-	ctx    context.Context
 	logger *zap.SugaredLogger
 }
 
 // NewCommandExecutor creates a new command executor
-func NewCommandExecutor(ctx context.Context, logger *zap.SugaredLogger) *CommandExecutor {
+func NewCommandExecutor(logger *zap.SugaredLogger) *CommandExecutor {
 	return &CommandExecutor{
-		ctx:    ctx,
 		logger: logger,
 	}
 }
 
 // ExecutePipedCommands executes two commands with pipe connection
 func (e *CommandExecutor) ExecutePipedCommands(cmd1 *exec.Cmd, cmd2 *exec.Cmd, logPrefix string) error {
+	if err := e.prepareCommand(cmd1); err != nil {
+		return err
+	}
+
+	logFile1, err := e.openLogFile(cmd1.Args[0], logPrefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = logFile1.Close() }()
+
+	if err := e.prepareCommand(cmd2); err != nil {
+		return err
+	}
+
+	logFile2, err := e.openLogFile(cmd2.Args[0], logPrefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = logFile2.Close() }()
+
 	pr, pw := io.Pipe()
 	cmd1.Stdout = pw
 	cmd2.Stdin = pr
 
-	// Get stderr pipes
-	stderr1, err := cmd1.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get %s stderr pipe: %v", cmd1.Args[0], err)
-	}
+	stderr1, _ := cmd1.StderrPipe()
+	stderr2, _ := cmd2.StderrPipe()
 
-	stderr2, err := cmd2.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get %s stderr pipe: %v", cmd2.Args[0], err)
-	}
-
-	// Start commands
-	e.logger.Infof("starting %s command...", cmd1.Args[0])
+	e.logger.Infof("starting command (pip command): %s", strings.Join(cmd1.Args, " "))
 	if err := cmd1.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %v", cmd1.Args[0], err)
+		return err
 	}
 
-	e.logger.Infof("starting %s command...", cmd2.Args[0])
+	e.logger.Infof("starting command (pip command):  %s", strings.Join(cmd2.Args, " "))
 	if err := cmd2.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %v", cmd2.Args[0], err)
+		return err
 	}
 
-	// Handle stderr logging in goroutines
-	wg := sync.WaitGroup{}
-	logDir := os.Getenv(vars.LogMountEnvKey)
-	wg.Add(3)
+	go io.Copy(logFile1, stderr1)
+	go io.Copy(logFile2, stderr2)
 
-	go e.handleStderr(&wg, stderr1, filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd1.Args[0], logPrefix)))
-	go e.handleStderr(&wg, stderr2, filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd2.Args[0], logPrefix)))
+	errCh := make(chan error, 2)
 
 	go func() {
-		defer func() {
-			if err := pw.Close(); err != nil {
-				e.logger.Errorf("failed to close pipe writer: %v", err)
-			}
-		}()
-		defer wg.Done()
-		if err := cmd1.Wait(); err != nil {
-			e.logger.Errorf("command %s failed: %v", cmd1.Args[0], err)
-		}
+		errCh <- cmd1.Wait()
+		_ = pw.Close()
 	}()
 
-	// Wait for second command
-	e.logger.Infof("waiting for %s command to finish...", cmd2.Args[0])
-	if err := cmd2.Wait(); err != nil {
-		return fmt.Errorf("failed to execute %s: %v", cmd2.Args[0], err)
+	go func() {
+		errCh <- cmd2.Wait()
+		_ = pr.Close()
+	}()
+
+	err1 := <-errCh
+	err2 := <-errCh
+
+	if err1 != nil {
+		return fmt.Errorf("command %s failed (see %s)", cmd1.Args[0], logFile1.Name())
+	}
+	if err2 != nil {
+		return fmt.Errorf("command %s failed (see %s)", cmd2.Args[0], logFile2.Name())
 	}
 
-	wg.Wait()
 	return nil
-}
-
-// handleStderr handles stderr logging for commands
-func (e *CommandExecutor) handleStderr(wg *sync.WaitGroup, stderr io.ReadCloser, logPath string) {
-	defer wg.Done()
-
-	stderrBytes, err := io.ReadAll(stderr)
-	if err != nil {
-		e.logger.Errorf("failed to read stderr: %v", err)
-		return
-	}
-
-	if err := os.WriteFile(logPath, stderrBytes, 0644); err != nil {
-		e.logger.Errorf("failed to write stderr to file %s: %v", logPath, err)
-	}
 }
 
 // ExecuteCommand executes a single command with stderr logging
 func (e *CommandExecutor) ExecuteCommand(cmd *exec.Cmd, logPrefix string) error {
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stderr pipe: %v", err)
+	if err := e.prepareCommand(cmd); err != nil {
+		return err
 	}
 
-	e.logger.Infof("starting %s command...", cmd.Args[0])
+	logFile, err := e.openLogFile(cmd.Args[0], logPrefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = logFile.Close() }()
+
+	cmd.Stderr = logFile
+	cmd.Stdout = logFile
+
+	e.logger.Infof("starting command: %s", strings.Join(cmd.Args, " "))
+
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %v", cmd.Args[0], err)
+		return err
 	}
 
-	// Handle stderr
-	stderrBytes, err := io.ReadAll(stderr)
-	if err != nil {
-		e.logger.Errorf("failed to read %s stderr: %v", cmd.Args[0], err)
-	}
-
-	logDir := os.Getenv(vars.LogMountEnvKey)
-	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmd.Args[0], logPrefix))
-	if err := os.WriteFile(logPath, stderrBytes, 0644); err != nil {
-		e.logger.Errorf("failed to write %s stderr to file %s: %v", cmd.Args[0], logPath, err)
-	}
-
-	e.logger.Infof("waiting for %s to finish...", cmd.Args[0])
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("failed to execute %s: %v, stderr: %s", cmd.Args[0], err, string(stderrBytes))
+		return fmt.Errorf("command failed: %w (see %s)", err, logFile.Name())
 	}
 
 	return nil
+}
+
+func (e *CommandExecutor) ExecuteCommandStreamFromS3(ctx context.Context, cmd *exec.Cmd, factory ObjectStorageFactory, bucket, object, logPrefix string) error {
+	if err := e.prepareCommand(cmd); err != nil {
+		return err
+	}
+
+	logFile, err := e.openLogFile(cmd.Args[0], logPrefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = logFile.Close() }()
+
+	// 获取 S3 对象（reader）
+	objReader, err := factory.GetObject(ctx, bucket, object)
+	if err != nil {
+		return fmt.Errorf("get object from s3 failed: %w", err)
+	}
+	defer func() { _ = objReader.Close() }()
+
+	pr, pw := io.Pipe()
+	cmd.Stdin = pr
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	e.logger.Infof("starting command (streaming from s3): %s", strings.Join(cmd.Args, " "))
+
+	if err := cmd.Start(); err != nil {
+		_ = pr.Close()
+		_ = pw.Close()
+		return err
+	}
+
+	cmdErrCh := make(chan error, 1)
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			_ = pr.CloseWithError(err)
+		} else {
+			_ = pr.Close()
+		}
+		cmdErrCh <- err
+	}()
+
+	copyErrCh := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(pw, objReader)
+		_ = pw.Close()
+		copyErrCh <- err
+	}()
+
+	copyErr := <-copyErrCh
+	cmdErr := <-cmdErrCh
+
+	if copyErr != nil {
+		return fmt.Errorf("streaming from s3 failed: %w", copyErr)
+	}
+
+	if cmdErr != nil {
+		return fmt.Errorf("command failed: %w (see %s)", cmdErr, logFile.Name())
+	}
+
+	return nil
+}
+
+func (e *CommandExecutor) ExecuteCommandStreamToS3(ctx context.Context, cmd *exec.Cmd, factory ObjectStorageFactory, bucket, object, logPrefix string) error {
+	if err := e.prepareCommand(cmd); err != nil {
+		return err
+	}
+
+	logFile, err := e.openLogFile(cmd.Args[0], logPrefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = logFile.Close() }()
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = logFile
+
+	e.logger.Infof("starting command (streaming to s3): %s", strings.Join(cmd.Args, " "))
+
+	if err := cmd.Start(); err != nil {
+		_ = pw.Close()
+		_ = pr.Close()
+		return err
+	}
+
+	// command execution goroutine
+	cmdErrCh := make(chan error, 1)
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			_ = pw.CloseWithError(err)
+		} else {
+			_ = pw.Close()
+		}
+		cmdErrCh <- err
+	}()
+
+	// upload blocks until EOF or error
+	uploadErr := factory.PutObject(ctx, bucket, object, pr)
+	_ = pr.Close()
+
+	cmdErr := <-cmdErrCh
+
+	if cmdErr != nil {
+		return fmt.Errorf("command failed: %w (see %s)", cmdErr, logFile.Name())
+	}
+
+	if uploadErr != nil {
+		return fmt.Errorf("upload to s3 failed: %w", uploadErr)
+	}
+
+	return nil
+}
+
+func (e *CommandExecutor) prepareCommand(cmd *exec.Cmd) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("empty command")
+	}
+
+	if _, err := exec.LookPath(cmd.Args[0]); err != nil {
+		return fmt.Errorf("%s not found in PATH: %w", cmd.Args[0], err)
+	}
+	return nil
+}
+
+func (e *CommandExecutor) openLogFile(cmdName, logPrefix string) (*os.File, error) {
+	logDir, err := util.IsEnvVarSet(vars.LogMountEnvKey)
+	if err != nil {
+		return nil, err
+	}
+
+	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", cmdName, logPrefix))
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 }

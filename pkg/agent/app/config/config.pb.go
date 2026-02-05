@@ -7,6 +7,7 @@
 package config
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -97,140 +98,20 @@ func (x *SyncConfigRequest) GetExtendValueConfigmaps() []string {
 	return nil
 }
 
-type RewriteConfigRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ConfigmapName string                 `protobuf:"bytes,1,opt,name=configmap_name,json=configmapName,proto3" json:"configmap_name,omitempty"`
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Key           string                 `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
-	Value         string                 `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RewriteConfigRequest) Reset() {
-	*x = RewriteConfigRequest{}
-	mi := &file_pkg_agent_app_config_pb_config_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RewriteConfigRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RewriteConfigRequest) ProtoMessage() {}
-
-func (x *RewriteConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_config_pb_config_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RewriteConfigRequest.ProtoReflect.Descriptor instead.
-func (*RewriteConfigRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_config_pb_config_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *RewriteConfigRequest) GetConfigmapName() string {
-	if x != nil {
-		return x.ConfigmapName
-	}
-	return ""
-}
-
-func (x *RewriteConfigRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *RewriteConfigRequest) GetKey() string {
-	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-func (x *RewriteConfigRequest) GetValue() string {
-	if x != nil {
-		return x.Value
-	}
-	return ""
-}
-
-type Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_config_pb_config_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Response) ProtoMessage() {}
-
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_config_pb_config_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_config_pb_config_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Response) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
 var File_pkg_agent_app_config_pb_config_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_config_pb_config_proto_rawDesc = "" +
 	"\n" +
-	"$pkg/agent/app/config/pb/config.proto\x12\x06config\"\xe5\x01\n" +
+	"$pkg/agent/app/config/pb/config.proto\x12\x06config\x1a$pkg/agent/app/common/pb/common.proto\"\xe5\x01\n" +
 	"\x11SyncConfigRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x126\n" +
 	"\x17template_configmap_name\x18\x02 \x01(\tR\x15templateConfigmapName\x120\n" +
 	"\x14value_configmap_name\x18\x03 \x01(\tR\x12valueConfigmapName\x12\x10\n" +
 	"\x03key\x18\x04 \x01(\tR\x03key\x126\n" +
-	"\x17extend_value_configmaps\x18\x05 \x03(\tR\x15extendValueConfigmaps\"\x83\x01\n" +
-	"\x14RewriteConfigRequest\x12%\n" +
-	"\x0econfigmap_name\x18\x01 \x01(\tR\rconfigmapName\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x10\n" +
-	"\x03key\x18\x03 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x04 \x01(\tR\x05value\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\x8f\x01\n" +
-	"\x11SyncConfigService\x129\n" +
+	"\x17extend_value_configmaps\x18\x05 \x03(\tR\x15extendValueConfigmaps2K\n" +
+	"\x11SyncConfigService\x126\n" +
 	"\n" +
-	"SyncConfig\x12\x19.config.SyncConfigRequest\x1a\x10.config.Response\x12?\n" +
-	"\rRewriteConfig\x12\x1c.config.RewriteConfigRequest\x1a\x10.config.ResponseB5Z3github.com/upmio/unit-operator/pkg/agent/app/configb\x06proto3"
+	"SyncConfig\x12\x19.config.SyncConfigRequest\x1a\r.common.EmptyB5Z3github.com/upmio/unit-operator/pkg/agent/app/configb\x06proto3"
 
 var (
 	file_pkg_agent_app_config_pb_config_proto_rawDescOnce sync.Once
@@ -244,19 +125,16 @@ func file_pkg_agent_app_config_pb_config_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_config_pb_config_proto_rawDescData
 }
 
-var file_pkg_agent_app_config_pb_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_pkg_agent_app_config_pb_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pkg_agent_app_config_pb_config_proto_goTypes = []any{
-	(*SyncConfigRequest)(nil),    // 0: config.SyncConfigRequest
-	(*RewriteConfigRequest)(nil), // 1: config.RewriteConfigRequest
-	(*Response)(nil),             // 2: config.Response
+	(*SyncConfigRequest)(nil), // 0: config.SyncConfigRequest
+	(*common.Empty)(nil),      // 1: common.Empty
 }
 var file_pkg_agent_app_config_pb_config_proto_depIdxs = []int32{
 	0, // 0: config.SyncConfigService.SyncConfig:input_type -> config.SyncConfigRequest
-	1, // 1: config.SyncConfigService.RewriteConfig:input_type -> config.RewriteConfigRequest
-	2, // 2: config.SyncConfigService.SyncConfig:output_type -> config.Response
-	2, // 3: config.SyncConfigService.RewriteConfig:output_type -> config.Response
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	1, // 1: config.SyncConfigService.SyncConfig:output_type -> common.Empty
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -273,7 +151,7 @@ func file_pkg_agent_app_config_pb_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_config_pb_config_proto_rawDesc), len(file_pkg_agent_app_config_pb_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

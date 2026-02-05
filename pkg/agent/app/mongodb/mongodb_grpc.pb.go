@@ -4,6 +4,7 @@ package mongodb
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,9 +19,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MongoDBOperationClient interface {
-	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error)
-	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error)
-	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error)
+	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type mongoDBOperationClient struct {
@@ -31,8 +32,8 @@ func NewMongoDBOperationClient(cc grpc.ClientConnInterface) MongoDBOperationClie
 	return &mongoDBOperationClient{cc}
 }
 
-func (c *mongoDBOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mongoDBOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mongodb.MongoDBOperation/Backup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -40,8 +41,8 @@ func (c *mongoDBOperationClient) Backup(ctx context.Context, in *BackupRequest, 
 	return out, nil
 }
 
-func (c *mongoDBOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mongoDBOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mongodb.MongoDBOperation/Restore", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,8 +50,8 @@ func (c *mongoDBOperationClient) Restore(ctx context.Context, in *RestoreRequest
 	return out, nil
 }
 
-func (c *mongoDBOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mongoDBOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mongodb.MongoDBOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -62,9 +63,9 @@ func (c *mongoDBOperationClient) SetVariable(ctx context.Context, in *SetVariabl
 // All implementations must embed UnimplementedMongoDBOperationServer
 // for forward compatibility
 type MongoDBOperationServer interface {
-	Backup(context.Context, *BackupRequest) (*Response, error)
-	Restore(context.Context, *RestoreRequest) (*Response, error)
-	SetVariable(context.Context, *SetVariableRequest) (*Response, error)
+	Backup(context.Context, *BackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedMongoDBOperationServer()
 }
 
@@ -72,13 +73,13 @@ type MongoDBOperationServer interface {
 type UnimplementedMongoDBOperationServer struct {
 }
 
-func (UnimplementedMongoDBOperationServer) Backup(context.Context, *BackupRequest) (*Response, error) {
+func (UnimplementedMongoDBOperationServer) Backup(context.Context, *BackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Backup not implemented")
 }
-func (UnimplementedMongoDBOperationServer) Restore(context.Context, *RestoreRequest) (*Response, error) {
+func (UnimplementedMongoDBOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
 }
-func (UnimplementedMongoDBOperationServer) SetVariable(context.Context, *SetVariableRequest) (*Response, error) {
+func (UnimplementedMongoDBOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedMongoDBOperationServer) mustEmbedUnimplementedMongoDBOperationServer() {}

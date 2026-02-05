@@ -4,6 +4,7 @@ package mysql
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,12 +19,12 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MysqlOperationClient interface {
-	Clone(ctx context.Context, in *CloneRequest, opts ...grpc.CallOption) (*Response, error)
-	PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*Response, error)
-	LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*Response, error)
-	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error)
-	GtidPurge(ctx context.Context, in *GtidPurgeRequest, opts ...grpc.CallOption) (*Response, error)
-	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error)
+	Clone(ctx context.Context, in *CloneRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	GtidPurge(ctx context.Context, in *GtidPurgeRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type mysqlOperationClient struct {
@@ -34,8 +35,8 @@ func NewMysqlOperationClient(cc grpc.ClientConnInterface) MysqlOperationClient {
 	return &mysqlOperationClient{cc}
 }
 
-func (c *mysqlOperationClient) Clone(ctx context.Context, in *CloneRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) Clone(ctx context.Context, in *CloneRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/Clone", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -43,8 +44,8 @@ func (c *mysqlOperationClient) Clone(ctx context.Context, in *CloneRequest, opts
 	return out, nil
 }
 
-func (c *mysqlOperationClient) PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/PhysicalBackup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -52,8 +53,8 @@ func (c *mysqlOperationClient) PhysicalBackup(ctx context.Context, in *PhysicalB
 	return out, nil
 }
 
-func (c *mysqlOperationClient) LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/LogicalBackup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -61,8 +62,8 @@ func (c *mysqlOperationClient) LogicalBackup(ctx context.Context, in *LogicalBac
 	return out, nil
 }
 
-func (c *mysqlOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/Restore", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -70,8 +71,8 @@ func (c *mysqlOperationClient) Restore(ctx context.Context, in *RestoreRequest, 
 	return out, nil
 }
 
-func (c *mysqlOperationClient) GtidPurge(ctx context.Context, in *GtidPurgeRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) GtidPurge(ctx context.Context, in *GtidPurgeRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/GtidPurge", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -79,8 +80,8 @@ func (c *mysqlOperationClient) GtidPurge(ctx context.Context, in *GtidPurgeReque
 	return out, nil
 }
 
-func (c *mysqlOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *mysqlOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/mysql.MysqlOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -92,12 +93,12 @@ func (c *mysqlOperationClient) SetVariable(ctx context.Context, in *SetVariableR
 // All implementations must embed UnimplementedMysqlOperationServer
 // for forward compatibility
 type MysqlOperationServer interface {
-	Clone(context.Context, *CloneRequest) (*Response, error)
-	PhysicalBackup(context.Context, *PhysicalBackupRequest) (*Response, error)
-	LogicalBackup(context.Context, *LogicalBackupRequest) (*Response, error)
-	Restore(context.Context, *RestoreRequest) (*Response, error)
-	GtidPurge(context.Context, *GtidPurgeRequest) (*Response, error)
-	SetVariable(context.Context, *SetVariableRequest) (*Response, error)
+	Clone(context.Context, *CloneRequest) (*common.Empty, error)
+	PhysicalBackup(context.Context, *PhysicalBackupRequest) (*common.Empty, error)
+	LogicalBackup(context.Context, *LogicalBackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
+	GtidPurge(context.Context, *GtidPurgeRequest) (*common.Empty, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedMysqlOperationServer()
 }
 
@@ -105,22 +106,22 @@ type MysqlOperationServer interface {
 type UnimplementedMysqlOperationServer struct {
 }
 
-func (UnimplementedMysqlOperationServer) Clone(context.Context, *CloneRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) Clone(context.Context, *CloneRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Clone not implemented")
 }
-func (UnimplementedMysqlOperationServer) PhysicalBackup(context.Context, *PhysicalBackupRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) PhysicalBackup(context.Context, *PhysicalBackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PhysicalBackup not implemented")
 }
-func (UnimplementedMysqlOperationServer) LogicalBackup(context.Context, *LogicalBackupRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) LogicalBackup(context.Context, *LogicalBackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogicalBackup not implemented")
 }
-func (UnimplementedMysqlOperationServer) Restore(context.Context, *RestoreRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
 }
-func (UnimplementedMysqlOperationServer) GtidPurge(context.Context, *GtidPurgeRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) GtidPurge(context.Context, *GtidPurgeRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GtidPurge not implemented")
 }
-func (UnimplementedMysqlOperationServer) SetVariable(context.Context, *SetVariableRequest) (*Response, error) {
+func (UnimplementedMysqlOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedMysqlOperationServer) mustEmbedUnimplementedMysqlOperationServer() {}

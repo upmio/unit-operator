@@ -3,19 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/app"
-	"github.com/upmio/unit-operator/pkg/agent/app/daemon"
-	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
-	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
-	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
-	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
-	"github.com/upmio/unit-operator/pkg/agent/app/redis"
-	"github.com/upmio/unit-operator/pkg/agent/app/sentinel"
-	"github.com/upmio/unit-operator/pkg/agent/conf"
-	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
-	"github.com/upmio/unit-operator/pkg/agent/protocol"
-	"github.com/upmio/unit-operator/pkg/agent/vars"
-	"github.com/upmio/unit-operator/pkg/agent/version"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,13 +10,28 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
+	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
+	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
+	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
+	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
+	"github.com/upmio/unit-operator/pkg/agent/app/redis"
+	"github.com/upmio/unit-operator/pkg/agent/app/rediscluster"
+	"github.com/upmio/unit-operator/pkg/agent/app/sentinel"
+	"github.com/upmio/unit-operator/pkg/agent/conf"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	"github.com/upmio/unit-operator/pkg/agent/protocol"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
+	"github.com/upmio/unit-operator/pkg/agent/version"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	// Adding a new service requires import
 	_ "github.com/upmio/unit-operator/pkg/agent/app/config"
-	_ "github.com/upmio/unit-operator/pkg/agent/app/service"
+	_ "github.com/upmio/unit-operator/pkg/agent/app/slm"
 )
 
 var (
@@ -71,14 +73,8 @@ var daemonCmd = &cobra.Command{
 			return fmt.Errorf("UNIT_TYPE must be set")
 		}
 
-		logger := zap.L().Named("[INIT]").Sugar()
 		if err := util.ValidateAndSetAESKey(); err != nil {
-			logger.Error(err)
-			return err
-		}
-
-		// initialize the global app
-		if err := app.InitAllApp(); err != nil {
+			zap.L().Named("[INIT]").Sugar().Error(err)
 			return err
 		}
 
@@ -111,31 +107,14 @@ var daemonCmd = &cobra.Command{
 		switch unitType {
 		case "redis":
 			redis.RegistryGrpcApp()
-			archMode, err := util.GetEnvVarOrError(vars.ArchModeEnvKey)
+			arch, err := util.IsEnvVarSet(vars.ArchModeEnvKey)
 			if err != nil {
 				return err
 			}
 
-			if archMode == "cluster" {
-				configDir, err := util.GetEnvVarOrError(vars.ConfigDirEnvKey)
-				if err != nil {
-					return err
-				}
-
-				namespace, err := util.GetEnvVarOrError("NAMESPACE")
-				if err != nil {
-					return err
-				}
-
-				podName, err := util.GetEnvVarOrError("POD_NAME")
-				if err != nil {
-					return err
-				}
-
-				wg.Add(1)
-				go daemon.StartRedisClusterNodesConfBackup(ctx, wg, namespace, podName, configDir)
+			if arch == "cluster" {
+				rediscluster.RegistryDaemonApp()
 			}
-
 		case "redis-sentinel":
 			sentinel.RegistryGrpcApp()
 		case "mysql":
@@ -146,6 +125,18 @@ var daemonCmd = &cobra.Command{
 			proxysql.RegistryGrpcApp()
 		case "milvus":
 			milvus.RegistryGrpcApp()
+		case "mongodb":
+			mongodb.RegistryGrpcApp()
+		}
+
+		// initialize the global app
+		if err := app.InitAllApp(); err != nil {
+			return err
+		}
+
+		zap.L().Named("init").Sugar().Info(fmt.Sprintf("loaded daemon apps %s", app.LoadedDaemonApp()))
+		if err := app.LoadDaemonApp(ctx, wg); err != nil {
+			return err
 		}
 
 		// start service
@@ -172,7 +163,7 @@ type service struct {
 func newService() (*service, error) {
 	svr := &service{
 		grpc:   protocol.NewGrpcService(),
-		logger: zap.L().Named("[INIT]").Sugar(),
+		logger: zap.L().Named("init").Sugar(),
 	}
 
 	return svr, nil
@@ -190,7 +181,7 @@ func (s *service) waitSign(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			zap.L().Named("[GRPC SERVICE]").Sugar().Infof("start graceful shutdown")
+			zap.L().Named("grpc service").Sugar().Infof("start graceful shutdown")
 
 			s.grpc.Stop()
 			wg.Done()

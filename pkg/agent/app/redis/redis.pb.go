@@ -7,6 +7,7 @@
 package redis
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,54 +22,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type S3StorageType int32
-
-const (
-	S3StorageType_Minio S3StorageType = 0
-)
-
-// Enum value maps for S3StorageType.
-var (
-	S3StorageType_name = map[int32]string{
-		0: "Minio",
-	}
-	S3StorageType_value = map[string]int32{
-		"Minio": 0,
-	}
-)
-
-func (x S3StorageType) Enum() *S3StorageType {
-	p := new(S3StorageType)
-	*p = x
-	return p
-}
-
-func (x S3StorageType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_redis_pb_redis_proto_enumTypes[0].Descriptor()
-}
-
-func (S3StorageType) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_redis_pb_redis_proto_enumTypes[0]
-}
-
-func (x S3StorageType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use S3StorageType.Descriptor instead.
-func (S3StorageType) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{0}
-}
-
 type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -117,109 +75,25 @@ func (x *SetVariableRequest) GetValue() string {
 	return ""
 }
 
-func (x *SetVariableRequest) GetPassword() string {
+func (x *SetVariableRequest) GetUsername() string {
 	if x != nil {
-		return x.Password
+		return x.Username
 	}
 	return ""
-}
-
-type S3Storage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	Bucket        string                 `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
-	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=redis.S3StorageType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S3Storage) Reset() {
-	*x = S3Storage{}
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S3Storage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S3Storage) ProtoMessage() {}
-
-func (x *S3Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
-func (*S3Storage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *S3Storage) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *S3Storage) GetBucket() string {
-	if x != nil {
-		return x.Bucket
-	}
-	return ""
-}
-
-func (x *S3Storage) GetAccessKey() string {
-	if x != nil {
-		return x.AccessKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSecretKey() string {
-	if x != nil {
-		return x.SecretKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSsl() bool {
-	if x != nil {
-		return x.Ssl
-	}
-	return false
-}
-
-func (x *S3Storage) GetType() S3StorageType {
-	if x != nil {
-		return x.Type
-	}
-	return S3StorageType_Minio
 }
 
 type BackupRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	S3Storage     *S3Storage             `protobuf:"bytes,2,opt,name=s3_storage,json=s3Storage,proto3" json:"s3_storage,omitempty"`
-	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BackupRequest) Reset() {
 	*x = BackupRequest{}
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +105,7 @@ func (x *BackupRequest) String() string {
 func (*BackupRequest) ProtoMessage() {}
 
 func (x *BackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +118,7 @@ func (x *BackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
 func (*BackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{2}
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BackupRequest) GetBackupFile() string {
@@ -254,32 +128,31 @@ func (x *BackupRequest) GetBackupFile() string {
 	return ""
 }
 
-func (x *BackupRequest) GetS3Storage() *S3Storage {
+func (x *BackupRequest) GetUsername() string {
 	if x != nil {
-		return x.S3Storage
-	}
-	return nil
-}
-
-func (x *BackupRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
+		return x.Username
 	}
 	return ""
+}
+
+func (x *BackupRequest) GetObjectStorage() *common.ObjectStorage {
+	if x != nil {
+		return x.ObjectStorage
+	}
+	return nil
 }
 
 type RestoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BackupFile    string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
-	S3Storage     *S3Storage             `protobuf:"bytes,2,opt,name=s3_storage,json=s3Storage,proto3" json:"s3_storage,omitempty"`
-	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	ObjectStorage *common.ObjectStorage  `protobuf:"bytes,2,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -291,7 +164,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[3]
+	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -304,7 +177,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{3}
+	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RestoreRequest) GetBackupFile() string {
@@ -314,102 +187,35 @@ func (x *RestoreRequest) GetBackupFile() string {
 	return ""
 }
 
-func (x *RestoreRequest) GetS3Storage() *S3Storage {
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
 	if x != nil {
-		return x.S3Storage
+		return x.ObjectStorage
 	}
 	return nil
-}
-
-func (x *RestoreRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Response) ProtoMessage() {}
-
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_redis_pb_redis_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *Response) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 var File_pkg_agent_app_redis_pb_redis_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_redis_pb_redis_proto_rawDesc = "" +
 	"\n" +
-	"\"pkg/agent/app/redis/pb/redis.proto\x12\x05redis\"X\n" +
+	"\"pkg/agent/app/redis/pb/redis.proto\x12\x05redis\x1a$pkg/agent/app/common/pb/common.proto\"X\n" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\"\xb9\x01\n" +
-	"\tS3Storage\x12\x1a\n" +
-	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
-	"\n" +
-	"access_key\x18\x03 \x01(\tR\taccessKey\x12\x1d\n" +
-	"\n" +
-	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x10\n" +
-	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12(\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x14.redis.S3StorageTypeR\x04type\"}\n" +
+	"\busername\x18\x03 \x01(\tR\busername\"\x8a\x01\n" +
 	"\rBackupRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12/\n" +
-	"\n" +
-	"s3_storage\x18\x02 \x01(\v2\x10.redis.S3StorageR\ts3Storage\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"~\n" +
+	"backupFile\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"o\n" +
 	"\x0eRestoreRequest\x12\x1f\n" +
 	"\vbackup_file\x18\x01 \x01(\tR\n" +
-	"backupFile\x12/\n" +
-	"\n" +
-	"s3_storage\x18\x02 \x01(\v2\x10.redis.S3StorageR\ts3Storage\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*\x1a\n" +
-	"\rS3StorageType\x12\t\n" +
-	"\x05Minio\x10\x002\xaf\x01\n" +
-	"\x0eRedisOperation\x129\n" +
-	"\vSetVariable\x12\x19.redis.SetVariableRequest\x1a\x0f.redis.Response\x12/\n" +
-	"\x06Backup\x12\x14.redis.BackupRequest\x1a\x0f.redis.Response\x121\n" +
-	"\aRestore\x12\x15.redis.RestoreRequest\x1a\x0f.redis.ResponseB4Z2github.com/upmio/unit-operator/pkg/agent/app/redisb\x06proto3"
+	"backupFile\x12<\n" +
+	"\x0eobject_storage\x18\x02 \x01(\v2\x15.common.ObjectStorageR\robjectStorage2\xa9\x01\n" +
+	"\x0eRedisOperation\x127\n" +
+	"\vSetVariable\x12\x19.redis.SetVariableRequest\x1a\r.common.Empty\x12-\n" +
+	"\x06Backup\x12\x14.redis.BackupRequest\x1a\r.common.Empty\x12/\n" +
+	"\aRestore\x12\x15.redis.RestoreRequest\x1a\r.common.EmptyB4Z2github.com/upmio/unit-operator/pkg/agent/app/redisb\x06proto3"
 
 var (
 	file_pkg_agent_app_redis_pb_redis_proto_rawDescOnce sync.Once
@@ -423,31 +229,28 @@ func file_pkg_agent_app_redis_pb_redis_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_redis_pb_redis_proto_rawDescData
 }
 
-var file_pkg_agent_app_redis_pb_redis_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_agent_app_redis_pb_redis_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_pkg_agent_app_redis_pb_redis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pkg_agent_app_redis_pb_redis_proto_goTypes = []any{
-	(S3StorageType)(0),         // 0: redis.S3StorageType
-	(*SetVariableRequest)(nil), // 1: redis.SetVariableRequest
-	(*S3Storage)(nil),          // 2: redis.S3Storage
-	(*BackupRequest)(nil),      // 3: redis.BackupRequest
-	(*RestoreRequest)(nil),     // 4: redis.RestoreRequest
-	(*Response)(nil),           // 5: redis.Response
+	(*SetVariableRequest)(nil),   // 0: redis.SetVariableRequest
+	(*BackupRequest)(nil),        // 1: redis.BackupRequest
+	(*RestoreRequest)(nil),       // 2: redis.RestoreRequest
+	(*common.ObjectStorage)(nil), // 3: common.ObjectStorage
+	(*common.Empty)(nil),         // 4: common.Empty
 }
 var file_pkg_agent_app_redis_pb_redis_proto_depIdxs = []int32{
-	0, // 0: redis.S3Storage.type:type_name -> redis.S3StorageType
-	2, // 1: redis.BackupRequest.s3_storage:type_name -> redis.S3Storage
-	2, // 2: redis.RestoreRequest.s3_storage:type_name -> redis.S3Storage
-	1, // 3: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
-	3, // 4: redis.RedisOperation.Backup:input_type -> redis.BackupRequest
-	4, // 5: redis.RedisOperation.Restore:input_type -> redis.RestoreRequest
-	5, // 6: redis.RedisOperation.SetVariable:output_type -> redis.Response
-	5, // 7: redis.RedisOperation.Backup:output_type -> redis.Response
-	5, // 8: redis.RedisOperation.Restore:output_type -> redis.Response
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: redis.BackupRequest.object_storage:type_name -> common.ObjectStorage
+	3, // 1: redis.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	0, // 2: redis.RedisOperation.SetVariable:input_type -> redis.SetVariableRequest
+	1, // 3: redis.RedisOperation.Backup:input_type -> redis.BackupRequest
+	2, // 4: redis.RedisOperation.Restore:input_type -> redis.RestoreRequest
+	4, // 5: redis.RedisOperation.SetVariable:output_type -> common.Empty
+	4, // 6: redis.RedisOperation.Backup:output_type -> common.Empty
+	4, // 7: redis.RedisOperation.Restore:output_type -> common.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_redis_pb_redis_proto_init() }
@@ -460,14 +263,13 @@ func file_pkg_agent_app_redis_pb_redis_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_redis_pb_redis_proto_rawDesc), len(file_pkg_agent_app_redis_pb_redis_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   5,
+			NumEnums:      0,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pkg_agent_app_redis_pb_redis_proto_goTypes,
 		DependencyIndexes: file_pkg_agent_app_redis_pb_redis_proto_depIdxs,
-		EnumInfos:         file_pkg_agent_app_redis_pb_redis_proto_enumTypes,
 		MessageInfos:      file_pkg_agent_app_redis_pb_redis_proto_msgTypes,
 	}.Build()
 	File_pkg_agent_app_redis_pb_redis_proto = out.File

@@ -7,6 +7,7 @@
 package proxysql
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -27,7 +28,6 @@ type SetVariableRequest struct {
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	Section       string                 `protobuf:"bytes,3,opt,name=section,proto3" json:"section,omitempty"`
 	Username      string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -90,72 +90,18 @@ func (x *SetVariableRequest) GetUsername() string {
 	return ""
 }
 
-func (x *SetVariableRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_proxysql_pb_proxysql_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Response) ProtoMessage() {}
-
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_proxysql_pb_proxysql_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *Response) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
 var File_pkg_agent_app_proxysql_pb_proxysql_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDesc = "" +
 	"\n" +
-	"(pkg/agent/app/proxysql/pb/proxysql.proto\x12\bproxysql\"\x8e\x01\n" +
+	"(pkg/agent/app/proxysql/pb/proxysql.proto\x12\bproxysql\x1a$pkg/agent/app/common/pb/common.proto\"r\n" +
 	"\x12SetVariableRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x18\n" +
 	"\asection\x18\x03 \x01(\tR\asection\x12\x1a\n" +
-	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x05 \x01(\tR\bpassword\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2T\n" +
-	"\x11ProxysqlOperation\x12?\n" +
-	"\vSetVariable\x12\x1c.proxysql.SetVariableRequest\x1a\x12.proxysql.ResponseB7Z5github.com/upmio/unit-operator/pkg/agent/app/proxysqlb\x06proto3"
+	"\busername\x18\x04 \x01(\tR\busername2O\n" +
+	"\x11ProxysqlOperation\x12:\n" +
+	"\vSetVariable\x12\x1c.proxysql.SetVariableRequest\x1a\r.common.EmptyB7Z5github.com/upmio/unit-operator/pkg/agent/app/proxysqlb\x06proto3"
 
 var (
 	file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDescOnce sync.Once
@@ -169,14 +115,14 @@ func file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDescData
 }
 
-var file_pkg_agent_app_proxysql_pb_proxysql_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pkg_agent_app_proxysql_pb_proxysql_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pkg_agent_app_proxysql_pb_proxysql_proto_goTypes = []any{
 	(*SetVariableRequest)(nil), // 0: proxysql.SetVariableRequest
-	(*Response)(nil),           // 1: proxysql.Response
+	(*common.Empty)(nil),       // 1: common.Empty
 }
 var file_pkg_agent_app_proxysql_pb_proxysql_proto_depIdxs = []int32{
 	0, // 0: proxysql.ProxysqlOperation.SetVariable:input_type -> proxysql.SetVariableRequest
-	1, // 1: proxysql.ProxysqlOperation.SetVariable:output_type -> proxysql.Response
+	1, // 1: proxysql.ProxysqlOperation.SetVariable:output_type -> common.Empty
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -195,7 +141,7 @@ func file_pkg_agent_app_proxysql_pb_proxysql_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDesc), len(file_pkg_agent_app_proxysql_pb_proxysql_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

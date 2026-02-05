@@ -4,6 +4,7 @@ package milvus
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,8 +19,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MilvusOperationClient interface {
-	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error)
-	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error)
+	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type milvusOperationClient struct {
@@ -30,8 +32,8 @@ func NewMilvusOperationClient(cc grpc.ClientConnInterface) MilvusOperationClient
 	return &milvusOperationClient{cc}
 }
 
-func (c *milvusOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *milvusOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/milvus.MilvusOperation/Backup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -39,9 +41,18 @@ func (c *milvusOperationClient) Backup(ctx context.Context, in *BackupRequest, o
 	return out, nil
 }
 
-func (c *milvusOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *milvusOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/milvus.MilvusOperation/Restore", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *milvusOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
+	err := c.cc.Invoke(ctx, "/milvus.MilvusOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +63,9 @@ func (c *milvusOperationClient) Restore(ctx context.Context, in *RestoreRequest,
 // All implementations must embed UnimplementedMilvusOperationServer
 // for forward compatibility
 type MilvusOperationServer interface {
-	Backup(context.Context, *BackupRequest) (*Response, error)
-	Restore(context.Context, *RestoreRequest) (*Response, error)
+	Backup(context.Context, *BackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedMilvusOperationServer()
 }
 
@@ -61,11 +73,14 @@ type MilvusOperationServer interface {
 type UnimplementedMilvusOperationServer struct {
 }
 
-func (UnimplementedMilvusOperationServer) Backup(context.Context, *BackupRequest) (*Response, error) {
+func (UnimplementedMilvusOperationServer) Backup(context.Context, *BackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Backup not implemented")
 }
-func (UnimplementedMilvusOperationServer) Restore(context.Context, *RestoreRequest) (*Response, error) {
+func (UnimplementedMilvusOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
+}
+func (UnimplementedMilvusOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedMilvusOperationServer) mustEmbedUnimplementedMilvusOperationServer() {}
 
@@ -116,6 +131,24 @@ func _MilvusOperation_Restore_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MilvusOperation_SetVariable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVariableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MilvusOperationServer).SetVariable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/milvus.MilvusOperation/SetVariable",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MilvusOperationServer).SetVariable(ctx, req.(*SetVariableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MilvusOperation_ServiceDesc is the grpc.ServiceDesc for MilvusOperation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -130,6 +163,10 @@ var MilvusOperation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Restore",
 			Handler:    _MilvusOperation_Restore_Handler,
+		},
+		{
+			MethodName: "SetVariable",
+			Handler:    _MilvusOperation_SetVariable_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

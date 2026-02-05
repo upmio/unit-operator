@@ -8,6 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
+	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
@@ -76,6 +78,16 @@ func (c *Client) Redis() redis.RedisOperationClient {
 // Sentinel sdk
 func (c *Client) Sentinel() sentinel.SentinelOperationClient {
 	return sentinel.NewSentinelOperationClient(c.conn)
+}
+
+// MongoDB sdk
+func (c *Client) MongoDB() mongodb.MongoDBOperationClient {
+	return mongodb.NewMongoDBOperationClient(c.conn)
+}
+
+// Milvus sdk
+func (c *Client) Milvus() milvus.MilvusOperationClient {
+	return milvus.NewMilvusOperationClient(c.conn)
 }
 
 // gatherUnitAgentEndpoint retrieves and returns the host and port for the unit-agent container.

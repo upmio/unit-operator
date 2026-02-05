@@ -4,6 +4,7 @@ package sentinel
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,8 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SentinelOperationClient interface {
-	UpdateRedisReplication(ctx context.Context, in *UpdateRedisReplicationRequest, opts ...grpc.CallOption) (*Response, error)
-	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error)
+	UpdateRedisReplication(ctx context.Context, in *UpdateRedisReplicationRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type sentinelOperationClient struct {
@@ -30,8 +31,8 @@ func NewSentinelOperationClient(cc grpc.ClientConnInterface) SentinelOperationCl
 	return &sentinelOperationClient{cc}
 }
 
-func (c *sentinelOperationClient) UpdateRedisReplication(ctx context.Context, in *UpdateRedisReplicationRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *sentinelOperationClient) UpdateRedisReplication(ctx context.Context, in *UpdateRedisReplicationRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/sentinel.SentinelOperation/UpdateRedisReplication", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -39,8 +40,8 @@ func (c *sentinelOperationClient) UpdateRedisReplication(ctx context.Context, in
 	return out, nil
 }
 
-func (c *sentinelOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *sentinelOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/sentinel.SentinelOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -52,8 +53,8 @@ func (c *sentinelOperationClient) SetVariable(ctx context.Context, in *SetVariab
 // All implementations must embed UnimplementedSentinelOperationServer
 // for forward compatibility
 type SentinelOperationServer interface {
-	UpdateRedisReplication(context.Context, *UpdateRedisReplicationRequest) (*Response, error)
-	SetVariable(context.Context, *SetVariableRequest) (*Response, error)
+	UpdateRedisReplication(context.Context, *UpdateRedisReplicationRequest) (*common.Empty, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedSentinelOperationServer()
 }
 
@@ -61,10 +62,10 @@ type SentinelOperationServer interface {
 type UnimplementedSentinelOperationServer struct {
 }
 
-func (UnimplementedSentinelOperationServer) UpdateRedisReplication(context.Context, *UpdateRedisReplicationRequest) (*Response, error) {
+func (UnimplementedSentinelOperationServer) UpdateRedisReplication(context.Context, *UpdateRedisReplicationRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateRedisReplication not implemented")
 }
-func (UnimplementedSentinelOperationServer) SetVariable(context.Context, *SetVariableRequest) (*Response, error) {
+func (UnimplementedSentinelOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedSentinelOperationServer) mustEmbedUnimplementedSentinelOperationServer() {}

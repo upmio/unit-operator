@@ -2,6 +2,7 @@ package backends
 
 import (
 	"errors"
+
 	"github.com/upmio/unit-operator/pkg/agent/app/config/confd/backends/content"
 )
 

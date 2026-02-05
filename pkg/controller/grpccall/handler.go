@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
+	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
+	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 	"github.com/upmio/unit-operator/pkg/agent/app/postgresql"
 	"github.com/upmio/unit-operator/pkg/agent/app/proxysql"
@@ -14,10 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
-
-type messageGetter interface {
-	GetMessage() string
-}
 
 // unmarshalParams serializes the raw Parameters map to JSON
 // and unmarshals into the provided proto message.
@@ -42,7 +42,7 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 ) error {
 	var (
 		newReq func() proto.Message
-		callFn func(ctx context.Context, msg proto.Message) (messageGetter, error)
+		callFn func(ctx context.Context, msg proto.Message) (*common.Empty, error)
 	)
 
 	switch instance.Spec.Type {
@@ -51,32 +51,32 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		switch instance.Spec.Action {
 		case upmv1alpha1.PhysicalBackupAction:
 			newReq = func() proto.Message { return &mysql.PhysicalBackupRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.PhysicalBackup(ctx, msg.(*mysql.PhysicalBackupRequest))
 			}
 		case upmv1alpha1.LogicalBackupAction:
 			newReq = func() proto.Message { return &mysql.LogicalBackupRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.LogicalBackup(ctx, msg.(*mysql.LogicalBackupRequest))
 			}
 		case upmv1alpha1.CloneAction:
 			newReq = func() proto.Message { return &mysql.CloneRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.Clone(ctx, msg.(*mysql.CloneRequest))
 			}
 		case upmv1alpha1.GtidPurgeAction:
 			newReq = func() proto.Message { return &mysql.GtidPurgeRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.GtidPurge(ctx, msg.(*mysql.GtidPurgeRequest))
 			}
 		case upmv1alpha1.SetVariableAction:
 			newReq = func() proto.Message { return &mysql.SetVariableRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.SetVariable(ctx, msg.(*mysql.SetVariableRequest))
 			}
 		case upmv1alpha1.RestoreAction:
 			newReq = func() proto.Message { return &mysql.RestoreRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.Restore(ctx, msg.(*mysql.RestoreRequest))
 			}
 		default:
@@ -87,18 +87,23 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		switch instance.Spec.Action {
 		case upmv1alpha1.PhysicalBackupAction:
 			newReq = func() proto.Message { return &postgresql.PhysicalBackupRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return pc.PhysicalBackup(ctx, msg.(*postgresql.PhysicalBackupRequest))
 			}
 		case upmv1alpha1.LogicalBackupAction:
 			newReq = func() proto.Message { return &postgresql.LogicalBackupRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return pc.LogicalBackup(ctx, msg.(*postgresql.LogicalBackupRequest))
 			}
 		case upmv1alpha1.RestoreAction:
 			newReq = func() proto.Message { return &postgresql.RestoreRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return pc.Restore(ctx, msg.(*postgresql.RestoreRequest))
+			}
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &postgresql.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return pc.SetVariable(ctx, msg.(*postgresql.SetVariableRequest))
 			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
@@ -108,7 +113,7 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		switch instance.Spec.Action {
 		case upmv1alpha1.SetVariableAction:
 			newReq = func() proto.Message { return &proxysql.SetVariableRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return pc.SetVariable(ctx, msg.(*proxysql.SetVariableRequest))
 			}
 		default:
@@ -119,17 +124,17 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		switch instance.Spec.Action {
 		case upmv1alpha1.SetVariableAction:
 			newReq = func() proto.Message { return &redis.SetVariableRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return rc.SetVariable(ctx, msg.(*redis.SetVariableRequest))
 			}
 		case upmv1alpha1.BackupAction:
 			newReq = func() proto.Message { return &redis.BackupRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return rc.Backup(ctx, msg.(*redis.BackupRequest))
 			}
 		case upmv1alpha1.RestoreAction:
 			newReq = func() proto.Message { return &redis.RestoreRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return rc.Restore(ctx, msg.(*redis.RestoreRequest))
 			}
 		default:
@@ -140,8 +145,52 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		switch instance.Spec.Action {
 		case upmv1alpha1.SetVariableAction:
 			newReq = func() proto.Message { return &sentinel.SetVariableRequest{} }
-			callFn = func(ctx context.Context, msg proto.Message) (messageGetter, error) {
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return sc.SetVariable(ctx, msg.(*sentinel.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+
+	case upmv1alpha1.MilvusType:
+		mc := c.Milvus()
+		switch instance.Spec.Action {
+		case upmv1alpha1.BackupAction:
+			newReq = func() proto.Message { return &milvus.BackupRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.Backup(ctx, msg.(*milvus.BackupRequest))
+			}
+		case upmv1alpha1.RestoreAction:
+			newReq = func() proto.Message { return &milvus.RestoreRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.Restore(ctx, msg.(*milvus.RestoreRequest))
+			}
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &milvus.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.SetVariable(ctx, msg.(*milvus.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+
+	case upmv1alpha1.MongoDBType:
+		mc := c.MongoDB()
+		switch instance.Spec.Action {
+		case upmv1alpha1.BackupAction:
+			newReq = func() proto.Message { return &mongodb.BackupRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.Backup(ctx, msg.(*mongodb.BackupRequest))
+			}
+		case upmv1alpha1.RestoreAction:
+			newReq = func() proto.Message { return &mongodb.RestoreRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.Restore(ctx, msg.(*mongodb.RestoreRequest))
+			}
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &mongodb.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return mc.SetVariable(ctx, msg.(*mongodb.SetVariableRequest))
 			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
@@ -156,12 +205,12 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 		return fmt.Errorf("failed to unmarshal parameters: %v", err)
 	}
 
-	resp, err := callFn(ctx, req)
+	_, err := callFn(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	instance.Status.Message = resp.GetMessage()
+	instance.Status.Message = fmt.Sprintf("%s %s successfully", instance.Spec.Action, instance.Spec.Type)
 	instance.Status.Result = upmv1alpha1.SuccessResult
 
 	return nil

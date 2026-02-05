@@ -2,8 +2,9 @@ package conf
 
 import (
 	"fmt"
+
 	composev1alpha1 "github.com/upmio/compose-operator/api/v1alpha1"
-	unitv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	unitv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -127,7 +128,7 @@ func (k *Kube) getUnitClient() (client.Client, error) {
 		}
 	}
 
-	scheme, err := unitv1alpha2.SchemeBuilder.Build()
+	scheme, err := unitv1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		return nil, err
 	}

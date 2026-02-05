@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package service;
+option go_package="github.com/upmio/unit-operator/pkg/agent/app/slm";
+
+import "pkg/agent/app/common/pb/common.proto";
+
+service ServiceLifecycle {
+  rpc StartProcess (common.Empty) returns (common.Empty);
+  rpc StopProcess (common.Empty) returns (common.Empty);
+  rpc RestartProcess (common.Empty) returns (common.Empty);
+  rpc CheckProcessStarted (common.Empty) returns (common.Empty);
+  rpc CheckProcessStopped (common.Empty) returns (common.Empty);
+}

@@ -7,6 +7,7 @@
 package milvus
 
 import (
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,145 +22,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type S3StorageType int32
-
-const (
-	S3StorageType_Minio S3StorageType = 0
-)
-
-// Enum value maps for S3StorageType.
-var (
-	S3StorageType_name = map[int32]string{
-		0: "Minio",
-	}
-	S3StorageType_value = map[string]int32{
-		"Minio": 0,
-	}
-)
-
-func (x S3StorageType) Enum() *S3StorageType {
-	p := new(S3StorageType)
-	*p = x
-	return p
-}
-
-func (x S3StorageType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (S3StorageType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes[0].Descriptor()
-}
-
-func (S3StorageType) Type() protoreflect.EnumType {
-	return &file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes[0]
-}
-
-func (x S3StorageType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use S3StorageType.Descriptor instead.
-func (S3StorageType) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{0}
-}
-
-type S3Storage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      string                 `protobuf:"bytes,1,opt,name=Endpoint,proto3" json:"Endpoint,omitempty"`
-	Bucket        string                 `protobuf:"bytes,2,opt,name=Bucket,proto3" json:"Bucket,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,3,opt,name=AccessKey,proto3" json:"AccessKey,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=SecretKey,proto3" json:"SecretKey,omitempty"`
-	Ssl           bool                   `protobuf:"varint,5,opt,name=ssl,proto3" json:"ssl,omitempty"`
-	Type          S3StorageType          `protobuf:"varint,6,opt,name=type,proto3,enum=milvus.S3StorageType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S3Storage) Reset() {
-	*x = S3Storage{}
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S3Storage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S3Storage) ProtoMessage() {}
-
-func (x *S3Storage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S3Storage.ProtoReflect.Descriptor instead.
-func (*S3Storage) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *S3Storage) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *S3Storage) GetBucket() string {
-	if x != nil {
-		return x.Bucket
-	}
-	return ""
-}
-
-func (x *S3Storage) GetAccessKey() string {
-	if x != nil {
-		return x.AccessKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSecretKey() string {
-	if x != nil {
-		return x.SecretKey
-	}
-	return ""
-}
-
-func (x *S3Storage) GetSsl() bool {
-	if x != nil {
-		return x.Ssl
-	}
-	return false
-}
-
-func (x *S3Storage) GetType() S3StorageType {
-	if x != nil {
-		return x.Type
-	}
-	return S3StorageType_Minio
-}
-
 type BackupRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	S3Storage      *S3Storage             `protobuf:"bytes,1,opt,name=S3Storage,proto3" json:"S3Storage,omitempty"`
-	BackupFile     string                 `protobuf:"bytes,2,opt,name=BackupFile,proto3" json:"BackupFile,omitempty"`
-	BackupRootPath string                 `protobuf:"bytes,3,opt,name=BackupRootPath,proto3" json:"BackupRootPath,omitempty"`
+	BackupFile     string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	BackupRootPath string                 `protobuf:"bytes,2,opt,name=backup_root_path,json=backupRootPath,proto3" json:"backup_root_path,omitempty"`
+	ObjectStorage  *common.ObjectStorage  `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *BackupRequest) Reset() {
 	*x = BackupRequest{}
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -171,7 +45,7 @@ func (x *BackupRequest) String() string {
 func (*BackupRequest) ProtoMessage() {}
 
 func (x *BackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[1]
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -184,14 +58,7 @@ func (x *BackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
 func (*BackupRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *BackupRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		return x.S3Storage
-	}
-	return nil
+	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *BackupRequest) GetBackupFile() string {
@@ -208,19 +75,26 @@ func (x *BackupRequest) GetBackupRootPath() string {
 	return ""
 }
 
+func (x *BackupRequest) GetObjectStorage() *common.ObjectStorage {
+	if x != nil {
+		return x.ObjectStorage
+	}
+	return nil
+}
+
 type RestoreRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	S3Storage      *S3Storage             `protobuf:"bytes,1,opt,name=S3Storage,proto3" json:"S3Storage,omitempty"`
-	BackupFile     string                 `protobuf:"bytes,2,opt,name=BackupFile,proto3" json:"BackupFile,omitempty"`
-	BackupRootPath string                 `protobuf:"bytes,3,opt,name=BackupRootPath,proto3" json:"BackupRootPath,omitempty"`
-	Suffix         string                 `protobuf:"bytes,4,opt,name=Suffix,proto3" json:"Suffix,omitempty"`
+	BackupFile     string                 `protobuf:"bytes,1,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	BackupRootPath string                 `protobuf:"bytes,2,opt,name=backup_root_path,json=backupRootPath,proto3" json:"backup_root_path,omitempty"`
+	Suffix         string                 `protobuf:"bytes,3,opt,name=suffix,proto3" json:"suffix,omitempty"`
+	ObjectStorage  *common.ObjectStorage  `protobuf:"bytes,4,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -232,7 +106,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[2]
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -245,14 +119,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *RestoreRequest) GetS3Storage() *S3Storage {
-	if x != nil {
-		return x.S3Storage
-	}
-	return nil
+	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RestoreRequest) GetBackupFile() string {
@@ -276,28 +143,36 @@ func (x *RestoreRequest) GetSuffix() string {
 	return ""
 }
 
-type Response struct {
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
+	if x != nil {
+		return x.ObjectStorage
+	}
+	return nil
+}
+
+type SetVariableRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Response) Reset() {
-	*x = Response{}
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[3]
+func (x *SetVariableRequest) Reset() {
+	*x = SetVariableRequest{}
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Response) String() string {
+func (x *SetVariableRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Response) ProtoMessage() {}
+func (*SetVariableRequest) ProtoMessage() {}
 
-func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[3]
+func (x *SetVariableRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -308,14 +183,21 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Response.ProtoReflect.Descriptor instead.
-func (*Response) Descriptor() ([]byte, []int) {
-	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{3}
+// Deprecated: Use SetVariableRequest.ProtoReflect.Descriptor instead.
+func (*SetVariableRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Response) GetMessage() string {
+func (x *SetVariableRequest) GetKey() string {
 	if x != nil {
-		return x.Message
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetVariableRequest) GetValue() string {
+	if x != nil {
+		return x.Value
 	}
 	return ""
 }
@@ -324,34 +206,25 @@ var File_pkg_agent_app_milvus_pb_milvus_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc = "" +
 	"\n" +
-	"$pkg/agent/app/milvus/pb/milvus.proto\x12\x06milvus\"\xb8\x01\n" +
-	"\tS3Storage\x12\x1a\n" +
-	"\bEndpoint\x18\x01 \x01(\tR\bEndpoint\x12\x16\n" +
-	"\x06Bucket\x18\x02 \x01(\tR\x06Bucket\x12\x1c\n" +
-	"\tAccessKey\x18\x03 \x01(\tR\tAccessKey\x12\x1c\n" +
-	"\tSecretKey\x18\x04 \x01(\tR\tSecretKey\x12\x10\n" +
-	"\x03ssl\x18\x05 \x01(\bR\x03ssl\x12)\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x15.milvus.S3StorageTypeR\x04type\"\x88\x01\n" +
-	"\rBackupRequest\x12/\n" +
-	"\tS3Storage\x18\x01 \x01(\v2\x11.milvus.S3StorageR\tS3Storage\x12\x1e\n" +
-	"\n" +
-	"BackupFile\x18\x02 \x01(\tR\n" +
-	"BackupFile\x12&\n" +
-	"\x0eBackupRootPath\x18\x03 \x01(\tR\x0eBackupRootPath\"\xa1\x01\n" +
-	"\x0eRestoreRequest\x12/\n" +
-	"\tS3Storage\x18\x01 \x01(\v2\x11.milvus.S3StorageR\tS3Storage\x12\x1e\n" +
-	"\n" +
-	"BackupFile\x18\x02 \x01(\tR\n" +
-	"BackupFile\x12&\n" +
-	"\x0eBackupRootPath\x18\x03 \x01(\tR\x0eBackupRootPath\x12\x16\n" +
-	"\x06Suffix\x18\x04 \x01(\tR\x06Suffix\"$\n" +
-	"\bResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*\x1a\n" +
-	"\rS3StorageType\x12\t\n" +
-	"\x05Minio\x10\x002y\n" +
-	"\x0fMilvusOperation\x121\n" +
-	"\x06Backup\x12\x15.milvus.BackupRequest\x1a\x10.milvus.Response\x123\n" +
-	"\aRestore\x12\x16.milvus.RestoreRequest\x1a\x10.milvus.ResponseB5Z3github.com/upmio/unit-operator/pkg/agent/app/milvusb\x06proto3"
+	"$pkg/agent/app/milvus/pb/milvus.proto\x12\x06milvus\x1a$pkg/agent/app/common/pb/common.proto\"\x98\x01\n" +
+	"\rBackupRequest\x12\x1f\n" +
+	"\vbackup_file\x18\x01 \x01(\tR\n" +
+	"backupFile\x12(\n" +
+	"\x10backup_root_path\x18\x02 \x01(\tR\x0ebackupRootPath\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"\xb1\x01\n" +
+	"\x0eRestoreRequest\x12\x1f\n" +
+	"\vbackup_file\x18\x01 \x01(\tR\n" +
+	"backupFile\x12(\n" +
+	"\x10backup_root_path\x18\x02 \x01(\tR\x0ebackupRootPath\x12\x16\n" +
+	"\x06suffix\x18\x03 \x01(\tR\x06suffix\x12<\n" +
+	"\x0eobject_storage\x18\x04 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\"<\n" +
+	"\x12SetVariableRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value2\xad\x01\n" +
+	"\x0fMilvusOperation\x12.\n" +
+	"\x06Backup\x12\x15.milvus.BackupRequest\x1a\r.common.Empty\x120\n" +
+	"\aRestore\x12\x16.milvus.RestoreRequest\x1a\r.common.Empty\x128\n" +
+	"\vSetVariable\x12\x1a.milvus.SetVariableRequest\x1a\r.common.EmptyB5Z3github.com/upmio/unit-operator/pkg/agent/app/milvusb\x06proto3"
 
 var (
 	file_pkg_agent_app_milvus_pb_milvus_proto_rawDescOnce sync.Once
@@ -365,28 +238,28 @@ func file_pkg_agent_app_milvus_pb_milvus_proto_rawDescGZIP() []byte {
 	return file_pkg_agent_app_milvus_pb_milvus_proto_rawDescData
 }
 
-var file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pkg_agent_app_milvus_pb_milvus_proto_goTypes = []any{
-	(S3StorageType)(0),     // 0: milvus.S3StorageType
-	(*S3Storage)(nil),      // 1: milvus.S3Storage
-	(*BackupRequest)(nil),  // 2: milvus.BackupRequest
-	(*RestoreRequest)(nil), // 3: milvus.RestoreRequest
-	(*Response)(nil),       // 4: milvus.Response
+	(*BackupRequest)(nil),        // 0: milvus.BackupRequest
+	(*RestoreRequest)(nil),       // 1: milvus.RestoreRequest
+	(*SetVariableRequest)(nil),   // 2: milvus.SetVariableRequest
+	(*common.ObjectStorage)(nil), // 3: common.ObjectStorage
+	(*common.Empty)(nil),         // 4: common.Empty
 }
 var file_pkg_agent_app_milvus_pb_milvus_proto_depIdxs = []int32{
-	0, // 0: milvus.S3Storage.type:type_name -> milvus.S3StorageType
-	1, // 1: milvus.BackupRequest.S3Storage:type_name -> milvus.S3Storage
-	1, // 2: milvus.RestoreRequest.S3Storage:type_name -> milvus.S3Storage
-	2, // 3: milvus.MilvusOperation.Backup:input_type -> milvus.BackupRequest
-	3, // 4: milvus.MilvusOperation.Restore:input_type -> milvus.RestoreRequest
-	4, // 5: milvus.MilvusOperation.Backup:output_type -> milvus.Response
-	4, // 6: milvus.MilvusOperation.Restore:output_type -> milvus.Response
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: milvus.BackupRequest.object_storage:type_name -> common.ObjectStorage
+	3, // 1: milvus.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	0, // 2: milvus.MilvusOperation.Backup:input_type -> milvus.BackupRequest
+	1, // 3: milvus.MilvusOperation.Restore:input_type -> milvus.RestoreRequest
+	2, // 4: milvus.MilvusOperation.SetVariable:input_type -> milvus.SetVariableRequest
+	4, // 5: milvus.MilvusOperation.Backup:output_type -> common.Empty
+	4, // 6: milvus.MilvusOperation.Restore:output_type -> common.Empty
+	4, // 7: milvus.MilvusOperation.SetVariable:output_type -> common.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_milvus_pb_milvus_proto_init() }
@@ -399,14 +272,13 @@ func file_pkg_agent_app_milvus_pb_milvus_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc), len(file_pkg_agent_app_milvus_pb_milvus_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   4,
+			NumEnums:      0,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pkg_agent_app_milvus_pb_milvus_proto_goTypes,
 		DependencyIndexes: file_pkg_agent_app_milvus_pb_milvus_proto_depIdxs,
-		EnumInfos:         file_pkg_agent_app_milvus_pb_milvus_proto_enumTypes,
 		MessageInfos:      file_pkg_agent_app_milvus_pb_milvus_proto_msgTypes,
 	}.Build()
 	File_pkg_agent_app_milvus_pb_milvus_proto = out.File

@@ -2,7 +2,8 @@ package conf
 
 import (
 	"fmt"
-	supervisord "github.com/abrander/go-supervisord"
+
+	"github.com/abrander/go-supervisord"
 )
 
 var supervisorClient *supervisord.Client

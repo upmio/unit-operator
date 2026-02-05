@@ -3,8 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/upmio/unit-operator/pkg/agent/version"
 	"os"
+
+	"github.com/upmio/unit-operator/pkg/agent/version"
 
 	"github.com/spf13/cobra"
 )

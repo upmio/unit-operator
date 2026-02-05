@@ -3,37 +3,28 @@ syntax = "proto3";
 package milvus;
 option go_package="github.com/upmio/unit-operator/pkg/agent/app/milvus";
 
-enum S3StorageType {
-  Minio = 0;
-}
-
-message S3Storage {
-  string Endpoint = 1;
-  string Bucket = 2;
-  string AccessKey = 3;
-  string SecretKey = 4;
-  bool ssl = 5;
-  S3StorageType type =6;
-}
+import "pkg/agent/app/common/pb/common.proto";
 
 message BackupRequest {
-  S3Storage S3Storage=1;
-  string BackupFile = 2;
-  string BackupRootPath = 3;
+  string backup_file = 1;
+  string backup_root_path = 2;
+  common.ObjectStorage object_storage = 3;
 }
 
 message RestoreRequest {
-  S3Storage S3Storage=1;
-  string BackupFile = 2;
-  string BackupRootPath = 3;
-  string Suffix = 4;
+  string backup_file = 1;
+  string backup_root_path = 2;
+  string suffix = 3;
+  common.ObjectStorage object_storage = 4;
 }
 
-message Response {
-  string message = 1;
+message SetVariableRequest {
+  string key = 1;
+  string value = 2;
 }
 
 service MilvusOperation {
-  rpc Backup (BackupRequest) returns (Response);
-  rpc Restore (RestoreRequest) returns (Response);
+  rpc Backup (BackupRequest) returns (common.Empty);
+  rpc Restore (RestoreRequest) returns (common.Empty);
+  rpc SetVariable (SetVariableRequest) returns (common.Empty);
 }

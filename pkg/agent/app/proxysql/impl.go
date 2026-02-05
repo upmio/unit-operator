@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
-	slm "github.com/upmio/unit-operator/pkg/agent/app/service"
+	"github.com/upmio/unit-operator/pkg/agent/app/slm"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"net"
-	"os"
 	// this import  needs to be done otherwise the mysql driver don't work
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -28,47 +29,12 @@ type service struct {
 	slm slm.ServiceLifecycleServer
 }
 
-const (
-	adminPortEnvKey = "ADMIN_PORT"
-)
-
-// Common helper methods
-
-// newProxysqlResponse creates a new ProxySQL Response with the given message
-func newProxysqlResponse(message string) *Response {
-	return &Response{Message: message}
-}
-
-// createProxySQLDB creates a ProxySQL database connection
-func (s *service) createProxySQLDB(ctx context.Context, username, password string) (*sql.DB, error) {
-	port := os.Getenv(adminPortEnvKey)
-	if port == "" {
-		return nil, fmt.Errorf("environment variable %s is not set", adminPortEnvKey)
-	}
-
-	addr := net.JoinHostPort("127.0.0.1", port)
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/?timeout=5s&multiStatements=true&interpolateParams=true",
-		username, password, addr)
-
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open connection %s: %v", addr, err)
-	}
-
-	if err = db.PingContext(ctx); err != nil {
-		if closeErr := db.Close(); closeErr != nil {
-			return nil, fmt.Errorf("failed to ping %s: %v, and failed to close db: %v", addr, err, closeErr)
-		}
-		return nil, fmt.Errorf("failed to ping %s: %v", addr, err)
-	}
-
-	return db, nil
-}
-
 func (s *service) Config() error {
 	s.proxysqlOps = app.GetGrpcApp(appName).(ProxysqlOperationServer)
-	s.logger = zap.L().Named("[PROXYSQL]").Sugar()
-	s.slm = app.GetGrpcApp("service").(slm.ServiceLifecycleServer)
+	s.logger = zap.L().Named(appName).Sugar()
+
+	s.slm = app.GetGrpcApp("slm").(slm.ServiceLifecycleServer)
+
 	return nil
 }
 
@@ -80,61 +46,89 @@ func (s *service) Registry(server *grpc.Server) {
 	RegisterProxysqlOperationServer(server, svr)
 }
 
-func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*Response, error) {
-	common.LogRequestSafely(s.logger, "proxysql set variable", map[string]interface{}{
+func (s *service) SetVariable(ctx context.Context, req *SetVariableRequest) (*common.Empty, error) {
+	util.LogRequestSafely(s.logger, "proxysql set variable", map[string]interface{}{
 		"key":      req.GetKey(),
 		"value":    req.GetValue(),
 		"section":  req.GetSection(),
 		"username": req.GetUsername(),
-		"password": req.GetPassword(),
 	})
 
-	// 1. Check service status
-	if _, err := s.slm.CheckServiceStatus(ctx, &slm.ServiceRequest{}); err != nil {
-		return common.LogAndReturnError(s.logger, newProxysqlResponse, "service status check failed", err)
+	// Check process is started
+	if _, err := s.slm.CheckProcessStarted(ctx, nil); err != nil {
+		s.logger.Errorw("failed to check process started", zap.Error(err))
+		return nil, err
 	}
 
-	password, err := common.GetPlainTextPassword(req.GetPassword())
+	// Create proxysql connection
+	db, err := s.newDBConn(ctx, req.GetUsername())
 	if err != nil {
-		return common.LogAndReturnError(s.logger, newProxysqlResponse, "decrypt password failed", err)
+		return nil, err
+	}
+	defer s.closeDBConn(db)
+
+	// Execute set variable
+	execSQL := fmt.Sprintf("SET %s-%s = %s", req.GetSection(), req.GetKey(), req.GetValue())
+	if _, err = db.ExecContext(ctx, execSQL); err != nil {
+		s.logger.Errorw("failed to set variable", zap.Error(err), zap.String("key", req.GetKey()), zap.String("value", req.GetValue()))
+		return nil, err
 	}
 
-	// 2. Create database connection
-	db, err := s.createProxySQLDB(ctx, req.GetUsername(), password)
-	if err != nil {
-		return common.LogAndReturnError(s.logger, newProxysqlResponse, "database connection failed", err)
-	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			s.logger.Errorf("failed to close database connection: %v", err)
-		}
-	}()
-
-	// 3. Set variable
-	execSql := fmt.Sprintf(setVariableSql, req.GetSection(), req.GetKey(), req.GetValue())
-	if _, err = db.ExecContext(ctx, execSql); err != nil {
-		return common.LogAndReturnError(s.logger, newProxysqlResponse, fmt.Sprintf("failed to SET %s=%s", req.GetKey(), req.GetValue()), err)
-	}
-
-	// 4. Load variables to runtime based on section
+	// Load variables to runtime based on section
 	switch req.GetSection() {
 	case "admin":
-		if _, err = db.ExecContext(ctx, loadAdminVariableSql); err != nil {
-			return common.LogAndReturnError(s.logger, newProxysqlResponse, "failed to execute LOAD ADMIN VARIABLES TO RUNTIME", err)
+		if _, err = db.ExecContext(ctx, `LOAD ADMIN VARIABLES TO RUNTIME`); err != nil {
+			s.logger.Errorw("failed to load admin section variable to runtime", zap.Error(err))
+			return nil, err
 		}
 	case "mysql":
-		if _, err = db.ExecContext(ctx, loadMysqlVariableSql); err != nil {
-			return common.LogAndReturnError(s.logger, newProxysqlResponse, "failed to execute LOAD MYSQL VARIABLES TO RUNTIME", err)
+		if _, err = db.ExecContext(ctx, `LOAD MYSQL VARIABLES TO RUNTIME`); err != nil {
+			s.logger.Errorw("failed to load mysql section variable to runtime variable", zap.Error(err))
+			return nil, err
 		}
 	}
 
-	return common.LogAndReturnSuccess(s.logger, newProxysqlResponse, fmt.Sprintf("set variable %s=%s successfully", req.GetKey(), req.GetValue()))
+	s.logger.Info("set variable successfully")
+	return nil, nil
+}
+
+// newDBConn creates a ProxySQL database connection
+func (s *service) newDBConn(ctx context.Context, username string) (*sql.DB, error) {
+	password, err := util.DecryptPlainTextPassword(username)
+	if err != nil {
+		s.logger.Errorw("failed to decrypt password", zap.Error(err), zap.String("username", username))
+		return nil, err
+	}
+
+	addr := net.JoinHostPort("127.0.0.1", "6032")
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/?timeout=5s&multiStatements=true&interpolateParams=true",
+		username, password, addr)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = db.PingContext(ctx); err != nil {
+		s.logger.Errorw("failed to ping proxysql", zap.Error(err))
+
+		s.closeDBConn(db)
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func (s *service) closeDBConn(client *sql.DB) {
+	if client == nil {
+		return
+	}
+
+	if err := client.Close(); err != nil {
+		s.logger.Errorw("failed to close proxysql connection", zap.Error(err))
+	}
 }
 
 func RegistryGrpcApp() {
 	app.RegistryGrpcApp(svr)
 }
-
-//func init() {
-//	app.RegistryGrpcApp(svr)
-//}

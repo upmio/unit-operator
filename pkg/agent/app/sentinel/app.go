@@ -1,5 +1,5 @@
 package sentinel
 
 const (
-	appName = "sentinel"
+	appName = "redis-sentinel"
 )

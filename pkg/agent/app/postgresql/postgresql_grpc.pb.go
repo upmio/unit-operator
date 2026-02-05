@@ -4,6 +4,7 @@ package postgresql
 
 import (
 	context "context"
+	common "github.com/upmio/unit-operator/pkg/agent/app/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -18,9 +19,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PostgresqlOperationClient interface {
-	PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*Response, error)
-	LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*Response, error)
-	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error)
+	PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type postgresqlOperationClient struct {
@@ -31,8 +33,8 @@ func NewPostgresqlOperationClient(cc grpc.ClientConnInterface) PostgresqlOperati
 	return &postgresqlOperationClient{cc}
 }
 
-func (c *postgresqlOperationClient) PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *postgresqlOperationClient) PhysicalBackup(ctx context.Context, in *PhysicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/postgresql.PostgresqlOperation/PhysicalBackup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -40,8 +42,8 @@ func (c *postgresqlOperationClient) PhysicalBackup(ctx context.Context, in *Phys
 	return out, nil
 }
 
-func (c *postgresqlOperationClient) LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *postgresqlOperationClient) LogicalBackup(ctx context.Context, in *LogicalBackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/postgresql.PostgresqlOperation/LogicalBackup", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,9 +51,18 @@ func (c *postgresqlOperationClient) LogicalBackup(ctx context.Context, in *Logic
 	return out, nil
 }
 
-func (c *postgresqlOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *postgresqlOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
 	err := c.cc.Invoke(ctx, "/postgresql.PostgresqlOperation/Restore", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *postgresqlOperationClient) SetVariable(ctx context.Context, in *SetVariableRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	out := new(common.Empty)
+	err := c.cc.Invoke(ctx, "/postgresql.PostgresqlOperation/SetVariable", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +73,10 @@ func (c *postgresqlOperationClient) Restore(ctx context.Context, in *RestoreRequ
 // All implementations must embed UnimplementedPostgresqlOperationServer
 // for forward compatibility
 type PostgresqlOperationServer interface {
-	PhysicalBackup(context.Context, *PhysicalBackupRequest) (*Response, error)
-	LogicalBackup(context.Context, *LogicalBackupRequest) (*Response, error)
-	Restore(context.Context, *RestoreRequest) (*Response, error)
+	PhysicalBackup(context.Context, *PhysicalBackupRequest) (*common.Empty, error)
+	LogicalBackup(context.Context, *LogicalBackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
+	SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error)
 	mustEmbedUnimplementedPostgresqlOperationServer()
 }
 
@@ -72,14 +84,17 @@ type PostgresqlOperationServer interface {
 type UnimplementedPostgresqlOperationServer struct {
 }
 
-func (UnimplementedPostgresqlOperationServer) PhysicalBackup(context.Context, *PhysicalBackupRequest) (*Response, error) {
+func (UnimplementedPostgresqlOperationServer) PhysicalBackup(context.Context, *PhysicalBackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PhysicalBackup not implemented")
 }
-func (UnimplementedPostgresqlOperationServer) LogicalBackup(context.Context, *LogicalBackupRequest) (*Response, error) {
+func (UnimplementedPostgresqlOperationServer) LogicalBackup(context.Context, *LogicalBackupRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogicalBackup not implemented")
 }
-func (UnimplementedPostgresqlOperationServer) Restore(context.Context, *RestoreRequest) (*Response, error) {
+func (UnimplementedPostgresqlOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
+}
+func (UnimplementedPostgresqlOperationServer) SetVariable(context.Context, *SetVariableRequest) (*common.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetVariable not implemented")
 }
 func (UnimplementedPostgresqlOperationServer) mustEmbedUnimplementedPostgresqlOperationServer() {}
 
@@ -148,6 +163,24 @@ func _PostgresqlOperation_Restore_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PostgresqlOperation_SetVariable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVariableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PostgresqlOperationServer).SetVariable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/postgresql.PostgresqlOperation/SetVariable",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PostgresqlOperationServer).SetVariable(ctx, req.(*SetVariableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PostgresqlOperation_ServiceDesc is the grpc.ServiceDesc for PostgresqlOperation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -166,6 +199,10 @@ var PostgresqlOperation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Restore",
 			Handler:    _PostgresqlOperation_Restore_Handler,
+		},
+		{
+			MethodName: "SetVariable",
+			Handler:    _PostgresqlOperation_SetVariable_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
