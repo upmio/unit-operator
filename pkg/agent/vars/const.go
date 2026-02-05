@@ -11,7 +11,7 @@ const (
 	PodNameEnvKey          = "POD_NAME"
 	ServiceNameEnvKey      = "SERVICE_NAME"
 	ServiceGroupNameEnvKey = "SERVICE_GROUP_NAME"
-	EtcdServiceNameEnvKey  = "ETCD_SERVICE"
+	EtcdMemberListEnvKey   = "ETCD_MEMBER_LIST"
 	CertMountEnvKey        = "CERT_MOUNT"
 	ConfigPathEnvKey       = "CONFIG_PATH"
 	AESEnvKey              = "AES_SECRET_KEY"

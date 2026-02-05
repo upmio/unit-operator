@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -23,7 +24,6 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/caarlos0/env/v9"
@@ -73,12 +73,12 @@ type service struct {
 
 	slm slm.ServiceLifecycleServer
 
-	opsCfg          *OpsConfig
-	clientSet       kubernetes.Interface
-	namespace       string
-	etcdServiceName string
-	rootPath        string
-	certDir         string
+	opsCfg         *OpsConfig
+	clientSet      kubernetes.Interface
+	namespace      string
+	etcdMemberList string
+	rootPath       string
+	certDir        string
 }
 
 func (s *service) Config() error {
@@ -107,7 +107,7 @@ func (s *service) Config() error {
 		return err
 	}
 
-	etcdServiceName, err := util.IsEnvVarSet(vars.EtcdServiceNameEnvKey)
+	etcdMemberList, err := util.IsEnvVarSet(vars.EtcdMemberListEnvKey)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (s *service) Config() error {
 	}
 
 	s.namespace = namespace
-	s.etcdServiceName = etcdServiceName
+	s.etcdMemberList = etcdMemberList
 	s.rootPath = serviceGroupName
 	s.certDir = certDir
 
@@ -338,7 +338,7 @@ func (s *service) normalizeConfigKeyToPath(k string) string {
 }
 
 func (s *service) newEtcdClient(ctx context.Context) (*clientv3.Client, error) {
-	endpoints, err := s.getEtcdEndpoint(ctx)
+	endpoints, err := s.getEtcdEndpoint()
 	if err != nil {
 		return nil, err
 	}
@@ -404,19 +404,18 @@ func (s *service) buildTLSConfig() (*tls.Config, error) {
 	return tlsCfg, nil
 }
 
-func (s *service) getEtcdEndpoint(ctx context.Context) ([]string, error) {
+func (s *service) getEtcdEndpoint() ([]string, error) {
 
-	obj, err := s.clientSet.CoreV1().Pods(s.namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("unitset_internal=%s", s.etcdServiceName),
-	})
+	memList := make([]string, 0)
 
+	err := json.Unmarshal([]byte(s.etcdMemberList), &memList)
 	if err != nil {
 		return nil, err
 	}
 
 	uri := make([]string, 0)
-	for _, pod := range obj.Items {
-		endpoint := fmt.Sprintf("%s.%s-headless-svc.%s.svc.cluster.local:2379", pod.GetName(), s.etcdServiceName, pod.GetNamespace())
+	for _, member := range memList {
+		endpoint := net.JoinHostPort(member, "2379")
 		uri = append(uri, endpoint)
 	}
 
