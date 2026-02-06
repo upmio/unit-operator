@@ -89,8 +89,9 @@ func (f *ResourceFactory) WriteFileToConfigMap(ctx context.Context, confDir, key
 			f.logger.Infow("config map not found, will create new one", zap.String("namespace", namespace), zap.String("name", configMapName))
 			instance = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      configMapName,
-					Namespace: namespace,
+					Name:            configMapName,
+					Namespace:       namespace,
+					OwnerReferences: f.ownerReference,
 				},
 				Data: map[string]string{
 					key: string(data),
