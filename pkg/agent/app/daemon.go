@@ -33,16 +33,3 @@ func LoadedDaemonApp() (apps []string) {
 	}
 	return
 }
-
-// LoadDaemonApp load all Daemon app
-func LoadDaemonApp(ctx context.Context, wg *sync.WaitGroup) error {
-	for name, app := range daemonApps {
-		err := app.Config()
-		if err != nil {
-			return fmt.Errorf("config daemon app %s error %s", name, err)
-		}
-
-		app.Registry(ctx, wg)
-	}
-	return nil
-}

@@ -39,7 +39,7 @@ func (d *daemon) StartDaemon(ctx context.Context, wg *sync.WaitGroup) {
 
 	d.logger.Info("start backup config daemon")
 
-	key := "node.conf"
+	key := "nodes.conf"
 	if err := d.factory.WriteConfigMapToFile(ctx, d.confDir, key); err != nil {
 		d.logger.Warn(err)
 	}

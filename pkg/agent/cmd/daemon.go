@@ -130,14 +130,11 @@ var daemonCmd = &cobra.Command{
 		}
 
 		// initialize the global app
-		if err := app.InitAllApp(); err != nil {
+		if err := app.InitAllApp(ctx, wg); err != nil {
 			return err
 		}
 
 		zap.L().Named("init").Sugar().Info(fmt.Sprintf("loaded daemon apps %s", app.LoadedDaemonApp()))
-		if err := app.LoadDaemonApp(ctx, wg); err != nil {
-			return err
-		}
 
 		// start service
 		if err := svr.start(); err != nil {
