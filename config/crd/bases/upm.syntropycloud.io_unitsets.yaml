@@ -2196,6 +2196,42 @@ spec:
                       Enable define if need create pod monitor
                       default: false
                     type: boolean
+                  endpoints:
+                    description: |-
+                      Endpoints defines the pod monitor scrape endpoints.
+                      If empty, a single endpoint with port "metrics" is used.
+                    items:
+                      description: PodMonitorEndpoint defines a simplified pod metrics
+                        endpoint config.
+                      properties:
+                        port:
+                          description: |-
+                            Port is the pod port name exposed for scraping.
+                            Defaults to "metrics" when omitted.
+                          type: string
+                        relabelConfigs:
+                          description: RelabelConfigs defines target relabeling rules
+                            for this endpoint.
+                          items:
+                            description: PodMonitorRelabelConfig defines a simplified
+                              relabel config.
+                            properties:
+                              action:
+                                description: Action to perform based on the regex
+                                  matching.
+                                type: string
+                              replacement:
+                                description: Replacement value against which a Replace
+                                  action is performed if the regex matches.
+                                type: string
+                              targetLabel:
+                                description: TargetLabel is the label to which the
+                                  resulting string is written.
+                                type: string
+                            type: object
+                          type: array
+                      type: object
+                    type: array
                 type: object
               resizePolicy:
                 description: ResizePolicy resources resize policy for the container.

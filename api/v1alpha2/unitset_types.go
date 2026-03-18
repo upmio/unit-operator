@@ -116,6 +116,40 @@ type PodMonitorInfo struct {
 	// +kubebuilder:default=false
 	// +optional
 	Enable bool `json:"enable,omitempty"`
+
+	// Endpoints defines the pod monitor scrape endpoints.
+	// If empty, a single endpoint with port "metrics" is used.
+	// +optional
+	Endpoints []PodMonitorEndpoint `json:"endpoints,omitempty"`
+}
+
+// PodMonitorEndpoint defines a simplified pod metrics endpoint config.
+type PodMonitorEndpoint struct {
+
+	// Port is the pod port name exposed for scraping.
+	// Defaults to "metrics" when omitted.
+	// +optional
+	Port string `json:"port,omitempty"`
+
+	// RelabelConfigs defines target relabeling rules for this endpoint.
+	// +optional
+	RelabelConfigs []PodMonitorRelabelConfig `json:"relabelConfigs,omitempty"`
+}
+
+// PodMonitorRelabelConfig defines a simplified relabel config.
+type PodMonitorRelabelConfig struct {
+
+	// TargetLabel is the label to which the resulting string is written.
+	// +optional
+	TargetLabel string `json:"targetLabel,omitempty"`
+
+	// Replacement value against which a Replace action is performed if the regex matches.
+	// +optional
+	Replacement string `json:"replacement,omitempty"`
+
+	// Action to perform based on the regex matching.
+	// +optional
+	Action string `json:"action,omitempty"`
 }
 
 type CertificateProfile struct {
