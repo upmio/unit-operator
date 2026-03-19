@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant User
+    participant API Server
+    participant Project Controller
+    participant cert-manager
+
+    User->>API Server: Create Project (cluster-scoped)
+    API Server-->>User: Confirm creation
+
+    Project Controller->>API Server: Watch Project
+    API Server-->>Project Controller: Notify Project creation
+
+    Project Controller->>API Server: Create Namespace (named after Project)
+    Note over Project Controller: Namespace name = Project name
+
+    alt CA enabled
+        Project Controller->>API Server: Create Issuer (SelfSigned)
+        API Server->>cert-manager: Issuer created
+
+        Project Controller->>API Server: Create Certificate
+        Note over Project Controller: Certificate uses Issuer<br/>SecretName: ca.secretName<br/>IsCA: true
+        API Server->>cert-manager: Certificate created
+    end
+
+    Project Controller->>API Server: Create ServiceAccount
+    Note over Project Controller: Name: {project-name}-serviceaccount
+
+    Project Controller->>API Server: Create Role
+    Note over Project Controller: Permissions for:<br/>- pods (get, list)<br/>- secrets (get, list, create, patch)<br/>- configmaps (create, get, list, patch, update)<br/>- units (get, list)<br/>- redisreplications (get, list, patch, update)<br/>- events (create, patch)
+
+    Project Controller->>API Server: Create RoleBinding
+    Note over Project Controller: Binds Role to ServiceAccount
+
+    Project Controller->>API Server: Create Secret (AES key)
+    Note over Project Controller: 32-char hex key for encryption<br/>Stored in project annotation for self-heal
+
+    Project Controller->>Project Controller: Update Project annotation
+    Note over Project Controller: Store AES key in Project annotation

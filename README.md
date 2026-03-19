@@ -9,52 +9,35 @@
 
 A Kubernetes-based extension suite focused on extending pod management capabilities such as deployment, publishing, operations, and availability protection.
 
-## ✨ Features
+## Features
 
-- 🎯 **UnitSet Management**: Manages sets of distributed units with shared configuration
-- 📦 **Unit Lifecycle**: Individual workload instance management with sidecar agents
-- 📞 **gRPC Operations**: Manages gRPC-based operations between units
-- 🛡️ **High Availability**: Built-in replication and failover mechanisms
-- 📈 **Scaling**: Horizontal and vertical scaling capabilities
-- 🔄 **Lifecycle Management**: Automated backup, recovery, and upgrades
-- ⚙️ **Configuration Management**: Template-based configuration with shared configs
-- 📊 **Monitoring**: Integrated metrics and health checks
-- 🔐 **Security**: Certificate management and secure credential handling
-- 🧩 **Compose Operator Integration**: Optional integration with [Compose Operator](https://github.com/upmio/compose-operator) for database replication/topologies (MySQL, Redis, PostgreSQL, ProxySQL)
+**UnitSet Management**: Manages sets of distributed units with shared configuration
+**Unit Lifecycle**: Individual workload instance management with sidecar agents
+**gRPC Operations**: Manages gRPC-based operations between units
+**High Availability**: Built-in replication and failover mechanisms
+**Scaling**: Horizontal and vertical scaling capabilities
+**Lifecycle Management**: Automated backup, recovery, and upgrades
+**Configuration Management**: Template-based configuration with shared configs
+**Monitoring**: Integrated metrics and health checks
+**Security**: Certificate management and secure credential handling
+**Compose Operator Integration**: Optional integration with [Compose Operator](https://github.com/upmio/compose-operator) for database replication/topologies (MySQL, Redis, PostgreSQL, ProxySQL)
 
-## 🏗️ Architecture
+## Architecture
 
 The Unit Operator follows a two-layer architecture:
 
-```text
-┌─────────────────────────────────────┐
-│           UnitSet                   │
-│      (Cluster Manager)              │
-├─────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐   │
-│  │   Unit-0    │  │   Unit-1    │   │
-│  │ (Pod+Agent) │  │ (Pod+Agent) │   │
-│  └─────────────┘  └─────────────┘   │
-│                                     │
-│  ┌─────────────┐  ┌─────────────┐   │
-│  │   Unit-2    │  │    ...      │   │
-│  │ (Pod+Agent) │  │             │   │
-│  └─────────────┘  └─────────────┘   │
-└─────────────────────────────────────┘
-```
+- **UnitSet**: Manages a set of distributed units with shared configuration
+- **Unit**: Individual workload instances with sidecar agents for advanced operations
+- **GrpcCall**: Manages gRPC-based operations between units
+- **Agent**: Sidecar container providing unit-specific operations and configuration management
 
-- 🎯 **UnitSet**: Manages a set of distributed units with shared configuration
-- 📦 **Unit**: Individual workload instances with sidecar agents for advanced operations
-- 📞 **GrpcCall**: Manages gRPC-based operations between units
-- 🤖 **Agent**: Sidecar container providing unit-specific operations and configuration management
+![Architecture Diagram](./doc/architecture-diagram.png)
 
-![image](./doc/unitset-unit.png)
-
-## 🚀 Install
+## Install
 
 ### Prerequisites
 
-- Kubernetes ≥ 1.29 or OpenShift ≥ 4.14
+- Kubernetes >= 1.29 or OpenShift >= 4.14
 - `helm` v3 installed and available
 - Permissions to create CRDs, RBAC, and ServiceAccounts in the target namespace
 
@@ -71,18 +54,18 @@ For Custom Resource Definitions (CRDs), you can install them manually (recommend
 >
 > [Unit Operator Helm Chart](./charts/unit-operator/README.md)
 
-## ⚙️ Configuration
+## Configuration
 
-### 🎯 Supported Resource Types
+### Supported Resource Types
 
-| Resource | 📊 API Version | 📝 Description |
+| Resource | API Version | Description |
 |-----------|-------------|-------------------|
 | UnitSet | v1alpha2 | Manages a set of distributed units |
 | Unit | v1alpha2 | Individual workload instances |
 | GrpcCall | v1alpha1 | Manages gRPC-based operations |
 | Project | v1alpha2 | Manages project-level configuration and resources |
 
-### 📞 gRPC Communication
+### gRPC Communication
 
 The operator supports gRPC communication between units:
 
@@ -90,9 +73,9 @@ The operator supports gRPC communication between units:
 - Configuration synchronization
 - Cross-unit communication
 
-## 💻 Development
+## Development
 
-### 🛠️ Setup Development Environment
+### Setup Development Environment
 
 ```bash
 # Clone the repository
@@ -108,7 +91,7 @@ make kustomize controller-gen envtest
 make operator-sdk golangci-lint
 ```
 
-### 🏗️ Build and Run
+### Build and Run
 
 ```bash
 # Build the operator
@@ -124,7 +107,7 @@ make test
 make check-coverage
 ```
 
-### 🔧 Code Generation
+### Code Generation
 
 ```bash
 # Generate CRDs and manifests
@@ -137,16 +120,16 @@ make generate
 make pb-gen
 ```
 
-## 📚 API Reference
+## API Reference
 
 The Unit Operator provides the following custom resources:
 
-- 🎯 [UnitSet](doc/unit-operator_api.md#unitset): Manages a cluster of workload instances
-- 📦 [Unit](doc/unit-operator_api.md#unit): Individual workload instance
-- 📞 [GrpcCall](doc/unit-operator_api.md#grpccall): gRPC-based operations
-- 🏗️ [Project](doc/unit-operator_api.md#project): Manages project-level configuration and resources
+- [UnitSet](doc/unit-operator_api.md#unitset): Manages a cluster of workload instances
+- [Unit](doc/unit-operator_api.md#unit): Individual workload instance
+- [GrpcCall](doc/unit-operator_api.md#grpccall): gRPC-based operations
+- [Project](doc/unit-operator_api.md#project): Manages project-level configuration and resources
 
-### 🧩 Compose Operator Integration (optional)
+### Compose Operator Integration (optional)
 
 Unit Operator orchestrates workloads around `UnitSet/Unit` (Pods, PVCs, Services, rolling upgrades, agent coordination). If you need database replication/topologies, install and use [Compose Operator](https://github.com/upmio/compose-operator) alongside.
 
@@ -160,7 +143,7 @@ Unit Operator orchestrates workloads around `UnitSet/Unit` (Pods, PVCs, Services
 
 Note: Unit Operator works independently; install Compose Operator only if you need these replication capabilities.
 
-### 🔐 Compose Operator password encryption example (optional)
+### Compose Operator password encryption example (optional)
 
 When using Compose Operator database CRDs, credentials must be AES-256-CTR encrypted and stored in Secrets. Example workflow below (commands from the Compose Operator docs; build the tool in its repository):
 
@@ -200,9 +183,9 @@ kubectl create secret generic proxysql-credentials \
 
 > Note: The capabilities and tooling above come from the Compose Operator project. Refer to its latest documentation: `https://github.com/upmio/compose-operator`.
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
-### ⚠️ Common Issues
+### Common Issues
 
 1. **Pods stuck in Pending state**
    - Check resource requests/limits
@@ -219,7 +202,7 @@ kubectl create secret generic proxysql-credentials \
    - Verify upgrade strategy configuration
    - Ensure sufficient disk space
 
-### 🔍 Debug Commands
+### Debug Commands
 
 ```bash
 # Check operator logs
@@ -235,11 +218,11 @@ kubectl describe unit <name>
 kubectl logs <pod-name> -c agent
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### 🔄 Development Workflow
+### Development Workflow
 
 1. Fork the repository
 2. Create a feature branch
@@ -248,33 +231,29 @@ We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for 
 5. Run linting and tests
 6. Submit a pull request
 
-### 🎨 Code Style
+### Code Style
 
 - Follow Go standard formatting
 - Use `make fmt` and `make vet` before committing
 - Ensure tests pass with `make test`
 - Maintain test coverage above threshold
 
-## 📄 License
+## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## Support
 
-- 📚 [Documentation](doc/unit-operator_api.md)
-- 🐛 [Issues](https://github.com/upmio/unit-operator/issues)
+- [Documentation](doc/unit-operator_api.md)
+- [Issues](https://github.com/upmio/unit-operator/issues)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-![GitHub](https://img.icons8.com/color/96/000000/github.png)
+Built using these amazing tools and frameworks:
 
-Built with ❤️ using these amazing tools and frameworks
-
-- 🏗️ [Kubebuilder](https://book.kubebuilder.io/) - Kubernetes API development framework
-- 🎛️ [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) - Kubernetes controller framework
+- [Kubebuilder](https://book.kubebuilder.io/) - Kubernetes API development framework
+- [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) - Kubernetes controller framework
 
 ---
 
-![Kubernetes](https://img.icons8.com/color/96/000000/kubernetes.png)
-
-Made with ❤️ by the Unit Operator community
+Made with 🩷 by the Unit Operator community

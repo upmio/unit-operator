@@ -24,7 +24,7 @@ Underlying type: _string_
 
 Action defines the specific operation to be sent to the unit-agent.
 Each action corresponds to a gRPC method exposed by the unit-agent.
-Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone`.
+Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone`, `backup`.
 
 _Appears in:_
 
@@ -68,8 +68,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `targetUnit` _string_ | Name of the target Unit custom resource |  | Required: ✓ |
-| `type` _[UnitType](#unittype)_ | Type of target unit |  | Required: ✓, Enum: `mysql`, `postgresql`, `proxysql` |
-| `action` _[Action](#action)_ | Operation to perform |  | Required: ✓, Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone` |
+| `type` _[UnitType](#unittype)_ | Type of target unit |  | Required: ✓, Enum: `mysql`, `postgresql`, `proxysql`, `redis`, `redis-sentinel`, `mongodb`, `milvus` |
+| `action` _[Action](#action)_ | Operation to perform |  | Required: ✓, Enum: `logical-backup`, `physical-backup`, `restore`, `gtid-purge`, `set-variable`, `clone`, `backup` |
 | `ttlSecondsAfterFinished` _integer_ | TTL after completion (seconds). If set, the resource is eligible for auto-deletion after TTL. |  | Required: ✓ |
 | `parameters` _object_ | Action-specific parameters (map[string]JSON) |  | Required: ✓, Schemaless: {} |
 
@@ -105,8 +105,8 @@ _Appears in:_
 Underlying type: _string_
 
 UnitType defines the type of unit this GrpcCall will interact with.
-Currently supported types are "mysql", "proxysql" and "postgresql".
-Enum: `mysql`, `postgresql`, `proxysql`.
+Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus" and "postgresql".
+Enum: `mysql`, `postgresql`, `proxysql`, `redis`, `redis-sentinel`, `mongodb`, `milvus`.
 
 _Appears in:_
 
@@ -168,6 +168,19 @@ _Appears in:_
 | `name` _string_ | Name is the name of the emptyDir volume. |
 | `sizeLimit` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#quantity-resource-core)_ | SizeLimit is the total amount of local storage required for this EmptyDir volume. |
 
+#### ExtraVolumeInfo
+
+ExtraVolumeInfo defines the configuration for extra volumes
+
+_Appears in:_
+
+- [UnitSetSpec](#unitsetspec)
+
+| Field | Description |
+| --- | --- |
+| `volume` _[Volume](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#volume-v1-core)_ | Volume defines the configuration for the volume. |
+| `volumeMountPath` _string_ | VolumeMountPath is the mount path for the extra volume. |
+
 #### ExternalServiceSpec
 
 ExternalServiceSpec defines the configuration for external services.
@@ -178,7 +191,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `type` _string_ | Type of the external service (e.g., NodePort) |  |  |
+| `type` _string_ | Type of the external service |  | Enum: `ClusterIP`, `NodePort`, `LoadBalancer`, `ExternalName` |
 
 #### ExternalServiceStatus
 
@@ -191,8 +204,6 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `name` _string_ | Name is the name of the external service. |
-| `ready` _boolean_ | Ready indicates whether the external service is ready. |
-| `message` _string_ | Message provides additional information about the external service status. |
 
 #### NodeAffinityPresetSpec
 
@@ -218,6 +229,34 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `enabled` _boolean_ | Enabled indicates whether pod monitoring is enabled. |
+| `endpoints` _[PodMonitorEndpoint](#podmonitorendpoint) array_ | Endpoints defines the pod monitor scrape endpoints. |
+
+#### PodMonitorEndpoint
+
+PodMonitorEndpoint defines a simplified pod metrics endpoint config.
+
+_Appears in:_
+
+- [PodMonitorInfo](#podmonitorinfo)
+
+| Field | Description |
+| --- | --- |
+| `port` _string_ | Port is the pod port name exposed for scraping. Defaults to "metrics". |
+| `relabelConfigs` _[PodMonitorRelabelConfig](#podmonitorrelabelconfig) array_ | RelabelConfigs defines target relabeling rules for this endpoint. |
+
+#### PodMonitorRelabelConfig
+
+PodMonitorRelabelConfig defines a simplified relabel config.
+
+_Appears in:_
+
+- [PodMonitorEndpoint](#podmonitorendpoint)
+
+| Field | Description |
+| --- | --- |
+| `targetLabel` _string_ | TargetLabel is the label to which the resulting string is written. |
+| `replacement` _string_ | Replacement value against which a Replace action is performed. |
+| `action` _string_ | Action to perform based on the regex matching. |
 
 #### Project
 
@@ -248,11 +287,45 @@ ProjectList contains a list of Project
 
 #### ProjectSpec
 
-ProjectSpec defines the desired state of Project. ProjectSpec is an empty object.
+ProjectSpec defines the desired state of Project.
 
 _Appears in:_
 
 - [Project](#project)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ca` _[CAInfo](#cainfo)_ | CA contains information about the Certificate Authority configuration. |  |  |
+
+#### CAInfo
+
+CAInfo contains information about the Certificate Authority configuration.
+
+_Appears in:_
+
+- [ProjectSpec](#projectspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `commonName` _string_ | CommonName is the common name for the CA certificate. |  |  |
+| `duration` _string_ | Duration is the validity period of the CA certificate. |  |  |
+| `enabled` _boolean_ | Enabled indicates whether the CA is enabled. |  |  |
+| `privateKey` _[PrivateKeyInfo](#privatekeyinfo)_ | PrivateKey contains information about the CA's private key. |  |  |
+| `renewBefore` _string_ | RenewBefore is the time before expiration when the certificate should be renewed. |  |  |
+| `secretName` _string_ | SecretName is the name of the Kubernetes secret storing the CA. |  |  |
+
+#### PrivateKeyInfo
+
+PrivateKeyInfo contains details about the private key used by the CA.
+
+_Appears in:_
+
+- [CAInfo](#cainfo)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `algorithm` _string_ | Algorithm is the cryptographic algorithm used for the private key. |  | Enum: `RSA`, `ECDSA`, `Ed25519` |
+| `size` _integer_ | Size is the size of the private key in bits. |  |  |
 
 #### ProjectStatus
 
@@ -358,30 +431,69 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#condition-v1-meta) array_ | Conditions represent the latest available observations of a unit's current state |  |  |
-| `configSynced` _boolean_ | ConfigSynced indicates whether the configuration has been synchronized |  |  |
+| `configSynced` _[ConfigSyncStatus](#configsyncstatus)_ | ConfigSyncStatus represents the status of the config sync |  |  |
 | `hostIP` _string_ | HostIP is the IP address of the host where the Unit's Pod is running |  |  |
 | `nodeName` _string_ | NodeName is the name of the node where the Unit's Pod is running |  |  |
-| `nodeReady` _boolean_ | NodeReady indicates whether the node is ready |  |  |
-| `persistentVolumeClaim` _[PersistentVolumeClaimStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaimstatus-v1-core) array_ | PersistentVolumeClaim represents the status of persistent volume claims |  |  |
+| `nodeReady` _string_ | NodeReady is the state of node ready condition |  |  |
+| `observedGeneration` _integer_ | ObservedGeneration is the most recent generation observed |  |  |
+| `persistentVolumeClaim` _[PvcInfo](#pvcinfo) array_ | PersistentVolumeClaim represents the current information/status of a persistent volume claim |  |  |
 | `phase` _[UnitPhase](#unitphase)_ | Phase is the current phase of the Unit |  |  |
 | `podIPs` _[PodIP](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podip-v1-core) array_ | PodIPs holds the IP addresses allocated to the pod |  |  |
 | `processState` _string_ | ProcessState represents the current state of the process |  |  |
 | `task` _string_ | Task represents the current task being executed |  |  |
 
+#### ConfigSyncStatus
+
+ConfigSyncStatus represents the status of the config sync
+
+_Appears in:_
+
+- [UnitStatus](#unitstatus)
+
+| Field | Description |
+| --- | --- |
+| `lastTransitionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#time-v1-meta)_ | LastTransitionTime is the last time the condition transitioned |
+| `status` _string_ | Status of the config sync |
+
+#### PvcInfo
+
+PvcInfo represents the current information/status of a persistent volume claim
+
+_Appears in:_
+
+- [UnitStatus](#unitstatus)
+
+| Field | Description |
+| --- | --- |
+| `accessModes` _[PersistentVolumeAccessMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeaccessmode-v1-core) array_ | AccessModes contains the actual access modes the volume backing the PVC has |
+| `capacity` _[PvcCapacity](#pvccapacity)_ | Capacity represents the actual resources of the PVC |
+| `name` _string_ | Name of a persistent volume claim |
+| `phase` _[PersistentVolumeClaimPhase](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaimphase-v1-core)_ | Phase represents the current phase of PersistentVolumeClaim |
+| `volumeName` _string_ | VolumeName name of volume |
+
+#### PvcCapacity
+
+PvcCapacity represents the actual resources of the PVC
+
+_Appears in:_
+
+- [PvcInfo](#pvcinfo)
+
+| Field | Description |
+| --- | --- |
+| `storage` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#quantity-resource-core)_ | Storage represents the actual resources of the PVC |
+
 #### UnitServiceSpec
 
-UnitServiceSpec defines the specification for unit-specific services
+UnitServiceSpec defines the configuration for unit services.
 
 _Appears in:_
 
 - [UnitSetSpec](#unitsetspec)
 
-| Field | Description |
-| --- | --- |
-| `name` _string_ | Name is the name of the unit service. |
-| `type` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#servicetype-v1-core)_ | Type determines how the Service is exposed. |
-| `ports` _[ServicePort](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#serviceport-v1-core) array_ | Ports is the list of ports that are exposed by this service. |
-| `selector` _object (keys:string, values:string)_ | Selector is a map of {key,value} pairs. |
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _string_ | Type of the unit service (e.g., ClusterIP) |  | Enum: `ClusterIP`, `NodePort`, `LoadBalancer`, `ExternalName` |
 
 #### UnitServiceStatus
 
@@ -393,9 +505,7 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
-| `name` _string_ | Name is the name of the unit service. |
-| `ready` _boolean_ | Ready indicates whether the unit service is ready. |
-| `message` _string_ | Message provides additional information about the unit service status. |
+| `name` _map[string]string_ | Name is a map, the key is unit name, the value is unit service name. |
 
 #### UnitSet
 
@@ -455,10 +565,12 @@ _Appears in:_
 | `edition` _string_ | Edition specifies the edition of the UnitSet |  |  |
 | `emptyDir` _[EmptyDirSpec](#emptydirspec)_ | EmptyDir defines empty directory configuration |  |  |
 | `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#envvar-v1-core) array_ | Env defines environment variables for the UnitSet |  |  |
+| `extraVolume` _[ExtraVolumeInfo](#extravolumeinfo) array_ | ExtraVolume defines extra volume configurations |  |  |
 | `externalService` _[ExternalServiceSpec](#externalservicespec)_ | ExternalService defines external service configuration |  |  |
 | `nodeAffinityPreset` _[NodeAffinityPresetSpec](#nodeaffinitypresetspec)_ | NodeAffinityPreset defines node affinity preset for this UnitSet |  |  |
 | `podAntiAffinityPreset` _string_ | PodAntiAffinityPreset defines pod anti-affinity preset |  |  |
 | `podMonitor` _[PodMonitorInfo](#podmonitorinfo)_ | PodMonitor defines pod monitor information for this UnitSet |  |  |
+| `resizePolicy` _[ContainerResizePolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#containerresizepolicy-v1-core) array_ | ResizePolicy defines resource resize policy for containers |  |  |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core)_ | Resources defines resource requirements |  |  |
 | `secret` _[SecretInfo](#secretinfo)_ | Secret defines secret information for this UnitSet |  |  |
 | `storages` _[StorageSpec](#storagespec) array_ | Storages defines storage configuration for this UnitSet |  |  |
@@ -498,11 +610,40 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `startup` _boolean_ | Startup indicates whether the unit should be started automatically |  |  |
 | `configTemplateName` _string_ | ConfigTemplateName is the name of the config template |  |  |
 | `configValueName` _string_ | ConfigValueName is the name of the config value |  |  |
-| `volumeClaimTemplates` _[PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaim-v1-core) array_ | VolumeClaimTemplates is a list of claims that pods are allowed to reference |  |  |
+| `failedPodRecoveryPolicy` _[FailedPodRecoveryPolicy](#failedpodrecoverypolicy)_ | FailedPodRecoveryPolicy indicates whether failed pod recovery is enabled |  |  |
+| `startup` _boolean_ | Startup indicates whether the unit should be started automatically |  |  |
 | `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podtemplatespec-v1-core)_ | Template is the object that describes the pod that will be created |  |  |
+| `volumeClaimTemplates` _[UnitVolumeClaimTemplate](#unitvolumeclaimtemplate) array_ | VolumeClaimTemplates is a user's request for and claim to a persistent volume |  |  |
+
+#### FailedPodRecoveryPolicy
+
+FailedPodRecoveryPolicy indicates whether failed pod recovery is enabled
+
+_Appears in:_
+
+- [UnitSpec](#unitspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled indicates whether failed pod recovery is enabled |  |  |
+| `reconcileThreshold` _integer_ | ReconcileThreshold is the threshold of failed pod recovery |  |  |
+
+#### UnitVolumeClaimTemplate
+
+UnitVolumeClaimTemplate is a user's request for and claim to a persistent volume
+
+_Appears in:_
+
+- [UnitSpec](#unitspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `annotations` _map[string]string_ | Annotations is an unstructured key value map stored with the resource |  |  |
+| `labels` _map[string]string_ | Labels defines the labels for the PVC of the volume |  |  |
+| `name` _string_ | Name must be the name of a volume defined in a volumeMount in the corresponding container of the template |  | Required: ✓ |
+| `spec` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaimspec-v1-core)_ | Spec defines the desired characteristics of a PersistentVolumeClaim |  |  |
 
 #### UpdateStrategySpec
 

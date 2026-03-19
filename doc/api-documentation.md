@@ -1,23 +1,22 @@
 # Unit Operator API Documentation
 
-## 📖 Overview
+## Overview
 
 The Unit Operator provides a comprehensive API for managing database and middleware workloads in Kubernetes. This document details all available API resources, their specifications, and usage patterns.
 
-## 🏗️ API Architecture
+## API Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Unit Operator API                        │
 ├─────────────────────────────────────────────────────────────┤
 │  v1alpha1 (upm.syntropycloud.io)                           │
-│  ├── GrpcCall - Execute operations on unit agents          │
-│  ├── MysqlReplication - MySQL replication management       │ (from compose-operator)
-│  └── PostgresReplication - PostgreSQL replication          │ (from compose-operator)
+│  └── GrpcCall - Execute operations on unit agents          │
 │                                                             │
 │  v1alpha2 (upm.syntropycloud.io)                           │
 │  ├── UnitSet - Manage database clusters                    │
-│  └── Unit - Individual database instances                  │
+│  ├── Unit - Individual database instances                  │
+│  └── Project - Project-level configuration and resources   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -25,30 +24,19 @@ The Unit Operator provides a comprehensive API for managing database and middlew
 > - Defaulting: `UnitSet` creation/update automatically attaches finalizers (`upm.io/unit-delete`, `upm.io/configmap-delete`).
 > - Validation: Validation hooks are placeholders and can be extended as needed.
 
-## 📚 API Versions
+## API Versions
 
 ### v1alpha1 (upm.syntropycloud.io)
 - **GrpcCall**: Execute gRPC operations on unit agents
-- **MysqlReplication**: Manage MySQL replication (from compose-operator)
-- **PostgresReplication**: Manage PostgreSQL replication (from compose-operator)
-
-> Note: `MysqlReplication`/`PostgresReplication` come from the Compose Operator project and are not CRDs in this repository. For replication/topology capabilities, see: `https://github.com/upmio/compose-operator`.
 
 ### v1alpha2 (upm.syntropycloud.io)
 - **Unit**: Individual database instance
 - **UnitSet**: Collection of database units with shared configuration
-
-### 🧩 Compose Operator integration (optional)
-
-This project can work with Compose Operator to provide database replication/topology capabilities (MySQL, PostgreSQL, etc.). Compose-related CRDs are provided and maintained by Compose Operator; install only if replication/topology is needed.
-
-- Repository: `https://github.com/upmio/compose-operator`
-- Capabilities: MySQL async/semi-sync/Group Replication, PostgreSQL streaming replication, Redis/ProxySQL
-- Note: Compose Operator does not perform automatic failover; administrators initiate switchover/failover based on observed status.
+- **Project**: Project-level configuration and resources
 
 ---
 
-# 🎯 GrpcCall (v1alpha1)
+# GrpcCall (v1alpha1)
 
 ## Overview
 
@@ -102,6 +90,10 @@ status:
 | `mysql` | MySQL database instance |
 | `postgresql` | PostgreSQL database instance |
 | `proxysql` | ProxySQL proxy instance |
+| `redis` | Redis database instance |
+| `redis-sentinel` | Redis Sentinel instance |
+| `mongodb` | MongoDB database instance |
+| `milvus` | Milvus vector database instance |
 
 ### Action Enum (matches code)
 
@@ -109,10 +101,11 @@ status:
 |--------|-------------|---------------------|
 | `logical-backup` | Perform logical database backup | mysql, postgresql |
 | `physical-backup` | Perform physical database backup | mysql, postgresql |
-| `restore` | Restore database from backup | mysql, postgresql |
+| `restore` | Restore database from backup | mysql, postgresql, redis, mongodb, milvus |
 | `gtid-purge` | Purge GTID information | mysql |
-| `set-variable` | Set runtime configuration variables | mysql, postgresql |
-| `clone` | Clone from another instance | mysql, postgresql |
+| `set-variable` | Set runtime configuration variables | mysql, postgresql, redis, mongodb, milvus |
+| `clone` | Clone from another instance | mysql |
+| `backup` | Generic backup operation | redis, mongodb, milvus |
 
 ### Action Parameters
 
@@ -199,22 +192,22 @@ spec:
     encryption: "AES256"
 ```
 
-### PostgreSQL Physical Backup
+### MySQL Physical Backup
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
-  name: postgresql-physical-backup
+  name: mysql-physical-backup
   namespace: default
 spec:
-  targetUnit: postgresql-cluster-0
-  type: postgresql
+  targetUnit: mysql-cluster-0
+  type: mysql
   action: physical-backup
   ttlSecondsAfterFinished: 3600
   parameters:
     backupType: "full"
     compression: "true"
-    destination: "s3://backups/postgresql/"
+    destination: "s3://backups/mysql/"
     parallel: "4"
 ```
 
@@ -252,12 +245,11 @@ spec:
 - **Parameter Validation**: Validate all parameters before creating GrpcCall
 - **Error Handling**: Monitor status field for operation results
 - **Resource Cleanup**: Use finalizers for cleanup operations
-- **Security**: Ensure sensitive parameters are stored in secrets
-  - When using Compose Operator, follow its AES-256-CTR encryption and Secret layout (`https://github.com/upmio/compose-operator`).
+- **Security**: Ensure sensitive parameters are stored in Kubernetes Secrets
 
 ---
 
-# 🏗️ UnitSet (v1alpha2)
+# UnitSet (v1alpha2)
 
 ## Overview
 
@@ -331,8 +323,17 @@ status:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `resources` | ResourceRequirements | No | Resource limits and requests for containers |
+| `resizePolicy` | []ContainerResizePolicy | No | Resize policy for container resources |
 | `env` | []EnvVar | No | Environment variables for units |
+| `extraVolume` | []ExtraVolumeInfo | No | Extra volume configurations |
 | Annotation `upm.io/node-name-map` | map[string]string (JSON) | No | Explicit node scheduling per unit; stored in metadata.annotations |
+
+#### ExtraVolumeInfo
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `volume` | Volume | Yes | Volume definition (corev1.Volume) |
+| `volumeMountPath` | string | Yes | Mount path for the extra volume |
 
 ### Storage Configuration
 
@@ -370,8 +371,8 @@ status:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Name of the secret |
-| `mountPath` | string | Yes | Mount path in container |
+| `name` | string | No | Name of the secret |
+| `mountPath` | string | No | Mount path in container |
 
 #### CertificateSecretSpec
 
@@ -398,13 +399,13 @@ status:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | No | Service type (NodePort, LoadBalancer) |
+| `type` | string | No | Service type (ClusterIP, NodePort, LoadBalancer, ExternalName) |
 
 #### UnitServiceSpec
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | No | Service type (ClusterIP) |
+| `type` | string | No | Service type (ClusterIP, NodePort, LoadBalancer, ExternalName) |
 
 ### Scheduling and Updates
 
@@ -435,16 +436,60 @@ status:
 | `key` | string | Yes | Node label key |
 | `values` | []string | Yes | Node label values |
 
+### Monitoring
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `podMonitor` | PodMonitorInfo | No | PodMonitor configuration for Prometheus scraping |
+
+#### PodMonitorInfo
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enable` | bool | No | Enable PodMonitor creation (default: false) |
+| `endpoints` | []PodMonitorEndpoint | No | Scrape endpoint configurations |
+
+#### PodMonitorEndpoint
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `port` | string | No | Pod port name exposed for scraping (default: "metrics") |
+| `relabelConfigs` | []PodMonitorRelabelConfig | No | Relabeling rules for this endpoint |
+
+#### PodMonitorRelabelConfig
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `targetLabel` | string | No | Label to which the resulting string is written |
+| `replacement` | string | No | Replacement value against which regex match is performed |
+| `action` | string | No | Action to perform based on regex matching |
+
 ## Status
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `conditions` | []metav1.Condition | No | Array of conditions representing the observed state |
+| `observedGeneration` | int64 | No | Most recent generation observed |
 | `units` | int | Current number of units |
 | `readyUnits` | int | Number of ready units |
 | `inUpdate` | string | Update status |
 | `unitPVCSynced` | PvcSyncStatus | PVC synchronization status |
 | `unitImageSynced` | ImageSyncStatus | Image synchronization status |
 | `unitResourceSynced` | ResourceSyncStatus | Resource synchronization status |
+| `externalService` | ExternalServiceStatus | No | External service information |
+| `unitService` | UnitServiceStatus | No | Unit service information |
+
+#### ExternalServiceStatus
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Name of the external service |
+
+#### UnitServiceStatus
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | map[string]string | Map of unit name to service name |
 
 ### Status Enums
 
@@ -466,19 +511,31 @@ status:
 ## Supported Database Types
 
 ### MySQL
-- **Versions**: 5.7, 8.0+
 - **Editions**: community, enterprise
 - **Replication Modes**: async, semi-sync, group-replication
 
 ### PostgreSQL
-- **Versions**: 12, 13, 14, 15+
 - **Editions**: community, enterprise
 - **Replication Modes**: streaming-replication
 
 ### ProxySQL
-- **Versions**: 2.0+
 - **Editions**: community, enterprise
-- **Replication Modes**: N/A
+
+### Redis
+- **Editions**: community
+- **Replication Modes**: async, semi-sync
+
+### Redis Sentinel
+- **Editions**: community
+- **Replication Modes**: sentinel-managed failover
+
+### MongoDB
+- **Editions**: community, enterprise
+- **Replication Modes**: replica set
+
+### Milvus
+- **Editions**: community, enterprise
+- **Replication Modes**: distributed
 
 ## Usage Examples
 
@@ -525,21 +582,22 @@ spec:
       partition: 0
 ```
 
-### PostgreSQL Cluster with Streaming Replication
+### MySQL Cluster with Semi-Sync Replication
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
-  name: postgresql-cluster
+  name: mysql-cluster
   namespace: default
   labels:
-    upm.api/service-group.name: postgresql-cluster
-    upm.api/service-group.type: postgresql-sg
+    upm.api/service-group.name: mysql-cluster
+    upm.api/service-group.type: mysql-sg
 spec:
-  type: postgresql
-  version: "15.12"
+  type: mysql
+  version: "8.0.41"
+  edition: community
   units: 3
-  sharedConfigName: postgresql-cluster-config
+  sharedConfigName: mysql-cluster-config
   resources:
     limits:
       cpu: "2"
@@ -547,44 +605,41 @@ spec:
     requests:
       cpu: "1"
       memory: 2Gi
-  emptyDir:
+  storages:
     - name: data
       mountPath: /DATA_MOUNT
-      size: 10Gi
-    - name: log
-      mountPath: /LOG_MOUNT
-      size: 5Gi
+      size: 100Gi
+      storageClassName: standard
   secret:
     mountPath: /SECRET_MOUNT
-    name: postgresql-cluster-secret
+    name: mysql-cluster-secret
   env:
+    - name: ARCH_MODE
+      value: rpl_semi_sync
     - name: ADM_USER
-      value: postgres
-    - name: MON_USER
-      value: monitor
-    - name: REPL_USER
-      value: replication
+      value: root
   nodeAffinityPreset:
     - key: kubernetes.io/arch
       values:
         - amd64
-    - key: upm.api/software.postgresql
+    - key: upm.api/software.mysql
       values:
         - "true"
 ```
 
-### ProxySQL Configuration
+### MySQL Single Instance
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
-  name: proxysql-cluster
+  name: mysql-single
   namespace: default
 spec:
-  type: proxysql
-  version: "2.4.6"
+  type: mysql
+  version: "8.0.41"
+  edition: community
   units: 1
-  sharedConfigName: proxysql-cluster-config
+  sharedConfigName: mysql-config
   resources:
     limits:
       cpu: "1"
@@ -595,11 +650,11 @@ spec:
   storages:
     - name: data
       mountPath: /DATA_MOUNT
-      size: 10Gi
+      size: 50Gi
       storageClassName: standard
   secret:
     mountPath: /SECRET_MOUNT
-    name: proxysql-cluster-secret
+    name: mysql-secret
   externalService:
     type: LoadBalancer
 ```
@@ -636,13 +691,13 @@ spec:
 - **Monitoring**: Set up comprehensive monitoring
 
 ### Security
-- **Secrets Management**: Use Kubernetes Secrets for credentials (when using Compose Operator, follow its AES-256-CTR requirements)
+- **Secrets Management**: Use Kubernetes Secrets for credentials
 - **Network Policies**: Implement network policies for security
 - **TLS Configuration**: Enable TLS for communication
 
 ---
 
-# 📦 Unit (v1alpha2)
+# Unit (v1alpha2)
 
 ## Overview
 
@@ -719,6 +774,14 @@ status:
 | `configValueName` | string | No | - | Configuration value name |
 | `template` | PodTemplateSpec | Yes | - | Pod specification template |
 | `volumeClaimTemplates` | []PersistentVolumeClaim | No | - | PVC templates |
+| `failedPodRecoveryPolicy` | FailedPodRecoveryPolicy | No | - | Failed pod recovery policy |
+
+#### FailedPodRecoveryPolicy
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | bool | Yes | Enable/disable failed pod recovery |
+| `reconcileThreshold` | int | No | Threshold for failed pod recovery |
 
 ### Node Binding Behavior
 
@@ -739,6 +802,8 @@ status:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `conditions` | []metav1.Condition | Array of conditions representing the observed state |
+| `observedGeneration` | int64 | Most recent generation observed |
 | `phase` | UnitPhase | Lifecycle state of the unit |
 | `nodeName` | string | Node where the unit is scheduled |
 | `hostIP` | string | Host IP address |
@@ -827,31 +892,31 @@ spec:
         storageClassName: standard
 ```
 
-### PostgreSQL Unit
+### MySQL Unit
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: Unit
 metadata:
-  name: postgresql-cluster-0
+  name: mysql-cluster-0
   namespace: default
 spec:
   unbindNode: false
   startup: true
-  sharedConfigName: postgresql-cluster-config
+  sharedConfigName: mysql-cluster-config
   template:
     spec:
       containers:
-        - name: postgresql
-          image: postgres:15.12
+        - name: mysql
+          image: mysql:8.0.41
           ports:
-            - containerPort: 5432
-              name: postgresql
+            - containerPort: 3306
+              name: mysql
           env:
-            - name: POSTGRES_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgresql-cluster-secret
-                  key: postgres
+                  name: mysql-cluster-secret
+                  key: mysql
           volumeMounts:
             - name: data
               mountPath: /DATA_MOUNT
@@ -862,13 +927,13 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: postgresql-cluster-0-data
+            claimName: mysql-cluster-0-data
         - name: log
           emptyDir:
             sizeLimit: 5Gi
         - name: secret
           secret:
-            secretName: postgresql-cluster-secret
+            secretName: mysql-cluster-secret
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -927,290 +992,177 @@ Each Unit includes a sidecar agent that provides:
 
 ---
 
-# 🔄 MysqlReplication (v1alpha1)
+# Project (v1alpha2)
 
 ## Overview
 
-MysqlReplication is a resource that manages MySQL replication relationships between database instances. It's typically used in conjunction with UnitSet to establish replication topologies.
+Project is a cluster-scoped resource that defines project-level configuration and resources. It manages shared CA certificates and can be used to establish project-level security boundaries.
 
 ## Resource Definition
 
 ```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: Project
 metadata:
-  name: mysql-cluster-replication
-  namespace: default
+  name: my-project
 spec:
-  mode: rpl_semi_sync
-  secret:
-    name: mysql-cluster-secret
-    mysql: replication
-    replication: replication
-  source:
-    name: mysql-cluster-0
-    host: mysql-cluster-0.mysql-cluster-headless-svc.default
-    port: 3306
-  replica:
-    - name: mysql-cluster-1
-      host: mysql-cluster-1.mysql-cluster-headless-svc.default
-      port: 3306
-    - name: mysql-cluster-2
-      host: mysql-cluster-2.mysql-cluster-headless-svc.default
-      port: 3306
-  service:
-    type: NodePort
+  ca:
+    enabled: true
+    commonName: my-project-ca
+    secretName: my-project-ca-secret
+    duration: 87600h
+    renewBefore: 720h
+    privateKey:
+      algorithm: ECDSA
+      size: 256
 ```
 
 ## Specification (Spec)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `mode` | string | Yes | Replication mode |
-| `secret` | SecretRef | Yes | Secret reference for credentials |
-| `source` | SourceSpec | Yes | Primary database specification |
-| `replica` | []ReplicaSpec | Yes | Replica database specifications |
-| `service` | ServiceSpec | No | Service configuration |
+| `ca` | CAInfo | No | Certificate Authority configuration |
 
-### Replication Modes
-
-| Mode | Description |
-|------|-------------|
-| `rpl_async` | Asynchronous replication |
-| `rpl_semi_sync` | Semi-synchronous replication |
-| `group_replication` | Group replication |
-
-### SecretRef
+### CAInfo
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Secret name |
-| `mysql` | string | Yes | Key for MySQL user in secret |
-| `replication` | string | Yes | Key for replication user in secret |
+| `enabled` | bool | No | Enable CA configuration (default: false) |
+| `commonName` | string | No | Common name for CA certificate |
+| `secretName` | string | No | Kubernetes secret storing the CA |
+| `duration` | string | No | Validity period (e.g., "87600h") |
+| `renewBefore` | string | No | Renewal time before expiration |
+| `privateKey` | PrivateKeyInfo | No | Private key configuration |
 
-### SourceSpec
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Source unit name |
-| `host` | string | Yes | Source host address |
-| `port` | int | Yes | Source port |
-
-### ReplicaSpec
+### PrivateKeyInfo
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Replica unit name |
-| `host` | string | Yes | Replica host address |
-| `port` | int | Yes | Replica port |
+| `algorithm` | string | No | Cryptographic algorithm (RSA, ECDSA, Ed25519) |
+| `size` | int | No | Private key size in bits |
 
-### ServiceSpec
+## Status
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | No | Service type (NodePort, LoadBalancer) |
+Project currently has no status fields defined (empty status).
 
 ## Usage Examples
 
-### Semi-Synchronous Replication
+### Basic Project with CA
 ```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: Project
 metadata:
-  name: mysql-cluster-replication
-  namespace: default
+  name: production-project
 spec:
-  mode: rpl_semi_sync
-  secret:
-    name: mysql-cluster-secret
-    mysql: replication
-    replication: replication
-  source:
-    name: mysql-cluster-0
-    host: mysql-cluster-0.mysql-cluster-headless-svc.default
-    port: 3306
-  replica:
-    - name: mysql-cluster-1
-      host: mysql-cluster-1.mysql-cluster-headless-svc.default
-      port: 3306
-    - name: mysql-cluster-2
-      host: mysql-cluster-2.mysql-cluster-headless-svc.default
-      port: 3306
-  service:
-    type: NodePort
+  ca:
+    enabled: true
+    commonName: production-ca
+    secretName: production-ca-secret
+    duration: 87600h
+    renewBefore: 720h
+    privateKey:
+      algorithm: ECDSA
+      size: 256
 ```
 
-### Group Replication
+### Project without CA
 ```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: Project
 metadata:
-  name: mysql-group-replication
-  namespace: default
-spec:
-  mode: group_replication
-  secret:
-    name: mysql-cluster-secret
-    mysql: replication
-    replication: replication
-  source:
-    name: mysql-cluster-0
-    host: mysql-cluster-0.mysql-cluster-headless-svc.default
-    port: 3306
-  replica:
-    - name: mysql-cluster-1
-      host: mysql-cluster-1.mysql-cluster-headless-svc.default
-      port: 3306
-    - name: mysql-cluster-2
-      host: mysql-cluster-2.mysql-cluster-headless-svc.default
-      port: 3306
-  service:
-    type: LoadBalancer
+  name: development-project
+spec: {}
 ```
 
 ## Best Practices
 
-### Replication Configuration
-- **Network Connectivity**: Ensure proper network connectivity between instances
-- **Credential Management**: Use appropriate replication users with required privileges
-- **Monitoring**: Monitor replication lag and health
-
-### High Availability
-- **Multiple Replicas**: Use multiple replicas for high availability
-- **Automatic Failover**: Configure automatic failover mechanisms
-- **Backup Strategy**: Implement regular backup strategies
+- **Cluster Scope**: Project is cluster-scoped, use meaningful names to identify environments
+- **CA Management**: Store CA secrets securely and rotate periodically
+- **Algorithm Selection**: ECDSA is recommended for new deployments
 
 ---
 
-# 🔄 PostgresReplication (v1alpha1)
+# MySQL Restore Example
 
 ## Overview
 
-PostgresReplication is a resource that manages PostgreSQL streaming replication between database instances. It's used to establish replication topologies for PostgreSQL clusters.
+This example demonstrates how to restore a MySQL database from a backup using GrpcCall.
 
 ## Resource Definition
 
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha1
-kind: PostgresReplication
+kind: GrpcCall
 metadata:
-  name: postgresql-cluster-replication
+  name: mysql-restore
   namespace: default
 spec:
-  mode: rpl_sync
-  secret:
-    name: postgresql-cluster-secret
-    postgres: postgres
-    replication: replication
-  primary:
-    name: postgresql-cluster-0
-    host: postgresql-cluster-0.postgresql-cluster-headless-svc.default
-    port: 5432
-  standby:
-    - name: postgresql-cluster-1
-      host: postgresql-cluster-1.postgresql-cluster-headless-svc.default
-      port: 5432
-    - name: postgresql-cluster-2
-      host: postgresql-cluster-2.postgresql-cluster-headless-svc.default
-      port: 5432
-  service:
-    type: NodePort
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: restore
+  ttlSecondsAfterFinished: 7200
+  parameters:
+    source: "s3://backups/mysql/backup-20240101.tar.gz"
+    targetDatabase: "restored_db"
+    overwrite: "false"
 ```
-
-## Specification (Spec)
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `mode` | string | Yes | Replication mode |
-| `secret` | SecretRef | Yes | Secret reference for credentials |
-| `primary` | PrimarySpec | Yes | Primary database specification |
-| `standby` | []StandbySpec | Yes | Standby database specifications |
-| `service` | ServiceSpec | No | Service configuration |
-
-### Replication Modes
-
-| Mode | Description |
-|------|-------------|
-| `rpl_async` | Asynchronous replication |
-| `rpl_sync` | Synchronous replication |
-
-### SecretRef
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Secret name |
-| `postgres` | string | Yes | Key for postgres user in secret |
-| `replication` | string | Yes | Key for replication user in secret |
-
-### PrimarySpec
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Primary unit name |
-| `host` | string | Yes | Primary host address |
-| `port` | int | Yes | Primary port |
-
-### StandbySpec
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Standby unit name |
-| `host` | string | Yes | Standby host address |
-| `port` | int | Yes | Standby port |
-
-### ServiceSpec
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | No | Service type (NodePort, LoadBalancer) |
 
 ## Usage Examples
 
-### Synchronous Replication
+### Full Restore from S3
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha1
-kind: PostgresReplication
+kind: GrpcCall
 metadata:
-  name: postgresql-cluster-replication
+  name: mysql-full-restore
   namespace: default
 spec:
-  mode: rpl_sync
-  secret:
-    name: postgresql-cluster-secret
-    postgres: postgres
-    replication: replication
-  primary:
-    name: postgresql-cluster-0
-    host: postgresql-cluster-0.postgresql-cluster-headless-svc.default
-    port: 5432
-  standby:
-    - name: postgresql-cluster-1
-      host: postgresql-cluster-1.postgresql-cluster-headless-svc.default
-      port: 5432
-    - name: postgresql-cluster-2
-      host: postgresql-cluster-2.postgresql-cluster-headless-svc.default
-      port: 5432
-  service:
-    type: NodePort
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: restore
+  ttlSecondsAfterFinished: 7200
+  parameters:
+    source: "s3://backups/mysql/backup-20240101.tar.gz"
+    targetDatabase: "production_db"
+    overwrite: "true"
+    encryption: "AES256"
+```
+
+### Point-in-Time Recovery
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: mysql-pitr
+  namespace: default
+spec:
+  targetUnit: mysql-cluster-0
+  type: mysql
+  action: restore
+  ttlSecondsAfterFinished: 7200
+  parameters:
+    source: "s3://backups/mysql/"
+    targetDatabase: "pitr_db"
+    backupType: "incremental"
+    pointInTime: "2024-01-01T12:00:00Z"
 ```
 
 ## Best Practices
 
-### Replication Configuration
-- **Network Connectivity**: Ensure proper network connectivity between instances
-- **WAL Configuration**: Configure appropriate WAL settings
-- **Archive Mode**: Enable archive mode for point-in-time recovery
+### Restore Configuration
+- **Verify Backup**: Ensure the backup source is accessible and valid
+- **Target Database**: Create target database before restore if needed
+- **Overwrite**: Set `overwrite: true` only when you want to replace existing data
 
 ### High Availability
-- **Multiple Standbys**: Use multiple standby instances
-- **Automatic Failover**: Configure automatic failover with tools like Patroni
-- **Monitoring**: Monitor replication lag and WAL archive status
+- **Restore to Standby**: Consider restoring to a standby instance first
+- **Verify Data**: After restore, verify data integrity before switching
 
 ---
 
-# 🎯 Common Use Cases
+# Common Use Cases
 
-## 🚀 Database Cluster Deployment
+## Database Cluster Deployment
 
 ### MySQL Cluster with Semi-Sync Replication
 ```yaml
@@ -1267,35 +1219,9 @@ spec:
       value: rpl_semi_sync
     - name: ADM_USER
       value: root
-
-# MysqlReplication
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
-metadata:
-  name: mysql-cluster-replication
-  namespace: default
-spec:
-  mode: rpl_semi_sync
-  secret:
-    name: mysql-cluster-secret
-    mysql: replication
-    replication: replication
-  source:
-    name: mysql-cluster-0
-    host: mysql-cluster-0.mysql-cluster-headless-svc.default
-    port: 3306
-  replica:
-    - name: mysql-cluster-1
-      host: mysql-cluster-1.mysql-cluster-headless-svc.default
-      port: 3306
-    - name: mysql-cluster-2
-      host: mysql-cluster-2.mysql-cluster-headless-svc.default
-      port: 3306
-  service:
-    type: NodePort
 ```
 
-## 💾 Database Backup Operations
+## Database Backup Operations
 
 ### MySQL Logical Backup
 ```yaml
@@ -1317,26 +1243,26 @@ spec:
     retention: "7d"
 ```
 
-### PostgreSQL Physical Backup
+### MySQL Physical Backup
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
-  name: postgresql-physical-backup
+  name: mysql-physical-backup
   namespace: default
 spec:
-  targetUnit: postgresql-cluster-0
-  type: postgresql
+  targetUnit: mysql-cluster-0
+  type: mysql
   action: physical-backup
   ttlSecondsAfterFinished: 3600
   parameters:
     backupType: "full"
     compression: "true"
-    destination: "s3://backups/postgresql/"
+    destination: "s3://backups/mysql/"
     parallel: "4"
 ```
 
-## ⚙️ Configuration Management
+## Configuration Management
 
 ### MySQL Configuration Update
 ```yaml
@@ -1359,28 +1285,28 @@ spec:
       long_query_time: "2"
 ```
 
-### PostgreSQL Configuration Update
+### MySQL Configuration Update
 ```yaml
 apiVersion: upm.syntropycloud.io/v1alpha1
 kind: GrpcCall
 metadata:
-  name: postgresql-config-update
+  name: mysql-config-update
   namespace: default
 spec:
-  targetUnit: postgresql-cluster-0
-  type: postgresql
+  targetUnit: mysql-cluster-0
+  type: mysql
   action: set-variable
   ttlSecondsAfterFinished: 600
   parameters:
     variables:
-      max_connections: "200"
-      shared_buffers: "1GB"
-      effective_cache_size: "3GB"
-      maintenance_work_mem: "256MB"
-      checkpoint_completion_target: "0.9"
+      max_connections: "500"
+      innodb_buffer_pool_size: "2G"
+      log_bin: "ON"
+      slow_query_log: "ON"
+      long_query_time: "2"
 ```
 
-## 🔄 Database Cloning
+## Database Cloning
 
 ### MySQL Clone Operation
 ```yaml
@@ -1405,9 +1331,9 @@ spec:
 
 ---
 
-# 🔧 Advanced Configuration
+# Advanced Configuration
 
-## 🏷️ Labels and Annotations
+## Labels and Annotations
 
 ### Recommended Labels
 ```yaml
@@ -1433,7 +1359,7 @@ metadata:
     unit-operator.io/environment: "production"
 ```
 
-## 🌐 Networking Configuration
+## Networking Configuration
 
 ### Service Configuration
 ```yaml
@@ -1484,7 +1410,7 @@ spec:
       port: 3306
 ```
 
-## 📊 Monitoring and Observability
+## Monitoring and Observability
 
 ### Prometheus ServiceMonitor
 ```yaml
@@ -1526,7 +1452,7 @@ data:
         type: counter
 ```
 
-## 🔐 Security Configuration
+## Security Configuration
 
 ### TLS Configuration
 ```yaml
@@ -1563,7 +1489,7 @@ rules:
 
 ---
 
-# 🚨 Troubleshooting
+# Troubleshooting
 
 ## Common Issues and Solutions
 
@@ -1602,10 +1528,6 @@ kubectl exec -it mysql-cluster-0 -- nslookup mysql-cluster-1
 
 # Check secret configuration
 kubectl get secret mysql-cluster-secret -o yaml
-
-# If using Compose Operator (replication CRDs provided by it)
-kubectl logs -n upm-system deployment/compose-operator-controller-manager | tail -n 200
-kubectl describe mysqlreplication <name>
 ```
 
 ### GrpcCall Operations Failing
@@ -1639,11 +1561,8 @@ kubectl get pods -l upm.api/service-group.name=mysql-cluster
 # MySQL health check
 kubectl exec -it mysql-cluster-0 -- mysql -e "SELECT 1"
 
-# PostgreSQL health check
-kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT 1"
-
-# ProxySQL health check
-kubectl exec -it proxysql-cluster-0 -- mysql -h 127.0.0.1 -P 6032 -e "SELECT 1"
+# Check MySQL replication status
+kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW REPLICA STATUS\\G"
 ```
 
 ### Configuration Validation
@@ -1677,15 +1596,13 @@ kubectl exec -it mysql-cluster-0 -- netstat -s
 # MySQL performance metrics
 kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW GLOBAL STATUS"
 kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW PROCESSLIST"
-
-# PostgreSQL performance metrics
-kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT * FROM pg_stat_activity"
-kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT * FROM pg_stat_database"
+kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW ENGINE INNODB STATUS"
+kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW REPLICA STATUS\\G"
 ```
 
 ---
 
-# 📚 Additional Resources
+# Additional Resources
 
 ## Official Documentation
 - [Kubernetes Documentation](https://kubernetes.io/docs/)

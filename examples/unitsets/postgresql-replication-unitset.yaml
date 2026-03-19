@@ -1,183 +1,282 @@
-# Description: This is an example of a UnitSet that deploys a PostgreSQL version 15.12.
-# UnitSet CRD from the unit-operator is used to create the PostgreSQL service group.
-# The UnitSet creates a PostgreSQL service group with 3 PostgreSQL units using steam replication mode to synchronize data between the two PostgreSQL instances.
-# The PostgreSQL service group is created using the shared configuration ConfigMap and the secret.
-# MysqlReplication CRD from the compose-operator is used to create the PostgreSQL Data Replication.
-# The MysqlReplication will manage the replication between the units of the PostgreSQL service group.
+# PostgreSQL Replication UnitSet Example
+#
+# This example demonstrates how to deploy a PostgreSQL UnitSet
+#
+# PostgreSQL is an open-source object-relational database that supports Stream Replication for high availability
+#
+# Architecture Overview:
+#   - UnitSet is a cluster-scoped resource that manages multiple Units
+#   - Unit represents an individual PostgreSQL instance
+#   - Controller automatically creates necessary resources: ConfigMaps, Services, Pods, etc.
+#
+# Resource Configuration:
+#   - Uses emptyDir for storage (temporary storage, data is lost when Pod is deleted)
+#   - For persistent storage, use storage field instead of emptyDir
+#
+# Label Usage:
+#   - upm.api/service-group.name: Service group name, identifies a set of related units
+#   - upm.api/service-group.type: Service group type (e.g., postgresql-sg)
+#   - upm.api/service.type: Service type (e.g., postgresql)
+#   - upm.io/owner: Resource owner
 
-# Secret is used to store the credentials for the PostgreSQL service group.
-# The secret contains the following
 ---
+# PostgreSQL Authentication Secret
+# Stores credentials required for PostgreSQL connections
+# Note: Replace with actual Base64-encoded passwords for production deployment
 apiVersion: v1
 kind: Secret
 metadata:
+  name: postgresql-secret
+  namespace: default
   labels:
-    upm.api/service-group.name: ustest
+    # Labels for service group identification
+    upm.api/service-group.name: postgresql-cluster
     upm.api/service-group.type: postgresql-sg
     upm.io/owner: upm
-  name: postgresql-sg-ustest-secret
-  namespace: test
 data:
-  # Remote administrator user, used to manage the database with all privileges. Plaintext password is 'Y4&7@6!@A7f!i!t0'
-  helix: SmNOT0tEY0Y3ZnM3aUpWajlWSDRiOVV0WjQrc01ldHB1MnJsUnJ4NG1kWT0=
-  # monitor user, used to monitor the database. Plaintext password is 'hwkfEfrw3v@@5N3@'
-  monitor: WXErRzMreWx6ajUwVTlzQWovQStiOHU3UHhEL000NVo2R2pSRCs3RW9Xcz0=
-  # replication user, used to support replication. Plaintext password is 'I5@b&@@75h@68f!q'
-  replication: V1Y2MVZyZFRjbEVuT1lkbEx0R1c5cTljUmd0UjZubTlOM05aZkw2NkRxbz0=
-  # local administrator user, used to manage the database with all privileges. Plaintext password is '7aW&te9m8b3y!tcm'
-  postgres: VjVyOExqQmxyM3N2ODNsUHVrbmhDK29KZGRRQXl1dzlOWTJmNEJ6djdoRT0=
+  # Administrator username (plaintext: postgres)
+  postgres: cG9zdGdyZXM=
+  # Administrator password (plaintext: postgres_password)
+  postgres-password: cG9zdGdyZXNfcGFzc3dvcmQ=
+  # Monitor username (plaintext: monitor)
+  monitor: bW9uaXRvcg==
+  # Replication username (plaintext: replication)
+  replication: cmVwbGljYXRpb24=
 type: Opaque
 
-# ConfigMap is used to store the shared configuration for the PostgreSQL service group.
-# The ConfigMap contains the following
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    upm.api/service-group.name: ustest
-    upm.api/service-group.type: postgresql-sg
-    upm.io/owner: upm
-  name: postgresql-sg-ustest-sharedconfigmap
-  namespace: test
-data:
-  service_group_uid: "6fa3ca2a-0ffd-4ca7-8615-e2589f7dd413" # Unique identifier for the service group
-  postgresql_ports: '[{"name": "postgresql", "containerPort": "5432","protocol": "TCP"}]' # Ports used by postgresql
-# UnitSet is used to create the PostgreSQL service group and the PostgreSQL Replication service group.
-# The UnitSet contains the following
----
+# PostgreSQL UnitSet Resource Configuration
+#
+# UnitSet is a Kubernetes custom resource for managing distributed database units
+# Core capabilities:
+#   - Declarative management of multiple Unit (Pod) desired states
+#   - Automatic configuration management, resource synchronization, storage orchestration
+#   - Support for rolling updates, elastic scaling, and high-availability deployments
+#
+# Controller Behavior:
+#   1. Create ConfigMap (copy from template)
+#   2. Create Headless Service (for inter-Unit communication)
+#   3. Create External Service (optional, for external access)
+#   4. Create Unit Services (optional, one Service per Unit)
+#   5. Create Units (each Unit corresponds to one Pod)
+#   6. Synchronize configuration, resources, labels to Units
+#   7. Optionally create PodMonitor (for Prometheus monitoring)
+#
+# Important: finalizers are automatically added by the Webhook, no need to specify
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
-  # finalizers are used to delete the resources created by the UnitSet
-  # upm.io/unit-delete will delete the Units
-  # upm.io/configmap-delete will delete the ConfigMap
-  finalizers:
-    - upm.io/unit-delete
-    - upm.io/configmap-delete
-  # labels are used to filter the resources
-  # upm.api/service-group.name: <service-group-name>
-  # upm.api/service-group.type: <service-group-type>
-  # upm.api/service.type: <service-type>
-  # upm.io/owner: <owner>
+  name: postgresql-cluster
+  namespace: default
   labels:
-    upm.api/service-group.name: ustest
+    # Service group name; UnitSets in the same group share the same name prefix
+    upm.api/service-group.name: postgresql-cluster
+    # Service group type, identifies the database type
     upm.api/service-group.type: postgresql-sg
+    # Service type, identifies the specific service
     upm.api/service.type: postgresql
+    # Resource owner identifier
     upm.io/owner: upm
-  # name rule is <service-group-name>-<service-type>-<random-string>
-  name: ustest-postgresql-foo
-  namespace: test
 spec:
+  # type: Database type; supported: mysql, postgresql, proxysql, redis, mongodb, milvus, etc.
   type: postgresql
-  version:  "15.12"
+
+  # version: PostgreSQL version number
+  # Must match an existing PodTemplate version in the upm-system namespace
+  version: "15"
+
+  # units: Number of units, defines how many Unit instances to create
+  # Each Unit corresponds to one Pod
+  # +kubebuilder:validation:Minimum=1
   units: 3
-  # sharedConfigName is the name of the ConfigMap that contains the shared configuration
-  # upm-api-server will create this ConfigMap in the same namespace as the UnitSet
-  sharedConfigName: postgresql-sg-ustest-sharedconfigmap
-  # resources are used to set the resource limits and requests for postgresql container in the Unit
+
+  # resources: Container resource requests and limits
+  # Defines CPU and memory resources for the main container (named same as type)
   resources:
     limits:
-      cpu: "1"
-      memory: 2Gi
+      cpu: "2"
+      memory: 4Gi
     requests:
       cpu: "1"
-      memory: 1Gi
-  # storages and emptyDir are used to specify the volume type of Unit's data directory and log directory. You can only choose one way to define the volume type.
-  # storages is used to create a persistent volume for the postgresql container in the Unit
-  # mountPath is the path where the storage is mounted in the container
-  # size is the size of the storage
-  # storageClassName is the name of the storage class
-  # storages:
+      memory: 2Gi
+
+  # resizePolicy: Container resource resize policy
+  # Defines container behavior when resources change
+  # Supports cpu and memory resource resize policies
+  # Note: This feature requires Kubernetes 1.27+
+  # resizePolicy:
+  #   - resourceName: cpu
+  #     restartPolicy: NotRequired
+  #   - resourceName: memory
+  #     restartPolicy: NotRequired
+
+  # env: Environment variables, passed to all containers
+  # Used for configuring database connection parameters and replication mode
+  env:
+    # Administrator username
+    - name: ADM_USER
+      value: postgres
+    # Monitor username
+    - name: MON_USER
+      value: monitor
+    # Replication username
+    - name: REPL_USER
+      value: replication
+
+  # extraVolume: Extra volume configuration (optional)
+  # Used for mounting ConfigMaps, Secrets, etc. as volumes
+  # To mount a Secret, use volume type "Secret" with secretName
+  # extraVolume:
+  #   - volume:
+  #       name: secret
+  #       secret:
+  #         secretName: postgresql-secret
+  #     volumeMountPath: /SECRET_MOUNT
+
+  # storage: Persistent storage configuration (optional)
+  # When specified, Controller creates PVCs and mounts them to containers
+  # During UnitSet updates, Controller checks if PVC capacity matches the desired state
+  # storage:
   #   - name: data
   #     mountPath: /DATA_MOUNT
-  #     size: 10Gi
-  #     storageClassName: openebs-lvmsc-hdd
+  #     size: 100Gi
+  #     storageClassName: standard
   #   - name: log
   #     mountPath: /LOG_MOUNT
   #     size: 10Gi
-  #     storageClassName: openebs-lvmsc-hdd
-  # emptyDir is a temporary directory that is initially empty, created when a Pod is assigned to a node and automatically deleted when the Pod is deleted.
-  # emptyDir is used to create an empty directory in the postgresql container in the Unit
+  #     storageClassName: standard
+
+  # emptyDir: Temporary storage configuration (optional)
+  # Uses Kubernetes emptyDir volume; data is lost when Pod is deleted
+  # Cannot be used together with storage
   emptyDir:
     - name: data
       mountPath: /DATA_MOUNT
-      size: 5Gi
+      size: 10Gi
     - name: log
       mountPath: /LOG_MOUNT
       size: 5Gi
-  # secret is used to mount the secret in the Unit
-  secret:
-    mountPath: /SECRET_MOUNT
-    name: postgresql-sg-ustest-secret
-  # Additional Service configuration, used to set external access, type optional values are NodePort, LoadBalancer
+
+  # externalService: External service configuration (optional)
+  # Exposes the service for access outside the cluster
+  # Supported types: ClusterIP (default), NodePort, LoadBalancer, ExternalName
   # externalService:
   #   type: NodePort
-  env:
-    - name: ADM_USER
-      value: postgres
-    - name: MON_USER
-      value: monitor
-    - name: REPL_USER
-      value: replication
+
+  # unitService: Unit service configuration (optional)
+  # Creates an independent Service for each Unit
+  # Supported types: ClusterIP (default), NodePort, LoadBalancer, ExternalName
+  # unitService:
+  #   type: ClusterIP
+
+  # updateStrategy: Update strategy (optional)
+  # Defines how to perform rolling updates or resource changes
+  updateStrategy:
+    # type: Update type; supported: RollingUpdate, OnDelete
+    type: RollingUpdate
+    rollingUpdate:
+      # partition: Partition index for canary deployments
+      # When set to N, Units with index >= N are updated first
+      # +kubebuilder:validation:Minimum=0
+      partition: 0
+      # maxUnavailable: Maximum number of unavailable Units during update
+      # +kubebuilder:validation:Minimum=0
+      maxUnavailable: 1
+
+  # nodeAffinityPreset: Node affinity preset (optional)
+  # Schedules Pods to specific nodes
+  # Matches nodes by kubernetes.io/hostname label
   nodeAffinityPreset:
-    # Used to set node affinity to ensure that postgresql is deployed on the specified node. kubernetes.io/arch amd64 means deployed on the node of the amd64 architecture.
-    - key: kubernetes.io/arch
-      values:
-        - amd64
-    # Used to set node affinity to ensure that postgresql is deployed on the specified node. upm.api/software.postgresql means deployed on the node with the software.postgresql label.
+    # key: Node label key
+    # values: List of allowed label values (OR relationship)
     - key: upm.api/software.postgresql
       values:
         - "true"
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 0
-      partition: 0
-    type: ""
 
-# PostgresReplication CRD from the compose-operator is used to create the PostgreSQL Data Replication.
-# The PostgresReplication will manage the replication between the units of the PostgreSQL service group.
-# The PostgresReplication contains the following
+  # podAntiAffinityPreset: Pod anti-affinity policy (optional)
+  # soft: Prefer spreading Pods across different nodes
+  # hard: Must spread Pods across different nodes
+  # Note: When using this field, it is recommended that number of nodes >= units
+  # podAntiAffinityPreset: soft
+
+  # podMonitor: Prometheus monitoring configuration (optional)
+  # When enable: true, Controller creates PodMonitor resource
+  # Used for Prometheus auto-discovery and metrics scraping
+  # podMonitor:
+  #   enable: true
+  #   endpoints:
+  #     - port: metrics
+  #       relabelConfigs:
+  #         - targetLabel: instance
+  #           replacement: postgresql
+
+  # extraVolume: Extra volume configuration (optional)
+  # Used for mounting ConfigMaps, Secrets, etc. as volumes
+  # extraVolume:
+  #   - volume:
+  #       name: config
+  #       configMap:
+  #         name: postgresql-config
+  #     volumeMountPath: /etc/postgresql
+
+  # certificateProfile: Certificate configuration (optional)
+  # Used for configuring TLS certificates
+  # Requires cert-manager to be installed in the cluster
+  # certificateProfile:
+  #   organizations:
+  #     - my-org
+  #   rootSecret: ca-secret
+
 ---
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: PostgresReplication
-metadata:
-  labels:
-    upm.api/service-group.name: ustest
-    upm.api/service-group.type: postgresql-sg
-    upm.api/service.name: ustest-postgresql-foo
-    upm.io/owner: upm
-  name: ustest-postgresql-foo-replication
-  namespace: test
-spec:
-  # mode is used to set the replication mode, optional values are rpl_async, rpl_sync
-  mode: rpl_sync
-  secret:
-    name: postgresql-sg-ustest-secret
-    # 'postgres' is the key in the Secret used to specify the user managing the replication relationship.
-    # The Manage Replication User is a special account designed for the master library in the PostgreSQL stream replication architecture.
-    # This user role is SUPER.
-    postgres: postgres
-    # 'replication' is used to specify a user that supports replication.
-    # The Replication User is a special account designed for slave libraries in the PostgreSQL stream replication architecture.
-    # This user role is REPLICATION.
-    replication: replication
-  # Specify the instance name and port of the primary database
-  primary:
-    name: ustest-postgresql-foo-0
-    host: ustest-postgresql-foo-0.ustest-postgresql-foo-headless-svc.test
-    port: 5432
-  # Specify the instance name and port of the secondary database
-  standby:
-    - name: ustest-postgresql-foo-1
-      host: ustest-postgresql-foo-1.ustest-postgresql-foo-headless-svc.test
-      port: 5432
-    - name: ustest-postgresql-foo-2
-      host: ustest-postgresql-foo-2.ustest-postgresql-foo-headless-svc.test
-      port: 5432
-  # Specifies the type of external access service. Optional values are NodePort, LoadBalancer.
-  service:
-    type: NodePort
+# Deployment Instructions:
+#
+# 1. Apply Secret:
+#    kubectl apply -f postgresql-replication-unitset.yaml
+#
+# 2. View UnitSet status:
+#    kubectl get unitset postgresql-cluster -o yaml
+#
+# 3. View created Units:
+#    kubectl get units -l upm.api/service-group.name=postgresql-cluster
+#
+# 4. View Unit status:
+#    kubectl get units -l upm.api/service-group.name=postgresql-cluster -o wide
+#
+# 5. View Pods:
+#    kubectl get pods -l upm.api/service-group.name=postgresql-cluster
+#
+# 6. Delete resources:
+#    kubectl delete unitset postgresql-cluster
+#    kubectl delete secret postgresql-secret
 
-# If you want to delete the resources created by the UnitSet, you can use the following commands
-# kubectl delete secret -n test postgresql-sg-ustest-secret; kubectl delete configmaps -n test postgresql-sg-ustest-sharedconfigmap; kubectl delete PostgresReplication -n test ustest-postgresql-foo-replication; kubectl delete unitsets -n test ustest-postgresql-foo
+---
+# Status Fields (Status):
+#
+# conditions: Resource condition array
+#   - type: Condition type (e.g., Ready, Updating)
+#   - status: True/False/Unknown
+#   - reason: Condition reason
+#   - message: Condition details
+#
+# units: Current total number of Units
+# readyUnits: Number of ready Units
+#
+# inUpdate: Comma-separated list of Unit names currently being updated
+#
+# unitPVCSynced: PVC synchronization status
+#   - status: "True" indicates all PVC capacities match the desired state
+#   - lastTransitionTime: Status transition timestamp
+#
+# unitImageSynced: Image synchronization status
+#   - status: "True" indicates all Unit image versions are synchronized
+#   - lastTransitionTime: Status transition timestamp
+#
+# unitResourceSynced: Resource synchronization status
+#   - status: "True" indicates all Unit resource limits and requests are synchronized
+#   - lastTransitionTime: Status transition timestamp
+#
+# externalService: External service information
+#   - name: External Service name
+#
+# unitService: Unit-to-Service mapping
+#   - name: map[string]string, key is Unit name, value is Service name

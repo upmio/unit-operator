@@ -2,7 +2,7 @@
 
 This directory contains practical examples for using the Unit Operator to deploy and manage database workloads in Kubernetes.
 
-## 📁 Example Structure
+## Example Structure
 
 ```text
 examples/
@@ -10,29 +10,16 @@ examples/
 │   ├── mysql-community-rpl_semi_sync-unitset.yaml
 │   ├── postgresql-replication-unitset.yaml
 │   └── proxysql-clone-unitset.yaml
-├── operations/                  # GrpcCall operation examples
-│   ├── mysql-backup.yaml
-│   ├── postgresql-backup.yaml
-│   ├── config-changes.yaml
-│   └── clone-operations.yaml
-├── replication/                # Replication setup examples
-│   ├── mysql-replication.yaml
-│   └── postgresql-replication.yaml
-├── monitoring/                 # Monitoring and observability examples
-│   ├── service-monitor.yaml
-│   ├── prometheus-rules.yaml
-│   └── grafana-dashboard.yaml
-└── advanced/                   # Advanced configuration examples
-    ├── tls-configuration.yaml
-    ├── resource-scaling.yaml
-    └── disaster-recovery.yaml
+└── operations/                  # GrpcCall operation examples
+    ├── mysql-backup.yaml
+    └── postgresql-backup.yaml
 ```
 
-## 🚀 Quick Start Examples
+## Quick Start Examples
 
-### MySQL Cluster with Semi-Sync Replication
+### MySQL Cluster
 
-The most common use case - deploying a 3-node MySQL cluster with semi-synchronous replication:
+Deploy a 3-node MySQL cluster:
 
 ```bash
 # Deploy MySQL cluster
@@ -44,9 +31,9 @@ kubectl get units -l upm.api/service-group.name=mysql-cluster
 kubectl get pods -l upm.api/service-group.name=mysql-cluster
 ```
 
-### PostgreSQL Cluster with Streaming Replication
+### PostgreSQL Cluster
 
-Deploy a 3-node PostgreSQL cluster with streaming replication:
+Deploy a 3-node PostgreSQL cluster:
 
 ```bash
 # Deploy PostgreSQL cluster
@@ -57,29 +44,29 @@ kubectl get unitset postgresql-cluster
 kubectl get units -l upm.api/service-group.name=postgresql-cluster
 ```
 
-## 📋 Available Examples
+## Available Examples
 
-### 1. UnitSet Deployments
+### UnitSet Deployments
 
 #### MySQL Community Edition
 
 - **File**: `mysql-community-rpl_semi_sync-unitset.yaml`
-- **Features**: 3-node cluster, semi-sync replication, persistent storage
+- **Features**: 3-node cluster, persistent storage
 - **Use Case**: Production MySQL deployment
 
-#### PostgreSQL Streaming Replication
+#### PostgreSQL
 
 - **File**: `postgresql-replication-unitset.yaml`
-- **Features**: 3-node cluster, streaming replication, emptyDir storage
+- **Features**: 3-node cluster, emptyDir storage
 - **Use Case**: Production PostgreSQL deployment
 
 #### ProxySQL Configuration
 
 - **File**: `proxysql-clone-unitset.yaml`
-- **Features**: Single ProxySQL instance, clone from existing MySQL
+- **Features**: Single ProxySQL instance
 - **Use Case**: Database proxy and load balancing
 
-### 2. Database Operations
+### Database Operations
 
 #### MySQL Backup Operations
 
@@ -93,124 +80,26 @@ kubectl get units -l upm.api/service-group.name=postgresql-cluster
 - **Features**: Physical backup with compression
 - **Use Case**: PostgreSQL backup strategies
 
-#### Configuration Changes
+## Common Use Cases
 
-- **File**: `operations/config-changes.yaml`
-- **Features**: Runtime configuration updates
-- **Use Case**: Performance tuning and configuration management
-
-#### Database Cloning
-
-- **File**: `operations/clone-operations.yaml`
-- **Features**: Clone databases between instances
-- **Use Case**: Database duplication and testing
-
-### 3. Replication Setup
-
-#### MySQL Replication Modes
-
-- **File**: `replication/mysql-replication.yaml`
-- **Features**: Async, semi-sync, and group replication
-- **Use Case**: Different MySQL replication topologies
-
-#### PostgreSQL Replication
-
-- **File**: `replication/postgresql-replication.yaml`
-- **Features**: Streaming replication configuration
-- **Use Case**: PostgreSQL high availability
-
-### 4. Monitoring and Observability
-
-#### Prometheus Monitoring
-
-- **File**: `monitoring/service-monitor.yaml`
-- **Features**: ServiceMonitor for Prometheus
-- **Use Case**: Database metrics collection
-
-#### Alerting Rules
-
-- **File**: `monitoring/prometheus-rules.yaml`
-- **Features**: Alert rules for database health
-- **Use Case**: Proactive monitoring
-
-#### Grafana Dashboards
-
-- **File**: `monitoring/grafana-dashboard.yaml`
-- **Features**: Pre-built Grafana dashboards
-- **Use Case**: Database performance visualization
-
-### 5. Advanced Configurations
-
-#### TLS Configuration
-
-- **File**: `advanced/tls-configuration.yaml`
-- **Features**: TLS encryption for database connections
-- **Use Case**: Secure database communication
-
-#### Resource Scaling
-
-- **File**: `advanced/resource-scaling.yaml`
-- **Features**: Horizontal and vertical scaling examples
-- **Use Case**: Performance optimization
-
-#### Disaster Recovery
-
-- **File**: `advanced/disaster-recovery.yaml`
-- **Features**: Backup and restore procedures
-- **Use Case**: Business continuity planning
-
-## 🎯 Common Use Cases
-
-### 1. Production Database Deployment
+### Production Database Deployment
 
 ```bash
 # Deploy production MySQL cluster
 kubectl apply -f examples/unitsets/mysql-community-rpl_semi_sync-unitset.yaml
 
-# Setup monitoring
-kubectl apply -f examples/monitoring/service-monitor.yaml
-
 # Configure backups
 kubectl apply -f examples/operations/mysql-backup.yaml
 ```
 
-### 2. Development Environment Setup
+### Development Environment Setup
 
 ```bash
-# Deploy single-node PostgreSQL for development
-kubectl apply -f examples/advanced/dev-environment.yaml
-
-# Setup cloning for testing
-kubectl apply -f examples/operations/clone-operations.yaml
+# Deploy single-node PostgreSQL
+kubectl apply -f examples/unitsets/postgresql-replication-unitset.yaml
 ```
 
-### 3. High Availability Setup
-
-```bash
-# Deploy HA MySQL cluster
-kubectl apply -f examples/unitsets/mysql-community-rpl_semi_sync-unitset.yaml
-
-# Configure replication
-kubectl apply -f examples/replication/mysql-replication.yaml
-
-# Setup monitoring and alerting
-kubectl apply -f examples/monitoring/prometheus-rules.yaml
-```
-
-### 4. Database Migration
-
-```bash
-# Deploy source database
-kubectl apply -f examples/unitsets/source-mysql.yaml
-
-# Deploy target database
-kubectl apply -f examples/unitsets/target-mysql.yaml
-
-# Perform migration
-kubectl apply -f examples/operations/migration-operations.yaml
-```
-
-## 🔧 Customizing Examples
+## Customizing Examples
 
 ### Prerequisites
 
@@ -257,7 +146,7 @@ spec:
       storageClassName: fast-ssd
 ```
 
-## 📝 Example Templates
+## Example Templates
 
 ### Secret Template
 
@@ -308,7 +197,7 @@ spec:
   # ... other configuration
 ```
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Security Considerations
 
@@ -331,7 +220,7 @@ spec:
 3. **Performance Tuning**: Optimize configuration for workload
 4. **Documentation**: Maintain deployment and operation documentation
 
-## 🔄 Updating Examples
+## Updating Examples
 
 The examples are regularly updated to:
 
@@ -342,7 +231,7 @@ The examples are regularly updated to:
 
 Always check for the latest examples when deploying new clusters.
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [API Documentation](../api-documentation.md) - Complete API reference
 - [Quick Reference](../api-quick-reference.md) - Fast reference guide

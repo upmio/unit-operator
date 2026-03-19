@@ -2,21 +2,18 @@
 
 > Webhooks: `UnitSet`/`Unit` admission webhooks are enabled by default (disable via `ENABLE_WEBHOOKS=false`). `UnitSet` attaches finalizers during defaulting.
 
-## 📋 API Resources Overview
+## API Resources Overview
 
 | Resource | Version | Purpose | Key Features |
 |----------|---------|---------|--------------|
 | **UnitSet** | v1alpha2 | Database cluster management | Scaling, updates, shared config |
 | **Unit** | v1alpha2 | Individual database instance | Pod management, storage, configuration |
+| **Project** | v1alpha2 | Project-level configuration | CA management |
 | **GrpcCall** | v1alpha1 | Database operations | Backup, restore, configuration changes |
-| **MysqlReplication** | v1alpha1 | MySQL replication | Async, semi-sync, group replication (from compose-operator) |
-| **PostgresReplication** | v1alpha1 | PostgreSQL replication | Streaming replication (from compose-operator) |
-
-> Note: `MysqlReplication` and `PostgresReplication` are provided by Compose Operator, not this repo. For database replication/topology, see `https://github.com/upmio/compose-operator`.
 
 ---
 
-# 🎯 GrpcCall (v1alpha1)
+# GrpcCall (v1alpha1)
 
 ## Quick Reference
 
@@ -27,8 +24,8 @@ metadata:
   name: operation-name
 spec:
   targetUnit: "unit-name"
-  type: "mysql|postgresql|proxysql"
-  action: "logical-backup|physical-backup|restore|set-variable|clone|gtid-purge"
+  type: "mysql|postgresql|proxysql|redis|redis-sentinel|mongodb|milvus"
+  action: "logical-backup|physical-backup|restore|set-variable|clone|gtid-purge|backup"
   ttlSecondsAfterFinished: 3600
   parameters:
     # Action-specific parameters
@@ -36,18 +33,19 @@ spec:
 
 ## Supported Actions
 
-| Action | Description | Parameters |
-|--------|-------------|------------|
-| `logical-backup` | Logical database backup | backupType, compression, destination |
-| `physical-backup` | Physical database backup | backupType, compression, destination |
-| `restore` | Restore from backup | source, targetDatabase, overwrite |
-| `set-variable` | Set configuration variables | variables (map) |
-| `clone` | Clone from source | sourceHost, sourcePort, databases |
-| `gtid-purge` | Purge GTID info (MySQL) | None |
+| Action | Description | Supported Types |
+|--------|-------------|-----------------|
+| `logical-backup` | Logical database backup | mysql, postgresql |
+| `physical-backup` | Physical database backup | mysql, postgresql |
+| `restore` | Restore from backup | mysql, postgresql, redis, mongodb, milvus |
+| `set-variable` | Set configuration variables | mysql, postgresql, redis, mongodb, milvus |
+| `clone` | Clone from source | mysql |
+| `gtid-purge` | Purge GTID info (MySQL) | mysql |
+| `backup` | Generic backup operation | redis, mongodb, milvus |
 
 ---
 
-# 🏗️ UnitSet (v1alpha2)
+# UnitSet (v1alpha2)
 
 ## Quick Reference
 
@@ -57,15 +55,17 @@ kind: UnitSet
 metadata:
   name: cluster-name
 spec:
-  type: "mysql|postgresql|proxysql"
+  type: "mysql|postgresql|proxysql|redis|redis-sentinel|mongodb|milvus"
   version: "x.x.x"
   edition: "community|enterprise"
   units: 3
   sharedConfigName: "config-name"
   resources: {}
+  resizePolicy: []
   storages: []
   secret: {}
   env: []
+  extraVolume: []
   updateStrategy: {}
   # optional fields
   externalService: {}
@@ -75,6 +75,7 @@ spec:
   emptyDir: []
   certificateSecret: {}
   certificateProfile: {}
+  podMonitor: {}
 ```
 
 ## Key Configuration
@@ -106,7 +107,7 @@ secret:
 
 ---
 
-# 📦 Unit (v1alpha2)
+# Unit (v1alpha2)
 
 ## Quick Reference
 
@@ -118,6 +119,9 @@ metadata:
 spec:
   startup: true
   sharedConfigName: "config-name"
+  configTemplateName: "template-name"
+  configValueName: "value-name"
+  failedPodRecoveryPolicy: {}
   template:
     spec:
       containers: []
@@ -131,59 +135,49 @@ spec:
 |-------|------|---------|-------------|
 | `startup` | bool | `true` | Start service automatically |
 | `unbindNode` | bool | `false` | Node binding behavior |
+| `configTemplateName` | string | - | Configuration template name |
+| `configValueName` | string | - | Configuration value name |
+| `failedPodRecoveryPolicy` | object | - | Failed pod recovery policy |
 | `template` | PodTemplateSpec | Required | Pod specification |
 
 ---
 
-# 🔄 Replication Resources
+# Project (v1alpha2)
 
-> Note: The following replication CRDs are provided by Compose Operator (not this project). See `https://github.com/upmio/compose-operator` for details and installation.
-
-## MysqlReplication (v1alpha1)
+## Quick Reference
 
 ```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: Project
+metadata:
+  name: project-name
 spec:
-  mode: "rpl_async|rpl_semi_sync|group_replication"
-  secret:
-    name: secret-name
-    mysql: replication-user-key
-    replication: replication-user-key
-  source:
-    name: primary-unit
-    host: primary-host
-    port: 3306
-  replica:
-    - name: replica-unit
-      host: replica-host
-      port: 3306
+  ca:
+    enabled: true
+    commonName: "ca-name"
+    secretName: "ca-secret"
+    duration: "87600h"
+    renewBefore: "720h"
+    privateKey:
+      algorithm: "ECDSA"
+      size: 256
 ```
 
-## PostgresReplication (v1alpha1)
+## Key Fields
 
-```yaml
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: PostgresReplication
-spec:
-  mode: "rpl_async|rpl_sync"
-  secret:
-    name: secret-name
-    postgres: postgres-user-key
-    replication: replication-user-key
-  primary:
-    name: primary-unit
-    host: primary-host
-    port: 5432
-  standby:
-    - name: standby-unit
-      host: standby-host
-      port: 5432
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `ca.enabled` | bool | Enable CA configuration |
+| `ca.commonName` | string | CA certificate common name |
+| `ca.secretName` | string | Kubernetes secret storing the CA |
+| `ca.duration` | string | Validity period (e.g., "87600h") |
+| `ca.renewBefore` | string | Renewal time before expiration |
+| `ca.privateKey.algorithm` | string | RSA, ECDSA, or Ed25519 |
+| `ca.privateKey.size` | int | Private key size in bits |
 
 ---
 
-# 🏷️ Common Labels
+# Common Labels
 
 ## Recommended Labels for UnitSet
 ```yaml
@@ -233,11 +227,8 @@ kubectl get units -l upm.api/service-group.name=mysql-cluster
 # MySQL health check
 kubectl exec -it mysql-cluster-0 -- mysql -e "SELECT 1"
 
-# PostgreSQL health check
-kubectl exec -it postgresql-cluster-0 -- psql -c "SELECT 1"
-
-# Check replication status
-kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW SLAVE STATUS\\G"
+# Check MySQL replication status
+kubectl exec -it mysql-cluster-0 -- mysql -e "SHOW REPLICA STATUS\\G"
 ```
 
 ## Backup Operations
@@ -254,11 +245,10 @@ kubectl logs mysql-cluster-0 -c agent
 
 ---
 
-# 🔧 Common Configuration Patterns
+# Common Configuration Patterns
 
-## MySQL Cluster with Semi-Sync Replication
+## MySQL Cluster
 ```yaml
-# UnitSet
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
@@ -277,94 +267,79 @@ spec:
   env:
     - name: ARCH_MODE
       value: rpl_semi_sync
-
-# MysqlReplication
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: MysqlReplication
-metadata:
-  name: mysql-replication
-spec:
-  mode: rpl_semi_sync
-  secret:
-    name: mysql-secret
-    mysql: replication
-    replication: replication
-  source:
-    name: mysql-cluster-0
-    host: mysql-cluster-0.mysql-cluster-headless-svc.default
-    port: 3306
-  replica:
-    - name: mysql-cluster-1
-      host: mysql-cluster-1.mysql-cluster-headless-svc.default
-      port: 3306
 ```
 
-## PostgreSQL Cluster with Streaming Replication
+## PostgreSQL Cluster
 ```yaml
-# UnitSet
 apiVersion: upm.syntropycloud.io/v1alpha2
 kind: UnitSet
 metadata:
   name: postgresql-cluster
 spec:
   type: postgresql
-  version: "15.12"
+  version: "15"
   units: 3
-  emptyDir:
+  storages:
     - name: data
       mountPath: /DATA_MOUNT
-      size: 10Gi
+      size: 100Gi
   secret:
     name: postgresql-secret
     mountPath: /SECRET_MOUNT
   env:
     - name: ADM_USER
       value: postgres
+```
 
-# PostgresReplication
-apiVersion: upm.syntropycloud.io/v1alpha1
-kind: PostgresReplication
+## Redis Cluster
+```yaml
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: UnitSet
 metadata:
-  name: postgresql-replication
+  name: redis-cluster
 spec:
-  mode: rpl_sync
+  type: redis
+  version: "7.0"
+  units: 3
+  storages:
+    - name: data
+      mountPath: /DATA_MOUNT
+      size: 50Gi
   secret:
-    name: postgresql-secret
-    postgres: postgres
-    replication: replication
-  primary:
-    name: postgresql-cluster-0
-    host: postgresql-cluster-0.postgresql-cluster-headless-svc.default
-    port: 5432
-  standby:
-    - name: postgresql-cluster-1
-      host: postgresql-cluster-1.postgresql-cluster-headless-svc.default
-      port: 5432
+    name: redis-secret
+    mountPath: /SECRET_MOUNT
 ```
 
 ---
 
-# 📊 Status Fields
+# Status Fields
 
 ## UnitSet Status
 ```yaml
 status:
-  units: 3           # Current number of units
-  readyUnits: 3       # Number of ready units
-  inUpdate: "false"   # Update status
-  unitPVCSynced: Synced    # PVC synchronization
-  unitImageSynced: Synced  # Image synchronization
-  unitResourceSynced: Synced  # Resource synchronization
+  conditions: []        # Array of conditions
+  observedGeneration: 1  # Most recent generation observed
+  units: 3              # Current number of units
+  readyUnits: 3         # Number of ready units
+  inUpdate: "false"     # Update status
+  unitPVCSynced: Synced      # PVC synchronization
+  unitImageSynced: Synced    # Image synchronization
+  unitResourceSynced: Synced # Resource synchronization
 ```
 
 ## Unit Status
 ```yaml
 status:
-  phase: Running      # Pod lifecycle phase
-  nodeName: node-1    # Node where unit is running
-  hostIP: 192.168.1.100  # Host IP
-  podIPs:             # Pod IPs
+  conditions: []        # Array of conditions
+  observedGeneration: 1  # Most recent generation observed
+  phase: Running        # Pod lifecycle phase
+  nodeName: node-1      # Node where unit is running
+  hostIP: 192.168.1.100 # Host IP
+  podIPs:               # Pod IPs
     - ip: 10.244.0.5
+  nodeReady: "True"
+  task: ""
+  processState: ""
   configSynced:
     status: "True"
     lastTransitionTime: "2024-01-01T10:00:00Z"
@@ -386,7 +361,7 @@ status:
 
 ---
 
-# 🚨 Troubleshooting
+# Troubleshooting
 
 ## Common Issues
 
@@ -394,7 +369,6 @@ status:
 |-------|----------|
 | UnitSet stuck in creation | Check operator logs, resource availability |
 | Units not ready | Check pod logs, storage, resource limits |
-| Replication not working | Check network connectivity, credentials |
 | GrpcCall failing | Check agent logs, gRPC connectivity |
 
 ## Debug Commands

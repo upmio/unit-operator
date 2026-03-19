@@ -2,8 +2,7 @@ sequenceDiagram
     participant User
     participant API Server
     participant GrpcCall Controller
-    participant Unit Controller
-    participant Unit Agent
+    participant Unit
 
     User->>API Server: Create GrpcCall (targetUnit, type, action, ttlSecondsAfterFinished)
     API Server-->>User: Confirm creation
@@ -14,16 +13,21 @@ sequenceDiagram
     GrpcCall Controller->>API Server: Get target Unit
     API Server-->>GrpcCall Controller: Return Unit info
 
+    alt TTL exceeded
+        GrpcCall Controller->>API Server: Delete GrpcCall
+    end
+
+    alt StartTime not set
+        GrpcCall Controller->>GrpcCall Controller: Set StartTime
+    end
+
+    GrpcCall Controller->>GrpcCall Controller: Gather Unit Agent endpoint
+    Note over GrpcCall Controller: DNS: {unitName}.{unitset-headless-svc}.{namespace}.svc<br/>Port: container port named "unit-agent"
+
+    GrpcCall Controller->>GrpcCall Controller: Create gRPC client
     GrpcCall Controller->>Unit Agent: Invoke action via gRPC
     Unit Agent-->>GrpcCall Controller: Return result/status
 
-    GrpcCall Controller->>API Server: Update GrpcCall status (result, message, startTime, completionTime)
+    GrpcCall Controller->>API Server: Update GrpcCall status (result, message, completionTime)
 
-    Note over GrpcCall Controller,API Server: Controller periodically checks TTL after completion
-    alt TTL exceeded
-        GrpcCall Controller->>API Server: Delete GrpcCall
-    else TTL not exceeded
-        GrpcCall Controller->>GrpcCall Controller: Wait until TTL
-    end
-
-
+    GrpcCall Controller->>GrpcCall Controller: Requeue after 1 hour

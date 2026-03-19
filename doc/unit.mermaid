@@ -1,43 +1,48 @@
 sequenceDiagram
     participant User
     participant API Server
-    participant PVC Controller
+    participant Unit Controller
     participant Scheduler
     participant Kubelet
     participant Unit Agent
-    participant Unit Controller
-    
 
     User->>API Server: Create Unit
     API Server-->>User: Confirm creation
 
-    Unit Controller->>API Server: Listen to Unit changes
-    API Server-->>Unit Controller: Notify new Unit creation
+    Unit Controller->>API Server: Watch Unit changes
+    API Server-->>Unit Controller: Notify new Unit
 
-    Unit Controller->>API Server: Create the pvc
-    API Server->>PVC Controller: Notify new pvc creation
+    alt Deletion in progress
+        Unit Controller->>Unit Controller: Handle finalizers (delete Pod, PVC)
+    end
 
-    Unit Controller->>Unit Controller: Update unit status
-    
+    Unit Controller->>API Server: Create PVCs
+
+    Unit Controller->>Unit Controller: Update Unit status
+
+    Unit Controller->>Unit Controller: Auto-recovery (if pod failed)
+
     Unit Controller->>API Server: Create Pod
+    Note over Unit Controller: Pod owned by Unit via OwnerReference
 
-    Scheduler->>API Server: Listen for unscheduled Pods
-    API Server-->>Scheduler: Notify new Pod creation
+    Scheduler->>API Server: Watch unscheduled Pods
+    API Server-->>Scheduler: Notify new Pod
+    Scheduler->>API Server: Assign node to Pod
 
-    Scheduler->>API Server: Assign nodes to Pods
+    Kubelet->>API Server: Watch Pod assigned to this node
+    API Server-->>Kubelet: Notify Pod assignment
 
-    Kubelet->>API Server: Listen to the Pod assigned to this node
-    API Server-->>Kubelet: Notify of new Pod assignments
+    Kubelet->>Kubelet: Create containers
 
-    Kubelet->>Kubelet: Create container
     Kubelet->>API Server: Update Pod Status
 
-    Unit Controller->>API Server: Listen to pod status
-    
-    Unit Controller->>Unit Controller: Update unit status
-    
-    Unit Controller->>Unit Agent: Load unit config
+    Unit Controller->>API Server: Watch Pod status
+    Unit Controller->>Unit Controller: Update Unit status
 
-    Unit Controller->>Unit Agent: Start the process
+    Unit Controller->>Unit Agent: Load unit config (via gRPC)
+    Unit Agent-->>Unit Controller: Config loaded
 
-    Unit Controller->>Unit Controller: Update unit status
+    Unit Controller->>Unit Agent: Start service process (via gRPC)
+    Unit Agent-->>Unit Controller: Service started
+
+    Unit Controller->>Unit Controller: Final Unit status update
