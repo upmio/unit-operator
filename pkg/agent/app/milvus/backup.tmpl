@@ -48,7 +48,7 @@ minio:
   {{- if .BackupSSL }}
   insecureSkipVerify: true
   {{- end }}
-  crossStorage: "false"
+  crossStorage: "true"
 
 backup:
   maxSegmentGroupSize: 2G
