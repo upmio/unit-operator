@@ -116,5 +116,8 @@ vendor
 /CLAUDE.md
 /AGENTS.md
 
+# Design documents
+#/docs/design/
+
 # Helm charts
 charts/**/*.tgz

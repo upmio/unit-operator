@@ -125,6 +125,7 @@ var daemonCmd = &cobra.Command{
 			proxysql.RegistryGrpcApp()
 		case "milvus":
 			milvus.RegistryGrpcApp()
+			milvus.RegistryDaemonApp()
 		case "mongodb":
 			mongodb.RegistryGrpcApp()
 		}
