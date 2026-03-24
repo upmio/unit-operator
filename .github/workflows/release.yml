@@ -11,7 +11,8 @@ on:
 jobs:
   build-develop-operator-image:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
+    if: github.ref_name == 'main' || startsWith(github.ref_name, 'v2.0-dev-')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +42,8 @@ jobs:
           platforms: linux/amd64
   build-develop-agent-image:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
+    if: github.ref_name == 'main' || startsWith(github.ref_name, 'v2.0-dev-')
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -71,7 +71,6 @@ type ProjectReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.0/pkg/reconcile
 func (r *ProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, retErr error) {
 	//startTime := time.Now()
-	//klog.Infof("start reconciling")
 
 	project := &upmiov1alpha2.Project{}
 	if err := r.Get(ctx, req.NamespacedName, project); err != nil {
