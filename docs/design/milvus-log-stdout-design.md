@@ -1,31 +1,19 @@
-# Milvus 日志转发到标准输出 设计文档
+# Milvus Log Forwarding to Agent Stdout Design
 
-## 需求背景
+## Objective
 
-当服务类型是 Milvus 时，需要把其日志打印到标准输出，目的是让 Java 程序能够读取容器内标准输出的 Milvus 运行日志，从而在页面进行展示。
+Provide a stable and UI-friendly way to display Milvus logs in the product page without modifying the current `supervisord` startup model.
 
-## 现状分析
+The final responsibility split is:
 
-### Milvus 进程管理
-- Milvus 进程由 **supervisord** 管理（进程名：`unit_app`）
-- Agent 通过 XML-RPC 与 supervisord 通信来启停 Milvus
+1. the agent forwards Milvus log files to the agent container stdout/stderr
+2. Java reads the **agent container logs** and parses the forwarding protocol
+3. the frontend renders the structured result returned by Java
 
-### 当前日志配置
+## Background
 
-#### 1. milvusTemplate.tpl (Milvus Server 配置)
-```yaml
-log:
-  file:
-    maxAge: 10
-    maxBackups: 20
-    maxSize: 300
-    rootPath: null
-  format: text
-  level: info
-  stdout: true     # 已配置输出到标准输出
-```
+Milvus is started under `supervisord` and its process output is redirected to files:
 
-#### 2. supervisord.conf
 ```ini
 [program:unit_app]
 command=/usr/local/milvus/bin/milvus run %(ENV_ARCH_MODE)s
@@ -34,154 +22,164 @@ stdout_logfile=%(ENV_LOG_MOUNT)s/unit_app.out.log
 autostart=false
 ```
 
-### 问题分析
+Even if Milvus itself is configured with `stdout: true`, `supervisord` still captures and redirects the process output to the files above. As a result, the main container stdout is not the right source for UI log viewing.
 
-即使 Milvus 配置了 `stdout: true`，但 supervisord 捕获了子进程的 stdout/stderr 并重定向到日志文件，导致日志无法到达容器标准输出。
+## Final Design Choice
 
-## 方案选型
+Use the agent sidecar to forward the Milvus log files.
 
-### 方案对比
+This choice is intentional because:
 
-| 方案 | 描述 | 优点 | 缺点 |
-|-----|------|------|------|
-| 方案 A | 修改 supervisord.conf 输出到 /dev/stdout | 最简单 | 影响现有日志文件设计 |
-| 方案 B | Milvus 原生支持同时输出 | 配置简单 | supervisord 仍会拦截 stdout |
-| 方案 C | Agent 新增 DaemonApp 转发日志 | 不修改其他仓库 | 需要新增代码 |
+1. the current `supervisord` model cannot be changed
+2. existing file-based logging behavior must remain intact
+3. the operator can add log forwarding without coupling the UI directly to file access
 
-### 最终选择
+## Source of Truth in Code
 
-**选择方案 C：在 agent 中新增 DaemonApp 转发日志**
+The implementation lives in:
 
-原因：
-1. 不需要修改 upm-packages 仓库
-2. 不影响现有 supervisord 日志文件设计
-3. 实现模式成熟（参考 rediscluster）
+- `pkg/agent/app/milvus/logtail.go`
+- `pkg/agent/cmd/daemon.go`
 
-## 实现方案
+For Milvus units, the daemon command registers both:
 
-### 1. 新增文件
+- the Milvus gRPC app
+- the Milvus log forwarding daemon app
 
-```
-pkg/agent/app/milvus/
-├── impl.go              # 现有实现
-├── logtail.go          # 新增：日志转发 DaemonApp
-└── logtail_test.go     # 新增：测试
-```
+## Runtime Flow
 
-### 2. 架构设计
+```text
+Milvus process
+  -> ${LOG_MOUNT}/unit_app.out.log
+  -> ${LOG_MOUNT}/unit_app.err.log
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Milvus Process                                        │
-│    stdout → unit_app.out.log                          │
-│    stderr → unit_app.err.log                           │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│  DaemonApp (logtail)                                   │
-│    tail -f unit_app.out.log → /dev/stdout              │
-│    tail -f unit_app.err.log → /dev/stderr              │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                    Container stdout
-                           │
-                           ▼
-                    Java Application
+agent milvus-logtail daemon
+  -> tails both files
+  -> forwards stdout lines to agent stdout
+  -> forwards stderr lines to agent stderr
+  -> prefixes every forwarded line with a stable marker
+
+Java service
+  -> reads the agent container logs from Kubernetes
+  -> parses protocol prefixes
+  -> returns structured log entries to the frontend
+
+Frontend
+  -> renders structured logs
+  -> handles styling, filtering, searching, and scrolling
 ```
 
-### 3. 实现要点
+## Forwarding Protocol
 
-#### 3.1 文件路径
-```go
-const (
-    outLogFile = "unit_app.out.log"
-    errLogFile = "unit_app.err.log"
-)
+Each forwarded line uses one of the following stable prefixes:
+
+```text
+[MILVUS-STDOUT] <original milvus stdout line>
+[MILVUS-STDERR] <original milvus stderr line>
 ```
 
-#### 3.2 两种实现方式（可选）
+These prefixes are part of the cross-component contract.
 
-**方式一：Go 原生实现（推荐）**
-```go
-func (lt *logtail) tailFile(path string, output io.Writer) {
-    file, err := os.Open(path)
-    // 使用 bufio.Scanner 读取增量内容
-    // 处理日志轮转（文件被 rename 后重新打开）
+Rules:
+
+1. agent emits these prefixes exactly
+2. Java is responsible for parsing them
+3. frontend must not depend on raw string prefix parsing
+4. the original raw line should be preserved downstream for troubleshooting
+
+## Current Agent Implementation Details
+
+### Forwarded files
+
+The current implementation reads:
+
+- `unit_app.out.log`
+- `unit_app.err.log`
+
+### Prefixes
+
+The current implementation emits:
+
+- `stdoutLogPrefix = "[MILVUS-STDOUT] "`
+- `stderrLogPrefix = "[MILVUS-STDERR] "`
+
+These constants are documented in code as stable parsing protocol prefixes for downstream Java/UI consumers.
+
+### Tailing behavior
+
+The implementation uses native Go logic based on `bufio.Scanner`.
+
+Important current behavior:
+
+1. it polls incrementally rather than using `fsnotify`
+2. it retries opening the file for up to 30 seconds when the file does not exist yet
+3. it reopens the file when scanner errors occur, which provides basic recovery behavior
+4. it writes each output line in a single write call using `prefix + line + "\n"`
+
+### Default constraints
+
+The current design does not rely on:
+
+- changing `supervisord`
+- a new `GrpcCall` log-streaming action
+- frontend-side raw prefix parsing
+
+## Why Java Must Parse the Protocol
+
+Java is the correct protocol boundary for this feature because:
+
+1. the prefixes are a backend contract, not a UI contract
+2. Java can normalize stdout/stderr and log levels once for all consumers
+3. Java can preserve raw lines while exposing stable structured DTOs
+4. frontend logic remains focused on rendering rather than protocol interpretation
+
+## Expected Java Output Model
+
+Java should convert each line into a structured DTO such as:
+
+```json
+{
+  "sequence": 1,
+  "stream": "stdout",
+  "parsed": true,
+  "timestamp": "2026-03-24T10:00:00Z",
+  "level": "INFO",
+  "message": "start query node",
+  "rawMessage": "2026-03-24 18:00:00 INFO start query node",
+  "rawLine": "[MILVUS-STDOUT] 2026-03-24 18:00:00 INFO start query node"
 }
 ```
 
-**方式二：exec.Command 调用 tail（已注释）**
-```go
-// 已注释，使用 Go 原生实现
-// func (lt *logtail) tailFileByCommand(path string, output io.Writer) {
-//     cmd := exec.Command("tail", "-f", "-n", "+1", path)
-//     cmd.Stdout = output
-//     cmd.Run()
-// }
-```
+At minimum, Java should preserve:
 
-#### 3.3 环境变量控制（已注释）
-```go
-// 已注释，当前设计始终启用
-// const (
-//     LogStdoutEnableEnvKey = "LOG_STDOUT_ENABLE"
-// )
-```
+- `sequence`
+- `stream`
+- `parsed`
+- `level`
+- `message`
+- `rawLine`
 
-### 4. 核心功能
+## Expected Frontend Behavior
 
-#### 4.1 日志轮转处理
-- 使用 fsnotify 监控日志文件所在目录
-- 检测到文件被 rename/create 后，重新打开文件继续 tail
+The frontend should:
 
-#### 4.2 启动时文件不存在处理
-- 文件不存在时等待文件创建
-- 使用定期检查 + fsnotify 结合的方式
+1. consume structured log entries from Java
+2. render stream and level badges
+3. support filtering, searching, auto-scroll, and reconnect states
+4. fall back to `rawMessage` or `rawLine` when structured fields are incomplete
 
-### 5. 注册方式
+The frontend should not parse the `[MILVUS-STDOUT]` or `[MILVUS-STDERR]` strings directly.
 
-```go
-func init() {
-    app.RegistryDaemonApp(logtailDaemon)
-}
-```
+## Testing Expectations
 
-## 资源消耗评估
+The current operator-side implementation should be validated by:
 
-| 资源 | 消耗量 | 说明 |
-|-----|-------|------|
-| CPU | ~0% | 空闲时几乎为 0 |
-| 内存 | ~5-10MB | tail 进程本身非常轻量 |
-| 文件描述符 | 2-3 个 | 监控的文件 + stdin/stdout |
-| 磁盘 I/O | 很低 | 只读增量日志 |
+1. unit tests for prefix forwarding behavior
+2. unit tests for file-not-found retry behavior
+3. Java-side parser tests for stdout, stderr, and unknown lines
+4. integration tests verifying that Kubernetes log retrieval from the agent container contains prefixed lines
 
-## 潜在问题及处理
+## Related Documents
 
-| 问题 | 处理方式 |
-|-----|---------|
-| 日志轮转 | 使用 fsnotify 监控目录，检测到文件变化后重新打开 |
-| 文件不存在 | 启动时等待文件创建 |
-| stderr 转发 | 同时 tail unit_app.err.log 到 /dev/stderr |
-
-## 实现清单
-
-- [x] 创建 logtail.go，实现 DaemonApp 接口
-- [x] 实现 Go 原生 tail 功能
-- [x] 处理日志轮转
-- [x] 同时转发 stdout 和 stderr
-- [x] 启动时文件不存在处理
-- [x] 添加 exec.Command tail 方式（已注释）
-- [x] 添加环境变量控制方式（已注释）
-- [x] 添加单元测试
-
-## 讨论时间线
-
-1. 初始需求：Milvus 日志打印到标准输出
-2. 发现 backup.tmpl 是 milvus-backup 配置，不是 Milvus Server 配置
-3. 分析 supervisord.conf 发现 stdout 被重定向到文件
-4. 验证 milvusTemplate.tpl 的 stdout: true 配置
-5. 确定方案 C：Agent 新增 DaemonApp
-6. 评估资源消耗和潜在问题
-7. 确定最终实现方案
+- `docs/design/java-milvus-log-prompt.md`
+- `docs/design/frontend-milvus-log-prompt.md`

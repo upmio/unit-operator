@@ -20,6 +20,15 @@ const (
 	outLogFile = "unit_app.out.log"
 	errLogFile = "unit_app.err.log"
 
+	// stdoutLogPrefix is the stable parsing protocol prefix for forwarded Milvus stdout logs.
+	// Downstream Java/UI consumers rely on this exact prefix to identify stdout log lines.
+	// Keep this value stable unless all downstream parsers are updated together.
+	stdoutLogPrefix = "[MILVUS-STDOUT] "
+	// stderrLogPrefix is the stable parsing protocol prefix for forwarded Milvus stderr logs.
+	// Downstream Java/UI consumers rely on this exact prefix to identify stderr log lines.
+	// Keep this value stable unless all downstream parsers are updated together.
+	stderrLogPrefix = "[MILVUS-STDERR] "
+
 	// Scan interval for checking new content
 	scanInterval = 500 * time.Millisecond
 
@@ -48,8 +57,8 @@ type logtail struct {
 // 	return cmd.Run()
 // }
 
-// NewLogtail creates a new logtail daemon instance
-func NewLogtail() *logtail {
+// newLogtail creates a new logtail daemon instance.
+func newLogtail() *logtail {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &logtail{
 		ctx:    ctx,
@@ -70,13 +79,13 @@ func (lt *logtail) StartDaemon(ctx context.Context, wg *sync.WaitGroup) {
 	go func() {
 		defer wgTail.Done()
 		outPath := filepath.Join(lt.logDir, outLogFile)
-		lt.tailFile(outPath, os.Stdout)
+		lt.tailFile(outPath, os.Stdout, stdoutLogPrefix)
 	}()
 
 	go func() {
 		defer wgTail.Done()
 		errPath := filepath.Join(lt.logDir, errLogFile)
-		lt.tailFile(errPath, os.Stderr)
+		lt.tailFile(errPath, os.Stderr, stderrLogPrefix)
 	}()
 
 	// Wait for context cancellation
@@ -89,7 +98,7 @@ func (lt *logtail) StartDaemon(ctx context.Context, wg *sync.WaitGroup) {
 
 // tailFile reads file content in real-time and outputs to writer
 // Uses native Go implementation with log rotation detection
-func (lt *logtail) tailFile(path string, output io.Writer) {
+func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 	lt.logger.Infow("start tailing file", zap.String("path", path))
 
 	file, err := lt.openFileWithRetry(path)
@@ -98,7 +107,9 @@ func (lt *logtail) tailFile(path string, output io.Writer) {
 			zap.String("path", path), zap.Error(err))
 		return
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Create scanner to read file
 	scanner := bufio.NewScanner(file)
@@ -113,8 +124,7 @@ func (lt *logtail) tailFile(path string, output io.Writer) {
 			if scanner.Scan() {
 				line := scanner.Bytes()
 				if len(line) > 0 {
-					output.Write(line)
-					output.Write([]byte("\n"))
+					_, _ = output.Write([]byte(prefix + string(line) + "\n"))
 				}
 			} else {
 				err := scanner.Err()
@@ -125,7 +135,7 @@ func (lt *logtail) tailFile(path string, output io.Writer) {
 					time.Sleep(scanInterval)
 
 					// Try to reopen file (handle log rotation)
-					file.Close()
+					_ = file.Close()
 					file, err = lt.openFileWithRetry(path)
 					if err != nil {
 						lt.logger.Errorw("failed to reopen file, stop tailing",
@@ -210,6 +220,6 @@ func (lt *logtail) Registry(ctx context.Context, wg *sync.WaitGroup) {
 
 // RegistryDaemonApp registers milvus-logtail daemon app
 func RegistryDaemonApp() {
-	dm := NewLogtail()
+	dm := newLogtail()
 	app.RegistryDaemonApp(dm)
 }
