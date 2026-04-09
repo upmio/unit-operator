@@ -33,6 +33,8 @@ func TestFilePrefix(t *testing.T) {
 		{"mysql", "unit_app.out.log", "[MYSQL:unit_app.out.log] "},
 		{"mysql", "unit_app.err.log", "[MYSQL:unit_app.err.log] "},
 		{"mysql", "slow-query.log", "[MYSQL:slow-query.log] "},
+		{"mysql", "mysqld.err", "[MYSQL:mysqld.err] "},
+		{"mysql", "supervisord.log", "[MYSQL:supervisord.log] "},
 		{"redis", "unit_app.out.log", "[REDIS:unit_app.out.log] "},
 		{"milvus", "unit_app.out.log", "[MILVUS:unit_app.out.log] "},
 		{"postgresql", "postgresql.log", "[POSTGRESQL:postgresql.log] "},
@@ -109,11 +111,12 @@ func TestTailSingleFile(t *testing.T) {
 func TestScanAndTailMultipleFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create multiple log files
+	// Create multiple files with different extensions
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "app.log"), []byte("line from app\n"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "error.log"), []byte("line from error\n"), 0644))
-	// Non-log file should be ignored
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "notes.txt"), []byte("not a log\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "mysqld.err"), []byte("line from err\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "notes.txt"), []byte("some notes\n"), 0644))
+	// Subdirectory should be ignored
+	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, "subdir"), 0755))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lt := &logtail{
@@ -128,18 +131,18 @@ func TestScanAndTailMultipleFiles(t *testing.T) {
 	var wg sync.WaitGroup
 	lt.scanAndTail(&wg)
 
-	// Should be tailing exactly 2 files
+	// Should be tailing all 3 regular files (subdir excluded)
 	lt.mu.Lock()
 	count := len(lt.tailing)
 	lt.mu.Unlock()
-	require.Equal(t, 2, count)
+	require.Equal(t, 3, count)
 
 	// Second scan should not add duplicates
 	lt.scanAndTail(&wg)
 	lt.mu.Lock()
 	count = len(lt.tailing)
 	lt.mu.Unlock()
-	require.Equal(t, 2, count)
+	require.Equal(t, 3, count)
 
 	time.Sleep(100 * time.Millisecond)
 	cancel()
@@ -195,12 +198,15 @@ func TestTailFileNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNonLogFilesIgnored(t *testing.T) {
+func TestSubdirIgnored(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "data.csv"), []byte("a,b\n"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "config.toml"), []byte("[app]\n"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "real.log"), []byte("real log\n"), 0644))
+	// All regular files should be tailed regardless of extension
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "mysqld.err"), []byte("err\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "mysql-slow.log"), []byte("slow\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "unit_app.out.log"), []byte("out\n"), 0644))
+	// Subdirectory must be skipped
+	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, "archive"), 0755))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	lt := &logtail{
@@ -216,10 +222,14 @@ func TestNonLogFilesIgnored(t *testing.T) {
 	lt.scanAndTail(&wg)
 
 	lt.mu.Lock()
-	require.Equal(t, 1, len(lt.tailing))
-	_, ok := lt.tailing[filepath.Join(tmpDir, "real.log")]
-	require.True(t, ok)
+	require.Equal(t, 3, len(lt.tailing))
+	_, ok1 := lt.tailing[filepath.Join(tmpDir, "mysqld.err")]
+	_, ok2 := lt.tailing[filepath.Join(tmpDir, "mysql-slow.log")]
+	_, ok3 := lt.tailing[filepath.Join(tmpDir, "unit_app.out.log")]
 	lt.mu.Unlock()
+	require.True(t, ok1)
+	require.True(t, ok2)
+	require.True(t, ok3)
 
 	time.Sleep(100 * time.Millisecond)
 	cancel()

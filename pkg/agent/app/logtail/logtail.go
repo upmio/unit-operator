@@ -18,8 +18,6 @@ import (
 )
 
 const (
-	// logFilePattern is the glob pattern for discovering log files in LOG_MOUNT.
-	logFilePattern = "*.log"
 
 	// dirScanInterval is how often the daemon re-scans LOG_MOUNT for new log files.
 	dirScanInterval = 5 * time.Second
@@ -93,10 +91,10 @@ func (lt *logtail) StartDaemon(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-// scanAndTail discovers *.log files in logDir and starts a tail goroutine
-// for any file not already being tailed.
+// scanAndTail reads logDir and starts a tail goroutine for every regular file
+// (excluding subdirectories) not already being tailed.
 func (lt *logtail) scanAndTail(wg *sync.WaitGroup) {
-	matches, err := filepath.Glob(filepath.Join(lt.logDir, logFilePattern))
+	entries, err := os.ReadDir(lt.logDir)
 	if err != nil {
 		lt.logger.Warnw("failed to scan log directory", zap.Error(err))
 		return
@@ -105,7 +103,12 @@ func (lt *logtail) scanAndTail(wg *sync.WaitGroup) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 
-	for _, path := range matches {
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		path := filepath.Join(lt.logDir, entry.Name())
 		if _, ok := lt.tailing[path]; ok {
 			continue // already tailing
 		}
@@ -213,8 +216,7 @@ func (lt *logtail) Config() error {
 	lt.logDir = logDir
 	lt.logger.Infow("logtail configured",
 		zap.String("unitType", lt.unitType),
-		zap.String("logDir", lt.logDir),
-		zap.String("pattern", logFilePattern))
+		zap.String("logDir", lt.logDir))
 
 	return nil
 }
