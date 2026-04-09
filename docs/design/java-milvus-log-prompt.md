@@ -1,56 +1,58 @@
-# Java Milvus Log Parsing Prompt
+# Java Log Parsing Prompt
 
 ## Objective
 
-Implement the Java side of Milvus log retrieval and parsing for the current `unit-operator` design.
+Implement the Java side of log retrieval and parsing for the current `unit-operator` design.
 
-The operator-side agent already forwards Milvus log files from the agent container and emits each forwarded line with a stable protocol prefix:
+The operator-side agent forwards main container log files from the agent container and emits each forwarded line with a stable protocol prefix. The prefix is dynamically generated based on `UNIT_TYPE`:
 
-- `[MILVUS-STDOUT] `
-- `[MILVUS-STDERR] `
+- `[<UNIT_TYPE>-STDOUT] ` (e.g., `[MILVUS-STDOUT] `, `[MYSQL-STDOUT] `, `[REDIS-STDOUT] `)
+- `[<UNIT_TYPE>-STDERR] ` (e.g., `[MILVUS-STDERR] `, `[MYSQL-STDERR] `, `[REDIS-STDERR] `)
 
-Java must read the agent container logs from Kubernetes, parse those prefixes, and return structured log data to the frontend. The frontend must not be responsible for protocol parsing.
+Java must read the agent container logs from Kubernetes, parse those prefixes using a generic regex, and return structured log data to the frontend. The frontend must not be responsible for protocol parsing.
 
 ## Current Source of Truth
 
 The current implementation is in `unit-operator`:
 
-- `pkg/agent/app/milvus/logtail.go`
-- `pkg/agent/cmd/daemon.go`
+- `pkg/agent/app/logtail/logtail.go` — generic logtail daemon for all unit types
+- `pkg/agent/cmd/daemon.go` — registers logtail for every unit type
 
 The behavior is:
 
-1. Milvus stdout is redirected by `supervisord` to `${LOG_MOUNT}/unit_app.out.log`
-2. Milvus stderr is redirected by `supervisord` to `${LOG_MOUNT}/unit_app.err.log`
-3. The agent `milvus-logtail` daemon tails both files
-4. The agent writes them to its own container stdout/stderr with stable prefixes
+1. The main container stdout is redirected by `supervisord` to `${LOG_MOUNT}/unit_app.out.log`
+2. The main container stderr is redirected by `supervisord` to `${LOG_MOUNT}/unit_app.err.log`
+3. The agent `logtail` daemon tails both files
+4. The agent writes them to its own container stdout/stderr with typed prefixes
 
-Important: Java should read the **agent container logs**, not the main Milvus container logs.
+Important: Java should read the **agent container logs**, not the main container logs.
 
 ## Protocol Contract
 
-Each forwarded line follows one of these forms:
+Each forwarded line follows the pattern:
 
 ```text
-[MILVUS-STDOUT] <original milvus stdout line>
-[MILVUS-STDERR] <original milvus stderr line>
+[<UNIT_TYPE>-STDOUT] <original stdout line>
+[<UNIT_TYPE>-STDERR] <original stderr line>
 ```
+
+The recommended regex for parsing: `\[([A-Z-]+)-(STDOUT|STDERR)\] (.*)`
 
 Rules:
 
 1. These prefixes are a stable parsing contract
-2. Java must parse them exactly
-3. If a line does not match either prefix, do not drop it; mark it as `unknown`
+2. Java must parse them using the generic regex pattern above
+3. If a line does not match the pattern, do not drop it; mark it as `unknown`
 4. Preserve the original full line for troubleshooting
 
 ## Responsibilities
 
 ### Java responsibilities
 
-1. Locate the target Milvus pod
+1. Locate the target pod
 2. Read the **agent container** logs from Kubernetes
 3. Support both historical log retrieval and real-time streaming
-4. Parse the protocol prefixes
+4. Parse the protocol prefixes using generic regex
 5. Convert raw lines into structured DTOs
 6. Provide stable API responses for the frontend
 
@@ -58,7 +60,7 @@ Rules:
 
 1. Render structured log data
 2. Do UI styling, searching, filtering, and scrolling
-3. Do not parse `[MILVUS-STDOUT]` / `[MILVUS-STDERR]` directly
+3. Do not parse `[*-STDOUT]` / `[*-STDERR]` directly
 
 ## Recommended Retrieval Strategy
 
@@ -99,16 +101,16 @@ The design must not rely on the default container selection when multiple contai
 
 ### 2. Log parser
 
-Implement a dedicated parser, for example:
+Implement a generic parser, for example:
 
-- `MilvusForwardedLogParser`
-- `MilvusLogLineParser`
+- `ForwardedLogParser`
+- `UnitLogLineParser`
 
 The parser must:
 
-1. detect `[MILVUS-STDOUT] ` => `stream = stdout`
-2. detect `[MILVUS-STDERR] ` => `stream = stderr`
-3. otherwise => `stream = unknown`
+1. use regex `\[([A-Z-]+)-(STDOUT|STDERR)\] (.*)` to detect the prefix
+2. extract `unitType` (group 1) and `stream` (group 2: stdout/stderr)
+3. if no match => `stream = unknown`
 4. strip the prefix into `rawMessage`
 5. attempt lightweight parsing of timestamp / level / message from `rawMessage`
 6. never discard lines only because parsing is incomplete
@@ -120,6 +122,7 @@ Return a structured DTO similar to:
 ```json
 {
   "sequence": 1,
+  "unitType": "milvus",
   "stream": "stdout",
   "parsed": true,
   "timestamp": "2026-03-24T10:00:00Z",
@@ -133,6 +136,7 @@ Return a structured DTO similar to:
 Field requirements:
 
 - `sequence`: monotonically increasing sequence generated by Java for stable ordering
+- `unitType`: extracted from prefix (lowercased), e.g., `milvus`, `mysql`, `redis`
 - `stream`: `stdout` / `stderr` / `unknown`
 - `parsed`: whether message-level parsing succeeded
 - `timestamp`: parsed from the message when available, otherwise `null`
@@ -165,8 +169,8 @@ Provide APIs for:
 Suggested examples:
 
 ```text
-GET /milvus/units/{unitId}/logs?tailLines=200
-GET /milvus/units/{unitId}/logs/stream
+GET /units/{unitId}/logs?tailLines=200
+GET /units/{unitId}/logs/stream
 ```
 
 For streaming, SSE is preferred unless the existing stack strongly favors WebSocket.
@@ -177,7 +181,7 @@ For streaming, SSE is preferred unless the existing stack strongly favors WebSoc
 2. Preserve original ordering
 3. Preserve raw lines for debugging
 4. Do not drop unmatched lines
-5. Keep the parsing logic tolerant to imperfect Milvus log formats
+5. Keep the parsing logic tolerant to imperfect log formats
 6. Explicitly target the agent container when reading pod logs
 7. Properly close `LogWatch` resources and input streams
 
@@ -196,7 +200,7 @@ Implement tests for:
    - historical log retrieval
    - watch log setup
 4. integration flow:
-   - deploy a Milvus pod with the updated agent
+   - deploy a pod with the updated agent
    - verify Java can retrieve agent logs
    - verify prefixed lines are converted into structured DTOs
 
@@ -216,4 +220,3 @@ Please provide:
 
 - `docs/design/milvus-log-stdout-design.md`
 - `docs/design/frontend-milvus-log-prompt.md`
-- Fabric8 Kubernetes Client log watch documentation

@@ -13,6 +13,7 @@ func TestEnvironmentKeys(t *testing.T) {
 	require.Equal(t, "SECRET_MOUNT", SecretMountEnvKey)
 	require.Equal(t, "CONF_DIR", ConfigDirEnvKey)
 	require.Equal(t, "ARCH_MODE", ArchModeEnvKey)
+	require.Equal(t, "UNIT_TYPE", UnitTypeEnvKey)
 	require.Equal(t, "NAMESPACE", NamespaceEnvKey)
 	require.Equal(t, "POD_NAME", PodNameEnvKey)
 }

@@ -1,32 +1,35 @@
-# Milvus Log Forwarding to Agent Stdout Design
+# Log Forwarding to Agent Stdout Design
 
 ## Objective
 
-Provide a stable and UI-friendly way to display Milvus logs in the product page without modifying the current `supervisord` startup model.
+Provide a stable and UI-friendly way to display main container logs in the product page without modifying the current `supervisord` startup model.
+
+This feature applies to **all unit types** (MySQL, PostgreSQL, Redis, Milvus, MongoDB, ProxySQL, Sentinel, etc.) — the agent does not need to know the specific service type.
 
 The final responsibility split is:
 
-1. the agent forwards Milvus log files to the agent container stdout/stderr
+1. the agent forwards main container log files to the agent container stdout/stderr
 2. Java reads the **agent container logs** and parses the forwarding protocol
 3. the frontend renders the structured result returned by Java
 
 ## Background
 
-Milvus is started under `supervisord` and its process output is redirected to files:
+All services are started under `supervisord` and their process output is redirected to files:
 
 ```ini
 [program:unit_app]
-command=/usr/local/milvus/bin/milvus run %(ENV_ARCH_MODE)s
 stderr_logfile=%(ENV_LOG_MOUNT)s/unit_app.err.log
 stdout_logfile=%(ENV_LOG_MOUNT)s/unit_app.out.log
 autostart=false
 ```
 
-Even if Milvus itself is configured with `stdout: true`, `supervisord` still captures and redirects the process output to the files above. As a result, the main container stdout is not the right source for UI log viewing.
+Even if a service itself is configured with `stdout: true`, `supervisord` still captures and redirects the process output to the files above. As a result, the main container stdout is not the right source for UI log viewing.
+
+The main container is identified by the pod annotation `kubectl.kubernetes.io/default-container`.
 
 ## Final Design Choice
 
-Use the agent sidecar to forward the Milvus log files.
+Use the agent sidecar to forward the main container log files.
 
 This choice is intentional because:
 
@@ -38,26 +41,24 @@ This choice is intentional because:
 
 The implementation lives in:
 
-- `pkg/agent/app/milvus/logtail.go`
-- `pkg/agent/cmd/daemon.go`
+- `pkg/agent/app/logtail/logtail.go` — generic logtail daemon, parameterized by `UNIT_TYPE`
+- `pkg/agent/cmd/daemon.go` — registers the logtail daemon for all unit types
 
-For Milvus units, the daemon command registers both:
-
-- the Milvus gRPC app
-- the Milvus log forwarding daemon app
+The logtail daemon is registered **before** the per-type switch, so every unit type gets log forwarding automatically.
 
 ## Runtime Flow
 
 ```text
-Milvus process
+Main container process (any service type)
   -> ${LOG_MOUNT}/unit_app.out.log
   -> ${LOG_MOUNT}/unit_app.err.log
 
-agent milvus-logtail daemon
+agent logtail daemon
+  -> reads UNIT_TYPE env to compute prefix
   -> tails both files
   -> forwards stdout lines to agent stdout
   -> forwards stderr lines to agent stderr
-  -> prefixes every forwarded line with a stable marker
+  -> prefixes every forwarded line with a typed marker
 
 Java service
   -> reads the agent container logs from Kubernetes
@@ -71,45 +72,53 @@ Frontend
 
 ## Forwarding Protocol
 
-Each forwarded line uses one of the following stable prefixes:
+Each forwarded line uses one of the following stable prefix patterns:
 
 ```text
-[MILVUS-STDOUT] <original milvus stdout line>
-[MILVUS-STDERR] <original milvus stderr line>
+[<UNIT_TYPE>-STDOUT] <original stdout line>
+[<UNIT_TYPE>-STDERR] <original stderr line>
+```
+
+Examples:
+
+```text
+[MILVUS-STDOUT] 2026-03-24 18:00:00 INFO start query node
+[MYSQL-STDERR] 2026-03-24 18:00:00 ERROR connection refused
+[REDIS-STDOUT] 2026-03-24 18:00:00 Ready to accept connections
+[POSTGRESQL-STDOUT] 2026-03-24 18:00:00 LOG database system is ready
 ```
 
 These prefixes are part of the cross-component contract.
 
 Rules:
 
-1. agent emits these prefixes exactly
-2. Java is responsible for parsing them
-3. frontend must not depend on raw string prefix parsing
-4. the original raw line should be preserved downstream for troubleshooting
+1. `UNIT_TYPE` is uppercased in the prefix (e.g., `mysql` → `MYSQL`)
+2. agent emits these prefixes exactly
+3. Java is responsible for parsing them — the regex pattern `\[([A-Z-]+)-(STDOUT|STDERR)\] (.*)` covers all types
+4. frontend must not depend on raw string prefix parsing
+5. the original raw line should be preserved downstream for troubleshooting
 
-## Current Agent Implementation Details
+## Agent Implementation Details
 
 ### Forwarded files
 
-The current implementation reads:
+The logtail daemon reads:
 
-- `unit_app.out.log`
-- `unit_app.err.log`
+- `unit_app.out.log` — forwarded to agent stdout
+- `unit_app.err.log` — forwarded to agent stderr
 
-### Prefixes
+### Prefix generation
 
-The current implementation emits:
+Prefixes are dynamically generated from `UNIT_TYPE`:
 
-- `stdoutLogPrefix = "[MILVUS-STDOUT] "`
-- `stderrLogPrefix = "[MILVUS-STDERR] "`
-
-These constants are documented in code as stable parsing protocol prefixes for downstream Java/UI consumers.
+- `stdoutPrefix = fmt.Sprintf("[%s-STDOUT] ", strings.ToUpper(unitType))`
+- `stderrPrefix = fmt.Sprintf("[%s-STDERR] ", strings.ToUpper(unitType))`
 
 ### Tailing behavior
 
 The implementation uses native Go logic based on `bufio.Scanner`.
 
-Important current behavior:
+Important behavior:
 
 1. it polls incrementally rather than using `fsnotify`
 2. it retries opening the file for up to 30 seconds when the file does not exist yet
@@ -168,16 +177,17 @@ The frontend should:
 3. support filtering, searching, auto-scroll, and reconnect states
 4. fall back to `rawMessage` or `rawLine` when structured fields are incomplete
 
-The frontend should not parse the `[MILVUS-STDOUT]` or `[MILVUS-STDERR]` strings directly.
+The frontend should not parse the protocol prefix strings directly.
 
 ## Testing Expectations
 
 The current operator-side implementation should be validated by:
 
-1. unit tests for prefix forwarding behavior
-2. unit tests for file-not-found retry behavior
-3. Java-side parser tests for stdout, stderr, and unknown lines
-4. integration tests verifying that Kubernetes log retrieval from the agent container contains prefixed lines
+1. unit tests for prefix generation across all unit types
+2. unit tests for prefix forwarding behavior
+3. unit tests for file-not-found retry behavior
+4. Java-side parser tests for stdout, stderr, and unknown lines (generic regex-based)
+5. integration tests verifying that Kubernetes log retrieval from the agent container contains prefixed lines
 
 ## Related Documents
 

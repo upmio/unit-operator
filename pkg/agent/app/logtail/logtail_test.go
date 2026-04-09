@@ -1,4 +1,4 @@
-package milvus
+package logtail
 
 import (
 	"bytes"
@@ -16,18 +16,51 @@ import (
 )
 
 func init() {
-	// Initialize logger for test output
 	zap.ReplaceGlobals(zap.NewNop())
 }
 
 func TestDaemonName(t *testing.T) {
 	lt := &logtail{}
-	require.Equal(t, "milvus-logtail", lt.Name())
+	require.Equal(t, "logtail", lt.Name())
 }
 
-func TestConfigMissingEnv(t *testing.T) {
+func TestPrefixGeneration(t *testing.T) {
+	tests := []struct {
+		unitType       string
+		wantStdout     string
+		wantStderr     string
+	}{
+		{"mysql", "[MYSQL-STDOUT] ", "[MYSQL-STDERR] "},
+		{"redis", "[REDIS-STDOUT] ", "[REDIS-STDERR] "},
+		{"postgresql", "[POSTGRESQL-STDOUT] ", "[POSTGRESQL-STDERR] "},
+		{"milvus", "[MILVUS-STDOUT] ", "[MILVUS-STDERR] "},
+		{"mongodb", "[MONGODB-STDOUT] ", "[MONGODB-STDERR] "},
+		{"proxysql", "[PROXYSQL-STDOUT] ", "[PROXYSQL-STDERR] "},
+		{"redis-sentinel", "[REDIS-SENTINEL-STDOUT] ", "[REDIS-SENTINEL-STDERR] "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.unitType, func(t *testing.T) {
+			require.Equal(t, tt.wantStdout, stdoutPrefix(tt.unitType))
+			require.Equal(t, tt.wantStderr, stderrPrefix(tt.unitType))
+		})
+	}
+}
+
+func TestConfigMissingUnitType(t *testing.T) {
 	lt := newLogtail()
 
+	t.Setenv(vars.UnitTypeEnvKey, "")
+	t.Setenv(vars.LogMountEnvKey, t.TempDir())
+
+	err := lt.Config()
+	require.Error(t, err)
+}
+
+func TestConfigMissingLogMount(t *testing.T) {
+	lt := newLogtail()
+
+	t.Setenv(vars.UnitTypeEnvKey, "mysql")
 	t.Setenv(vars.LogMountEnvKey, "")
 
 	err := lt.Config()
@@ -38,40 +71,45 @@ func TestConfigSuccess(t *testing.T) {
 	lt := newLogtail()
 
 	tmpDir := t.TempDir()
+	t.Setenv(vars.UnitTypeEnvKey, "mysql")
 	t.Setenv(vars.LogMountEnvKey, tmpDir)
 
 	err := lt.Config()
 	require.NoError(t, err)
 	require.Equal(t, tmpDir, lt.logDir)
+	require.Equal(t, "mysql", lt.unitType)
+	require.Equal(t, "[MYSQL-STDOUT] ", lt.stdoutPrefix)
+	require.Equal(t, "[MYSQL-STDERR] ", lt.stderrPrefix)
 }
 
 func TestTailFile(t *testing.T) {
-	t.Run("stdout prefix", func(t *testing.T) {
-		testTailFileWithPrefix(t, outLogFile, stdoutLogPrefix, "test stdout log message")
-	})
+	unitTypes := []string{"mysql", "redis", "milvus", "postgresql"}
 
-	t.Run("stderr prefix", func(t *testing.T) {
-		testTailFileWithPrefix(t, errLogFile, stderrLogPrefix, "test stderr log message")
-	})
+	for _, unitType := range unitTypes {
+		t.Run(unitType+"/stdout", func(t *testing.T) {
+			testTailFileWithPrefix(t, outLogFile, stdoutPrefix(unitType), "test stdout log message")
+		})
+
+		t.Run(unitType+"/stderr", func(t *testing.T) {
+			testTailFileWithPrefix(t, errLogFile, stderrPrefix(unitType), "test stderr log message")
+		})
+	}
 }
 
 func testTailFileWithPrefix(t *testing.T, fileName, prefix, message string) {
-	// Create temp directory and log file
 	tmpDir := t.TempDir()
 	logFile := filepath.Join(tmpDir, fileName)
 
-	// Create file and write content
 	content := "2026-03-23 10:00:00 INFO " + message + "\n"
 	err := os.WriteFile(logFile, []byte(content), 0644)
 	require.NoError(t, err)
 
-	// Start tailFile
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	var output bytes.Buffer
 	lt := &logtail{
 		ctx:    ctx,
-		logger: zap.L().Named("milvus-logtail").Sugar(),
+		logger: zap.L().Named("logtail-test").Sugar(),
 	}
 
 	wg.Add(1)
@@ -80,67 +118,57 @@ func testTailFileWithPrefix(t *testing.T, fileName, prefix, message string) {
 		lt.tailFile(logFile, &output, prefix)
 	}()
 
-	// Wait for reading
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 	wg.Wait()
 
-	// Verify output contains original content
 	outputStr := output.String()
 	require.True(t, strings.Contains(outputStr, prefix))
 	require.True(t, strings.Contains(outputStr, message))
 }
 
 func TestTailFileNotFound(t *testing.T) {
-	// Create non-existent file path
 	tmpDir := t.TempDir()
 	logFile := filepath.Join(tmpDir, "nonexistent.log")
 
 	lt := &logtail{
 		ctx:    context.Background(),
-		logger: zap.L().Named("milvus-logtail").Sugar(),
+		logger: zap.L().Named("logtail-test").Sugar(),
 	}
 
-	// Should fail to open file (will return error after waiting 30 seconds)
 	_, err := lt.openFileWithRetry(logFile)
 	require.Error(t, err)
 }
 
-// TestTailFileContentAppend tests appending content to file.
-// Note: This scenario is reserved for future stabilization because incremental scanner timing is flaky in unit tests.
 func TestTailFileContentAppend(t *testing.T) {
 	t.Skip("reserved for future append-behavior verification")
 
-	// Create temp directory and log file
 	tmpDir := t.TempDir()
 	logFile := filepath.Join(tmpDir, outLogFile)
 
-	// Create empty file
 	err := os.WriteFile(logFile, []byte(""), 0644)
 	require.NoError(t, err)
 
-	// Create a pipe for reading output
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
 
-	// Start tailFile
 	ctx, cancel := context.WithCancel(context.Background())
 	lt := &logtail{
 		ctx:    ctx,
-		logger: zap.L().Named("milvus-logtail").Sugar(),
+		logger: zap.L().Named("logtail-test").Sugar(),
 	}
+
+	prefix := stdoutPrefix("mysql")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		lt.tailFile(logFile, w, stdoutLogPrefix)
+		lt.tailFile(logFile, w, prefix)
 	}()
 
-	// Wait for startup
 	time.Sleep(100 * time.Millisecond)
 
-	// Append content to file
 	newContent := "2026-03-23 10:00:00 INFO new log message\n"
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY, 0644)
 	require.NoError(t, err)
@@ -148,13 +176,10 @@ func TestTailFileContentAppend(t *testing.T) {
 	require.NoError(t, f.Close())
 	require.NoError(t, err)
 
-	// Wait for reading
 	time.Sleep(200 * time.Millisecond)
 	cancel()
 	wg.Wait()
 	require.NoError(t, w.Close())
 	require.NoError(t, r.Close())
-
-	// Verify output contains new content - due to scanner behavior, reading may have issues
-	// This test mainly verifies append functionality, it won't have this problem in actual use
 }
+

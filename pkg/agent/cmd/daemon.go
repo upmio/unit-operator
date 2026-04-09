@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/logtail"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
@@ -104,6 +105,11 @@ var daemonCmd = &cobra.Command{
 		wg.Add(1)
 		go svr.waitSign(ctx, wg)
 
+		// Register generic logtail daemon for all unit types.
+		// Forwards main container logs (unit_app.out.log / unit_app.err.log)
+		// to agent stdout/stderr with typed prefixes e.g. [MYSQL-STDOUT].
+		logtail.RegistryDaemonApp()
+
 		switch unitType {
 		case "redis":
 			redis.RegistryGrpcApp()
@@ -125,7 +131,6 @@ var daemonCmd = &cobra.Command{
 			proxysql.RegistryGrpcApp()
 		case "milvus":
 			milvus.RegistryGrpcApp()
-			milvus.RegistryDaemonApp()
 		case "mongodb":
 			mongodb.RegistryGrpcApp()
 		}

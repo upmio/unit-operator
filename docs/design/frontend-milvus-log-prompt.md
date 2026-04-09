@@ -1,17 +1,17 @@
-# Frontend Milvus Log Rendering Prompt
+# Frontend Log Rendering Prompt
 
 ## Objective
 
-Implement the frontend experience for Milvus log viewing based on structured log data returned by Java.
+Implement the frontend experience for log viewing based on structured log data returned by Java.
 
 The frontend must focus on rendering, styling, filtering, searching, and streaming interaction. It must not parse the raw protocol prefixes emitted by the agent.
 
 ## Upstream Contract
 
-The Java service is responsible for reading the agent container logs and parsing the stable forwarded-log protocol prefixes:
+The Java service is responsible for reading the agent container logs and parsing the stable forwarded-log protocol prefixes. The prefix pattern is generic and covers all unit types:
 
-- `[MILVUS-STDOUT] `
-- `[MILVUS-STDERR] `
+- `[<UNIT_TYPE>-STDOUT] ` (e.g., `[MILVUS-STDOUT] `, `[MYSQL-STDOUT] `, `[REDIS-STDOUT] `)
+- `[<UNIT_TYPE>-STDERR] ` (e.g., `[MILVUS-STDERR] `, `[MYSQL-STDERR] `, `[REDIS-STDERR] `)
 
 The frontend should consume structured log entries instead of parsing raw lines.
 
@@ -56,7 +56,7 @@ The frontend must:
 
 The frontend must not:
 
-1. parse `[MILVUS-STDOUT] ` or `[MILVUS-STDERR] ` directly
+1. parse `[*-STDOUT] ` or `[*-STDERR] ` directly
 2. infer stdout/stderr by string matching raw lines
 3. rely on unstable raw text patterns for core behavior
 
