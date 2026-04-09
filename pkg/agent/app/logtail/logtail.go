@@ -18,91 +18,115 @@ import (
 )
 
 const (
-	// Log file names produced by supervisord (relative to LOG_MOUNT directory)
-	outLogFile = "unit_app.out.log"
-	errLogFile = "unit_app.err.log"
+	// logFilePattern is the glob pattern for discovering log files in LOG_MOUNT.
+	logFilePattern = "*.log"
 
-	// Scan interval for checking new content
+	// dirScanInterval is how often the daemon re-scans LOG_MOUNT for new log files.
+	dirScanInterval = 5 * time.Second
+
+	// scanInterval is how often an individual tail goroutine checks for new content.
 	scanInterval = 500 * time.Millisecond
 
-	// Buffer size for scanner
+	// maxScanTokenSize is the maximum line length the scanner can handle.
 	maxScanTokenSize = 64 * 1024 // 64KB
 )
 
-// stdoutPrefix returns the stable parsing protocol prefix for forwarded stdout logs.
-// Downstream Java/UI consumers rely on this exact prefix to identify stdout log lines.
-// Format: [<UNIT_TYPE>-STDOUT]
-// Example: [MYSQL-STDOUT] , [REDIS-STDOUT] , [MILVUS-STDOUT]
-func stdoutPrefix(unitType string) string {
-	return fmt.Sprintf("[%s-STDOUT] ", strings.ToUpper(unitType))
+// filePrefix returns the stable parsing protocol prefix for a given log file.
+// Downstream Java/UI consumers rely on this prefix to identify the source file.
+//
+// Format:  [<UNIT_TYPE>:<filename>]
+// Example: [MYSQL:unit_app.out.log] , [MILVUS:error.log]
+func filePrefix(unitType, filename string) string {
+	return fmt.Sprintf("[%s:%s] ", strings.ToUpper(unitType), filename)
 }
 
-// stderrPrefix returns the stable parsing protocol prefix for forwarded stderr logs.
-// Downstream Java/UI consumers rely on this exact prefix to identify stderr log lines.
-// Format: [<UNIT_TYPE>-STDERR]
-// Example: [MYSQL-STDERR] , [REDIS-STDERR] , [MILVUS-STDERR]
-func stderrPrefix(unitType string) string {
-	return fmt.Sprintf("[%s-STDERR] ", strings.ToUpper(unitType))
-}
-
-// logtail is a DaemonApp that forwards main container logs to agent stdout/stderr.
-// It reads supervisord log files in real-time and outputs with typed prefixes.
+// logtail is a DaemonApp that forwards all log files under LOG_MOUNT to agent stdout.
 type logtail struct {
-	logger       *zap.SugaredLogger
-	logDir       string // LOG_MOUNT directory
-	unitType     string // UNIT_TYPE value
-	stdoutPrefix string // computed stdout prefix
-	stderrPrefix string // computed stderr prefix
-	ctx          context.Context
-	cancel       context.CancelFunc
+	logger   *zap.SugaredLogger
+	logDir   string // LOG_MOUNT directory
+	unitType string // UNIT_TYPE value
+	ctx      context.Context
+	cancel   context.CancelFunc
+
+	// tailing tracks files that already have a tail goroutine running.
+	tailing map[string]struct{}
+	mu      sync.Mutex
 }
 
 // newLogtail creates a new logtail daemon instance.
 func newLogtail() *logtail {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &logtail{
-		ctx:    ctx,
-		cancel: cancel,
+		ctx:     ctx,
+		cancel:  cancel,
+		tailing: make(map[string]struct{}),
 	}
 }
 
-// StartDaemon starts the log forwarding daemon
+// StartDaemon starts the log forwarding daemon.
+// It scans LOG_MOUNT for *.log files and tails each one.
+// New files appearing later are picked up by periodic re-scans.
 func (lt *logtail) StartDaemon(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	lt.logger.Infof("start logtail daemon for unit type: %s", lt.unitType)
 
-	// Start two goroutines to tail stdout and stderr respectively
 	var wgTail sync.WaitGroup
-	wgTail.Add(2)
 
-	go func() {
-		defer wgTail.Done()
-		outPath := filepath.Join(lt.logDir, outLogFile)
-		lt.tailFile(outPath, os.Stdout, lt.stdoutPrefix)
-	}()
+	// Initial scan
+	lt.scanAndTail(&wgTail)
 
-	go func() {
-		defer wgTail.Done()
-		errPath := filepath.Join(lt.logDir, errLogFile)
-		lt.tailFile(errPath, os.Stderr, lt.stderrPrefix)
-	}()
+	// Periodic re-scan for new log files
+	ticker := time.NewTicker(dirScanInterval)
+	defer ticker.Stop()
 
-	// Wait for context cancellation
-	<-ctx.Done()
-	lt.logger.Infof("stop logtail daemon for unit type: %s", lt.unitType)
-
-	// Cancel internal context to stop tail goroutines
-	lt.cancel()
-
-	// Wait for tail goroutines to finish
-	wgTail.Wait()
+	for {
+		select {
+		case <-ctx.Done():
+			lt.logger.Infof("stop logtail daemon for unit type: %s", lt.unitType)
+			lt.cancel()
+			wgTail.Wait()
+			return
+		case <-ticker.C:
+			lt.scanAndTail(&wgTail)
+		}
+	}
 }
 
-// tailFile reads file content in real-time and outputs to writer
-func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
-	lt.logger.Infow("start tailing file", zap.String("path", path))
+// scanAndTail discovers *.log files in logDir and starts a tail goroutine
+// for any file not already being tailed.
+func (lt *logtail) scanAndTail(wg *sync.WaitGroup) {
+	matches, err := filepath.Glob(filepath.Join(lt.logDir, logFilePattern))
+	if err != nil {
+		lt.logger.Warnw("failed to scan log directory", zap.Error(err))
+		return
+	}
 
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+
+	for _, path := range matches {
+		if _, ok := lt.tailing[path]; ok {
+			continue // already tailing
+		}
+		lt.tailing[path] = struct{}{}
+
+		filename := filepath.Base(path)
+		prefix := filePrefix(lt.unitType, filename)
+
+		lt.logger.Infow("discovered log file, start tailing",
+			zap.String("path", path), zap.String("prefix", prefix))
+
+		wg.Add(1)
+		go func(p, pfx string) {
+			defer wg.Done()
+			lt.tailFile(p, os.Stdout, pfx)
+		}(path, prefix)
+	}
+}
+
+// tailFile reads file content in real-time and outputs each line to writer with prefix.
+func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 	file, err := lt.openFileWithRetry(path)
 	if err != nil {
 		lt.logger.Errorw("failed to open file after retries, stop tailing",
@@ -113,14 +137,12 @@ func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 		_ = file.Close()
 	}()
 
-	// Create scanner to read file
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 4096), maxScanTokenSize)
 
 	for {
 		select {
 		case <-lt.ctx.Done():
-			lt.logger.Infow("stop tailing file", zap.String("path", path))
 			return
 		default:
 			if scanner.Scan() {
@@ -129,14 +151,11 @@ func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 					_, _ = output.Write([]byte(prefix + string(line) + "\n"))
 				}
 			} else {
-				err := scanner.Err()
-				if err != nil {
+				if err := scanner.Err(); err != nil {
 					lt.logger.Warnw("scanner error, will retry open",
 						zap.String("path", path), zap.Error(err))
-					// Wait before retry
 					time.Sleep(scanInterval)
 
-					// Try to reopen file (handle log rotation)
 					_ = file.Close()
 					file, err = lt.openFileWithRetry(path)
 					if err != nil {
@@ -147,7 +166,6 @@ func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 					scanner = bufio.NewScanner(file)
 					scanner.Buffer(make([]byte, 4096), maxScanTokenSize)
 				} else {
-					// File reached EOF, wait for new content
 					time.Sleep(scanInterval)
 				}
 			}
@@ -155,17 +173,16 @@ func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 	}
 }
 
-// openFileWithRetry attempts to open file, waits if file does not exist
+// openFileWithRetry attempts to open file, retrying for up to 30 seconds if not found.
 func (lt *logtail) openFileWithRetry(path string) (*os.File, error) {
 	var lastErr error
-	for i := 0; i < 60; i++ { // Wait up to 30 seconds
+	for i := 0; i < 60; i++ {
 		file, err := os.Open(path)
 		if err == nil {
 			return file, nil
 		}
 		lastErr = err
 
-		// File does not exist, wait for creation
 		if os.IsNotExist(err) {
 			lt.logger.Infow("file not found, waiting...",
 				zap.String("path", path), zap.Int("retry", i))
@@ -173,13 +190,12 @@ func (lt *logtail) openFileWithRetry(path string) (*os.File, error) {
 			continue
 		}
 
-		// Other errors return immediately
 		return nil, err
 	}
 	return nil, lastErr
 }
 
-// Config initializes logtail configuration
+// Config initializes logtail configuration.
 func (lt *logtail) Config() error {
 	unitType, err := util.IsEnvVarSet(vars.UnitTypeEnvKey)
 	if err != nil {
@@ -187,8 +203,6 @@ func (lt *logtail) Config() error {
 	}
 
 	lt.unitType = unitType
-	lt.stdoutPrefix = stdoutPrefix(unitType)
-	lt.stderrPrefix = stderrPrefix(unitType)
 	lt.logger = zap.L().Named("logtail-" + unitType).Sugar()
 
 	logDir, err := util.IsEnvVarSet(vars.LogMountEnvKey)
@@ -200,26 +214,23 @@ func (lt *logtail) Config() error {
 	lt.logger.Infow("logtail configured",
 		zap.String("unitType", lt.unitType),
 		zap.String("logDir", lt.logDir),
-		zap.String("stdoutPrefix", lt.stdoutPrefix),
-		zap.String("stderrPrefix", lt.stderrPrefix),
-		zap.String("outFile", outLogFile),
-		zap.String("errFile", errLogFile))
+		zap.String("pattern", logFilePattern))
 
 	return nil
 }
 
-// Name returns daemon name
+// Name returns daemon name.
 func (lt *logtail) Name() string {
 	return "logtail"
 }
 
-// Registry registers daemon to app
+// Registry registers daemon to app.
 func (lt *logtail) Registry(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go lt.StartDaemon(ctx, wg)
 }
 
-// RegistryDaemonApp registers the generic logtail daemon app
+// RegistryDaemonApp registers the generic logtail daemon app.
 func RegistryDaemonApp() {
 	dm := newLogtail()
 	app.RegistryDaemonApp(dm)

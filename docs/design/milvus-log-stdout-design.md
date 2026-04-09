@@ -8,40 +8,32 @@ This feature applies to **all unit types** (MySQL, PostgreSQL, Redis, Milvus, Mo
 
 The final responsibility split is:
 
-1. the agent forwards main container log files to the agent container stdout/stderr
+1. the agent scans `LOG_MOUNT` for all `*.log` files and forwards them to agent stdout
 2. Java reads the **agent container logs** and parses the forwarding protocol
 3. the frontend renders the structured result returned by Java
 
 ## Background
 
-All services are started under `supervisord` and their process output is redirected to files:
-
-```ini
-[program:unit_app]
-stderr_logfile=%(ENV_LOG_MOUNT)s/unit_app.err.log
-stdout_logfile=%(ENV_LOG_MOUNT)s/unit_app.out.log
-autostart=false
-```
-
-Even if a service itself is configured with `stdout: true`, `supervisord` still captures and redirects the process output to the files above. As a result, the main container stdout is not the right source for UI log viewing.
+All services are started under `supervisord` and their process output is redirected to files under `LOG_MOUNT`. Other service-specific log files may also exist in the same directory.
 
 The main container is identified by the pod annotation `kubectl.kubernetes.io/default-container`.
 
 ## Final Design Choice
 
-Use the agent sidecar to forward the main container log files.
+Use the agent sidecar to forward all log files under `LOG_MOUNT`.
 
 This choice is intentional because:
 
 1. the current `supervisord` model cannot be changed
 2. existing file-based logging behavior must remain intact
 3. the operator can add log forwarding without coupling the UI directly to file access
+4. all log files in the directory are forwarded, not just supervisord output
 
 ## Source of Truth in Code
 
 The implementation lives in:
 
-- `pkg/agent/app/logtail/logtail.go` — generic logtail daemon, parameterized by `UNIT_TYPE`
+- `pkg/agent/app/logtail/logtail.go` — generic logtail daemon, scans `LOG_MOUNT` for `*.log` files
 - `pkg/agent/cmd/daemon.go` — registers the logtail daemon for all unit types
 
 The logtail daemon is registered **before** the per-type switch, so every unit type gets log forwarding automatically.
@@ -50,15 +42,14 @@ The logtail daemon is registered **before** the per-type switch, so every unit t
 
 ```text
 Main container process (any service type)
-  -> ${LOG_MOUNT}/unit_app.out.log
-  -> ${LOG_MOUNT}/unit_app.err.log
+  -> ${LOG_MOUNT}/*.log  (unit_app.out.log, unit_app.err.log, slow-query.log, etc.)
 
 agent logtail daemon
-  -> reads UNIT_TYPE env to compute prefix
-  -> tails both files
-  -> forwards stdout lines to agent stdout
-  -> forwards stderr lines to agent stderr
-  -> prefixes every forwarded line with a typed marker
+  -> scans LOG_MOUNT for *.log files
+  -> re-scans every 5 seconds to discover new files
+  -> tails each file independently
+  -> forwards every line to agent stdout
+  -> prefixes every line with [<UNIT_TYPE>:<filename>]
 
 Java service
   -> reads the agent container logs from Kubernetes
@@ -72,73 +63,67 @@ Frontend
 
 ## Forwarding Protocol
 
-Each forwarded line uses one of the following stable prefix patterns:
+Each forwarded line uses the following stable prefix pattern:
 
 ```text
-[<UNIT_TYPE>-STDOUT] <original stdout line>
-[<UNIT_TYPE>-STDERR] <original stderr line>
+[<UNIT_TYPE>:<filename>] <original log line>
 ```
 
 Examples:
 
 ```text
-[MILVUS-STDOUT] 2026-03-24 18:00:00 INFO start query node
-[MYSQL-STDERR] 2026-03-24 18:00:00 ERROR connection refused
-[REDIS-STDOUT] 2026-03-24 18:00:00 Ready to accept connections
-[POSTGRESQL-STDOUT] 2026-03-24 18:00:00 LOG database system is ready
+[MYSQL:unit_app.out.log] 2026-04-09 18:00:00 ready for connections
+[MYSQL:unit_app.err.log] 2026-04-09 18:00:00 ERROR connection refused
+[MYSQL:slow-query.log] # Time: 2026-04-09T18:00:00.000000Z
+[REDIS:unit_app.out.log] Ready to accept connections
+[MILVUS:unit_app.out.log] start query node
+[POSTGRESQL:postgresql.log] LOG:  database system is ready
 ```
-
-These prefixes are part of the cross-component contract.
 
 Rules:
 
 1. `UNIT_TYPE` is uppercased in the prefix (e.g., `mysql` → `MYSQL`)
-2. agent emits these prefixes exactly
-3. Java is responsible for parsing them — the regex pattern `\[([A-Z-]+)-(STDOUT|STDERR)\] (.*)` covers all types
-4. frontend must not depend on raw string prefix parsing
-5. the original raw line should be preserved downstream for troubleshooting
+2. `filename` is the base name of the log file (no directory path)
+3. agent emits these prefixes exactly
+4. Java is responsible for parsing them — the regex `\[([A-Z-]+):([^\]]+)\] (.*)` covers all cases
+5. frontend must not depend on raw string prefix parsing
+6. the original raw line should be preserved downstream for troubleshooting
+7. all output goes to agent **stdout** (no stdout/stderr split)
 
 ## Agent Implementation Details
 
-### Forwarded files
+### File discovery
 
-The logtail daemon reads:
+The logtail daemon scans `LOG_MOUNT` using the glob pattern `*.log`:
 
-- `unit_app.out.log` — forwarded to agent stdout
-- `unit_app.err.log` — forwarded to agent stderr
+- initial scan on startup
+- periodic re-scan every 5 seconds to discover new log files
+- each file is tailed at most once (tracked by path)
+- non-`.log` files are ignored
 
 ### Prefix generation
 
-Prefixes are dynamically generated from `UNIT_TYPE`:
+Prefixes are dynamically generated per file:
 
-- `stdoutPrefix = fmt.Sprintf("[%s-STDOUT] ", strings.ToUpper(unitType))`
-- `stderrPrefix = fmt.Sprintf("[%s-STDERR] ", strings.ToUpper(unitType))`
+```go
+prefix = fmt.Sprintf("[%s:%s] ", strings.ToUpper(unitType), filename)
+```
 
 ### Tailing behavior
 
-The implementation uses native Go logic based on `bufio.Scanner`.
+Each file gets its own goroutine using `bufio.Scanner`:
 
-Important behavior:
-
-1. it polls incrementally rather than using `fsnotify`
-2. it retries opening the file for up to 30 seconds when the file does not exist yet
-3. it reopens the file when scanner errors occur, which provides basic recovery behavior
-4. it writes each output line in a single write call using `prefix + line + "\n"`
-
-### Default constraints
-
-The current design does not rely on:
-
-- changing `supervisord`
-- a new `GrpcCall` log-streaming action
-- frontend-side raw prefix parsing
+1. polls incrementally rather than using `fsnotify`
+2. retries opening the file for up to 30 seconds when the file does not exist yet
+3. reopens the file when scanner errors occur for basic log rotation recovery
+4. writes each output line as `prefix + line + "\n"` to `os.Stdout`
 
 ## Why Java Must Parse the Protocol
 
 Java is the correct protocol boundary for this feature because:
 
 1. the prefixes are a backend contract, not a UI contract
-2. Java can normalize stdout/stderr and log levels once for all consumers
+2. Java can extract unit type and filename, normalize log levels once for all consumers
 3. Java can preserve raw lines while exposing stable structured DTOs
 4. frontend logic remains focused on rendering rather than protocol interpretation
 
@@ -149,45 +134,27 @@ Java should convert each line into a structured DTO such as:
 ```json
 {
   "sequence": 1,
-  "stream": "stdout",
+  "unitType": "mysql",
+  "filename": "unit_app.out.log",
   "parsed": true,
-  "timestamp": "2026-03-24T10:00:00Z",
+  "timestamp": "2026-04-09T10:00:00Z",
   "level": "INFO",
-  "message": "start query node",
-  "rawMessage": "2026-03-24 18:00:00 INFO start query node",
-  "rawLine": "[MILVUS-STDOUT] 2026-03-24 18:00:00 INFO start query node"
+  "message": "ready for connections",
+  "rawMessage": "2026-04-09 18:00:00 INFO ready for connections",
+  "rawLine": "[MYSQL:unit_app.out.log] 2026-04-09 18:00:00 INFO ready for connections"
 }
 ```
-
-At minimum, Java should preserve:
-
-- `sequence`
-- `stream`
-- `parsed`
-- `level`
-- `message`
-- `rawLine`
-
-## Expected Frontend Behavior
-
-The frontend should:
-
-1. consume structured log entries from Java
-2. render stream and level badges
-3. support filtering, searching, auto-scroll, and reconnect states
-4. fall back to `rawMessage` or `rawLine` when structured fields are incomplete
-
-The frontend should not parse the protocol prefix strings directly.
 
 ## Testing Expectations
 
 The current operator-side implementation should be validated by:
 
-1. unit tests for prefix generation across all unit types
-2. unit tests for prefix forwarding behavior
-3. unit tests for file-not-found retry behavior
-4. Java-side parser tests for stdout, stderr, and unknown lines (generic regex-based)
-5. integration tests verifying that Kubernetes log retrieval from the agent container contains prefixed lines
+1. unit tests for prefix generation across all unit types and filenames
+2. unit tests for directory scanning (multiple files, non-log files ignored)
+3. unit tests for new file discovery on re-scan
+4. unit tests for file-not-found retry behavior
+5. Java-side parser tests using the generic regex
+6. integration tests verifying Kubernetes log retrieval from the agent container
 
 ## Related Documents
 
