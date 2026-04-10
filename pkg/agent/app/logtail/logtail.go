@@ -169,7 +169,14 @@ func (lt *logtail) tailFile(path string, output io.Writer, prefix string) {
 					scanner = bufio.NewScanner(file)
 					scanner.Buffer(make([]byte, 4096), maxScanTokenSize)
 				} else {
+					// EOF reached. bufio.Scanner sets an internal done flag after
+					// EOF, so subsequent Scan() calls always return false even if
+					// new data is appended to the file. Rebuild the scanner from
+					// the same file handle (whose offset stays at the current
+					// position) so new content can be picked up.
 					time.Sleep(scanInterval)
+					scanner = bufio.NewScanner(file)
+					scanner.Buffer(make([]byte, 4096), maxScanTokenSize)
 				}
 			}
 		}

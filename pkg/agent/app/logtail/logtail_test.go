@@ -272,3 +272,54 @@ func TestPrefixContainsFilename(t *testing.T) {
 	require.True(t, strings.Contains(out, "[MILVUS:unit_app.out.log] stdout line"))
 	require.True(t, strings.Contains(out, "[MILVUS:unit_app.err.log] stderr line"))
 }
+
+// TestTailFileAppendAfterEOF verifies that content appended to a file AFTER
+// the initial read (EOF) is still picked up by the tail goroutine.
+// This is the critical test for streaming / real-time log forwarding.
+func TestTailFileAppendAfterEOF(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "mysqld.err")
+
+	// Write initial content
+	require.NoError(t, os.WriteFile(logFile, []byte("initial line\n"), 0644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var output bytes.Buffer
+	lt := &logtail{
+		ctx:    ctx,
+		logger: zap.L().Named("test").Sugar(),
+	}
+
+	prefix := filePrefix("mysql", "mysqld.err")
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		lt.tailFile(logFile, &output, prefix)
+	}()
+
+	// Wait for the initial content to be read and scanner to hit EOF
+	time.Sleep(1 * time.Second)
+
+	// Verify initial content was read
+	require.Contains(t, output.String(), "[MYSQL:mysqld.err] initial line")
+
+	// Append new content AFTER the first EOF
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY, 0644)
+	require.NoError(t, err)
+	_, err = f.WriteString("appended line after EOF\n")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	// Wait for the tail to pick up the new content
+	time.Sleep(1 * time.Second)
+
+	cancel()
+	wg.Wait()
+
+	out := output.String()
+	require.Contains(t, out, "[MYSQL:mysqld.err] initial line")
+	require.Contains(t, out, "[MYSQL:mysqld.err] appended line after EOF")
+}
+
