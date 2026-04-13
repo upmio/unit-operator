@@ -7,6 +7,7 @@ const (
 	SecretMountEnvKey      = "SECRET_MOUNT"
 	ConfigDirEnvKey        = "CONF_DIR"
 	ArchModeEnvKey         = "ARCH_MODE"
+	UnitTypeEnvKey         = "UNIT_TYPE"
 	NamespaceEnvKey        = "NAMESPACE"
 	PodNameEnvKey          = "POD_NAME"
 	ServiceNameEnvKey      = "SERVICE_NAME"
