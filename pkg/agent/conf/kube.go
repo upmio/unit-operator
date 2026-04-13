@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	composev1alpha1 "github.com/upmio/compose-operator/api/v1alpha1"
-	unitv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
+	unitv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -128,7 +129,7 @@ func (k *Kube) getUnitClient() (client.Client, error) {
 		}
 	}
 
-	scheme, err := unitv1alpha1.SchemeBuilder.Build()
+	scheme, err := buildUnitClientScheme()
 	if err != nil {
 		return nil, err
 	}
@@ -139,4 +140,8 @@ func (k *Kube) getUnitClient() (client.Client, error) {
 	}
 
 	return c, nil
+}
+
+func buildUnitClientScheme() (*runtime.Scheme, error) {
+	return unitv1alpha2.SchemeBuilder.Build()
 }
