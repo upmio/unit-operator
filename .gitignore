@@ -115,6 +115,7 @@ vendor
 /test_report.html
 /CLAUDE.md
 /AGENTS.md
+.worktrees
 
 # Helm charts
 charts/**/*.tgz
