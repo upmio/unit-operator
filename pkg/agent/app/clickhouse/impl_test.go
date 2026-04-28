@@ -152,6 +152,12 @@ func TestBuildSetVariableSQL(t *testing.T) {
 	require.Equal(t, "ALTER USER admin SETTINGS max_threads = '8'", sql)
 }
 
+func TestBuildSetVariableSQLRequiresValue(t *testing.T) {
+	_, err := buildSetVariableSQL("admin", "max_threads", "  ")
+
+	require.EqualError(t, err, "value is required")
+}
+
 func TestRunClickHouseQueryPassesConnectionAndQuery(t *testing.T) {
 	runner := &fakeCommandRunner{}
 	conn := clickHouseConnection{host: "127.0.0.1", port: "9440", secure: true}

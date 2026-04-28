@@ -282,6 +282,9 @@ func buildSetVariableSQL(username, key, value string) (string, error) {
 	if err := validateIdentifier(key); err != nil {
 		return "", err
 	}
+	if strings.TrimSpace(value) == "" {
+		return "", fmt.Errorf("value is required")
+	}
 
 	return fmt.Sprintf("ALTER USER %s SETTINGS %s = %s", username, key, quoteSQLString(value)), nil
 }
