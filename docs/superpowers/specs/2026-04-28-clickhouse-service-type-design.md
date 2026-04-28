@@ -46,7 +46,8 @@ message LogicalBackupRequest {
 
 message RestoreRequest {
   string backup_file = 1;
-  common.ObjectStorage object_storage = 2;
+  string username = 2;
+  common.ObjectStorage object_storage = 3;
 }
 
 message SetVariableRequest {
