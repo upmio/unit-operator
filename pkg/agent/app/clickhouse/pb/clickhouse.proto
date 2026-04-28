@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package clickhouse;
+option go_package="github.com/upmio/unit-operator/pkg/agent/app/clickhouse";
+
+import "pkg/agent/app/common/pb/common.proto";
+
+message LogicalBackupRequest {
+  string backup_file = 1;
+  string username = 2;
+  common.ObjectStorage object_storage = 3;
+}
+
+message RestoreRequest {
+  string backup_file = 1;
+  string username = 2;
+  common.ObjectStorage object_storage = 3;
+}
+
+message SetVariableRequest {
+  string key = 1;
+  string value = 2;
+  string username = 3;
+}
+
+service ClickHouseOperation {
+  rpc LogicalBackup (LogicalBackupRequest) returns (common.Empty);
+  rpc Restore (RestoreRequest) returns (common.Empty);
+  rpc SetVariable (SetVariableRequest) returns (common.Empty);
+}
