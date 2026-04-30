@@ -244,4 +244,3 @@ func RegistryDaemonApp() {
 	dm := newLogtail()
 	app.RegistryDaemonApp(dm)
 }
-

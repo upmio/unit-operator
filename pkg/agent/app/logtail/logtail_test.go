@@ -322,4 +322,3 @@ func TestTailFileAppendAfterEOF(t *testing.T) {
 	require.Contains(t, out, "[MYSQL:mysqld.err] initial line")
 	require.Contains(t, out, "[MYSQL:mysqld.err] appended line after EOF")
 }
-
