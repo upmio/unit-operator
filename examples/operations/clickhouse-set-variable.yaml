@@ -9,12 +9,5 @@ spec:
   ttlSecondsAfterFinished: 3600
   parameters:
     username: admin
-    objectStorage:
-      endpoint: s3.example.com
-      bucket: upm-backups
-      accessKey: minio-access-key
-      secretKey: minio-secret-key
-      ssl: true
-      type: Minio
     key: max_threads
     value: "8"
