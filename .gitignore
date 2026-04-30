@@ -117,5 +117,8 @@ vendor
 /AGENTS.md
 .worktrees
 
+# Design documents
+#/docs/design/
+
 # Helm charts
 charts/**/*.tgz
