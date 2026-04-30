@@ -3,21 +3,53 @@ package clickhouse
 import (
 	"context"
 	"errors"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"github.com/upmio/unit-operator/pkg/agent/app/slm"
+	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
+	"github.com/upmio/unit-operator/pkg/agent/vars"
+	"go.uber.org/zap"
 )
 
 type fakeCommandRunner struct {
-	err  error
-	args []string
+	err   error
+	args  []string
+	env   []string
+	stdin string
 }
 
 func (f *fakeCommandRunner) ExecuteCommand(cmd *exec.Cmd, _ string) error {
 	f.args = append([]string(nil), cmd.Args...)
+	f.env = append([]string(nil), cmd.Env...)
+	if cmd.Stdin != nil {
+		stdin, err := io.ReadAll(cmd.Stdin)
+		if err != nil {
+			return err
+		}
+		f.stdin = string(stdin)
+	}
 	return f.err
+}
+
+type fakeSLM struct {
+	slm.UnimplementedServiceLifecycleServer
+
+	err     error
+	checked int
+}
+
+func (f *fakeSLM) CheckProcessStarted(context.Context, *common.Empty) (*common.Empty, error) {
+	f.checked++
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &common.Empty{}, nil
 }
 
 func TestReadClickHouseConnectionDefaults(t *testing.T) {
@@ -57,6 +89,36 @@ func TestBuildS3URL(t *testing.T) {
 	}
 
 	url, err := buildS3URL(objectStorage, "/daily/full-001")
+
+	require.NoError(t, err)
+	require.Equal(t, "https://s3.example.com/root/backups/daily/full-001", url)
+}
+
+func TestBuildS3URLAddsHTTPForBareEndpointWhenSSLDisabled(t *testing.T) {
+	objectStorage := &common.ObjectStorage{
+		Endpoint:  "s3.example.com:9000/root/",
+		Bucket:    "backups",
+		AccessKey: "ak",
+		SecretKey: "sk",
+		Ssl:       false,
+	}
+
+	url, err := buildS3URL(objectStorage, "daily/full-001")
+
+	require.NoError(t, err)
+	require.Equal(t, "http://s3.example.com:9000/root/backups/daily/full-001", url)
+}
+
+func TestBuildS3URLAddsHTTPSForBareEndpointWhenSSLEnabled(t *testing.T) {
+	objectStorage := &common.ObjectStorage{
+		Endpoint:  "s3.example.com/root",
+		Bucket:    "backups",
+		AccessKey: "ak",
+		SecretKey: "sk",
+		Ssl:       true,
+	}
+
+	url, err := buildS3URL(objectStorage, "daily/full-001")
 
 	require.NoError(t, err)
 	require.Equal(t, "https://s3.example.com/root/backups/daily/full-001", url)
@@ -170,10 +232,10 @@ func TestRunClickHouseQueryPassesConnectionAndQuery(t *testing.T) {
 		"--host", "127.0.0.1",
 		"--port", "9440",
 		"--user", "admin",
-		"--password", "secret",
 		"--secure",
-		"--query", "SELECT 1",
 	}, runner.args)
+	require.Contains(t, runner.env, "CLICKHOUSE_PASSWORD=secret")
+	require.Equal(t, "SELECT 1", runner.stdin)
 }
 
 func TestRunClickHouseQueryReturnsCommandFailure(t *testing.T) {
@@ -183,4 +245,70 @@ func TestRunClickHouseQueryReturnsCommandFailure(t *testing.T) {
 	err := runClickHouseQuery(context.Background(), runner, conn, "admin", "secret", "SELECT 1")
 
 	require.EqualError(t, err, "failed")
+}
+
+func TestSetVariableChecksSLMDecryptsPasswordAndRunsSafeCommand(t *testing.T) {
+	t.Setenv(clickHouseHostEnvKey, "")
+	t.Setenv(clickHousePortEnvKey, "9440")
+	t.Setenv(clickHouseSecureEnvKey, "true")
+	writeEncryptedPassword(t, "admin", "secret")
+
+	runner := &fakeCommandRunner{}
+	lifecycle := &fakeSLM{}
+	s := &service{
+		logger: zap.NewNop().Sugar(),
+		slm:    lifecycle,
+		runner: runner,
+	}
+
+	_, err := s.SetVariable(context.Background(), &SetVariableRequest{
+		Username: "admin",
+		Key:      "max_threads",
+		Value:    "8",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, lifecycle.checked)
+	require.Equal(t, []string{
+		"clickhouse-client",
+		"--host", "127.0.0.1",
+		"--port", "9440",
+		"--user", "admin",
+		"--secure",
+	}, runner.args)
+	require.Contains(t, runner.env, "CLICKHOUSE_PASSWORD=secret")
+	require.Equal(t, "ALTER USER admin SETTINGS max_threads = '8'", runner.stdin)
+}
+
+func TestSetVariableSLMFailurePreventsCommandExecution(t *testing.T) {
+	runner := &fakeCommandRunner{}
+	lifecycle := &fakeSLM{err: errors.New("slm down")}
+	s := &service{
+		logger: zap.NewNop().Sugar(),
+		slm:    lifecycle,
+		runner: runner,
+	}
+
+	_, err := s.SetVariable(context.Background(), &SetVariableRequest{
+		Username: "admin",
+		Key:      "max_threads",
+		Value:    "8",
+	})
+
+	require.EqualError(t, err, "slm down")
+	require.Equal(t, 1, lifecycle.checked)
+	require.Nil(t, runner.args)
+}
+
+func writeEncryptedPassword(t *testing.T, username, password string) {
+	t.Helper()
+
+	secretDir := t.TempDir()
+	t.Setenv(vars.SecretMountEnvKey, secretDir)
+	t.Setenv(vars.AESEnvKey, "12345678901234567890123456789012")
+	require.NoError(t, util.ValidateAndSetAESKey())
+
+	encryptedPassword, err := util.AES_CTR_Encrypt([]byte(password))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(secretDir, username), encryptedPassword, 0600))
 }

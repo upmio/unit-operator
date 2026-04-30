@@ -234,7 +234,8 @@ func buildS3URL(objectStorage *common.ObjectStorage, backupFile string) (string,
 	if objectStorage == nil {
 		return "", fmt.Errorf("object_storage is required")
 	}
-	if objectStorage.GetEndpoint() == "" {
+	endpoint := strings.TrimRight(strings.TrimSpace(objectStorage.GetEndpoint()), "/")
+	if endpoint == "" {
 		return "", fmt.Errorf("object_storage.endpoint is required")
 	}
 	if objectStorage.GetBucket() == "" {
@@ -250,9 +251,17 @@ func buildS3URL(objectStorage *common.ObjectStorage, backupFile string) (string,
 		return "", fmt.Errorf("object_storage.secret_key is required")
 	}
 
-	parsed, err := url.Parse(objectStorage.GetEndpoint())
+	if !strings.Contains(endpoint, "://") {
+		if objectStorage.GetSsl() {
+			endpoint = "https://" + endpoint
+		} else {
+			endpoint = "http://" + endpoint
+		}
+	}
+
+	parsed, err := url.Parse(endpoint)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse object_storage.endpoint: %w", err)
 	}
 
 	segments := []string{
@@ -308,14 +317,14 @@ func runClickHouseQuery(ctx context.Context, runner commandRunner, conn clickHou
 		"--host", conn.host,
 		"--port", conn.port,
 		"--user", username,
-		"--password", password,
 	}
 	if conn.secure {
 		args = append(args, "--secure")
 	}
-	args = append(args, "--query", query)
 
 	cmd := exec.CommandContext(ctx, "clickhouse-client", args...)
+	cmd.Env = append(cmd.Environ(), "CLICKHOUSE_PASSWORD="+password)
+	cmd.Stdin = strings.NewReader(query)
 	return runner.ExecuteCommand(cmd, "clickhouse")
 }
 
