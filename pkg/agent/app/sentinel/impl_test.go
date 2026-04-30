@@ -30,11 +30,11 @@ func newRedisReplication(name string) *composev1alpha1.RedisReplication {
 			Namespace: "default",
 		},
 		Spec: composev1alpha1.RedisReplicationSpec{
-			Source: &composev1alpha1.CommonNode{
-				Host: "master", Port: 6379,
+			Source: &composev1alpha1.RedisNode{
+				CommonNode: composev1alpha1.CommonNode{Host: "master", Port: 6379},
 			},
-			Replica: composev1alpha1.CommonNodes{
-				&composev1alpha1.CommonNode{Host: "replica", Port: 6380},
+			Replica: composev1alpha1.RedisNodes{
+				&composev1alpha1.RedisNode{CommonNode: composev1alpha1.CommonNode{Host: "replica", Port: 6380}},
 			},
 		},
 	}

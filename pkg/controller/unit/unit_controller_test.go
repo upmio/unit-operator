@@ -19,7 +19,6 @@ package unit
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -62,7 +61,7 @@ var _ = Describe("Unit Controller", func() {
 				Startup:            true,
 				ConfigTemplateName: fmt.Sprintf("%s-config-template", resourceName),
 				ConfigValueName:    fmt.Sprintf("%s-config-value", resourceName),
-				Template: corev1.PodTemplateSpec{
+				Template: upmiov1alpha2.UnitPodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{{
 							Name:    "main",
@@ -175,7 +174,7 @@ var _ = Describe("Unit Extra Coverage", func() {
 					upmiov1alpha2.AnnotationMainContainerName: "main",
 				},
 			},
-			Spec: upmiov1alpha2.UnitSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Spec: upmiov1alpha2.UnitSpec{Template: upmiov1alpha2.UnitPodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{
 				Name:      "main",
 				Image:     "busybox:1",
 				Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")}, Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("20m"), corev1.ResourceMemory: resource.MustParse("32Mi")}},
@@ -194,7 +193,10 @@ var _ = Describe("Unit Extra Coverage", func() {
 
 	It("should delete pod with finalizer in force mode", func() {
 		name := fmt.Sprintf("finalizer-unit-%d", time.Now().UnixNano())
-		unit := &upmiov1alpha2.Unit{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Finalizers: []string{upmiov1alpha2.FinalizerPodDelete}, Annotations: map[string]string{upmiov1alpha2.AnnotationForceDelete: "true"}}}
+		unit := &upmiov1alpha2.Unit{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Finalizers: []string{upmiov1alpha2.FinalizerPodDelete}, Annotations: map[string]string{upmiov1alpha2.AnnotationForceDelete: "true"}},
+			Spec:       upmiov1alpha2.UnitSpec{Template: validUnitPodTemplate()},
+		}
 		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "busybox"}}}}
 		Expect(k8sClient.Create(ctx, unit)).To(Succeed())
 		Expect(k8sClient.Create(ctx, pod)).To(Succeed())
@@ -215,8 +217,6 @@ var _ = Describe("Unit Extra Coverage", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
-
-func TestUnitExtra(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Unit Extra Suite") }
 
 // fakeUnitAgentClient avoids real unit-agent gRPC calls in tests.
 type fakeUnitAgentClient struct{}

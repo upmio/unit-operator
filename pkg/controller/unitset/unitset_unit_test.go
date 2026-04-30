@@ -16,7 +16,7 @@ func TestFillEnvs(t *testing.T) {
 			Name: "testUnit",
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			Template: v1.PodTemplateSpec{
+			Template: upmiov1alpha2.UnitPodTemplateSpec{
 				Spec: v1.PodSpec{
 					InitContainers: []v1.Container{
 						{
@@ -102,7 +102,7 @@ func TestNodeNameMapAnnotationAppliedToAffinity(t *testing.T) {
 	unitTemplate := upmiov1alpha2.Unit{
 		ObjectMeta: metav1.ObjectMeta{},
 		Spec: upmiov1alpha2.UnitSpec{
-			Template: v1.PodTemplateSpec{Spec: v1.PodSpec{Containers: []v1.Container{{Name: "mysql"}}}},
+			Template: upmiov1alpha2.UnitPodTemplateSpec{Spec: v1.PodSpec{Containers: []v1.Container{{Name: "mysql"}}}},
 		},
 	}
 

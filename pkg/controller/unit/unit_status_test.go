@@ -64,11 +64,11 @@ var _ = Describe("Unit Status Reconciliation", func() {
 		unit = &upmiov1alpha2.Unit{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-unit-status", Namespace: namespace.Name},
 			Spec: upmiov1alpha2.UnitSpec{
-				Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{
+				Template: upmiov1alpha2.UnitPodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{
 					Name: "mysql", Image: "mysql:8.0.40",
 					Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("512Mi")}, Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1000m"), corev1.ResourceMemory: resource.MustParse("1Gi")}},
 				}}}},
-				VolumeClaimTemplates: []corev1.PersistentVolumeClaim{{ObjectMeta: metav1.ObjectMeta{Name: "data"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")}}}}},
+				VolumeClaimTemplates: []upmiov1alpha2.UnitVolumeClaimTemplate{{Name: "data", Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")}}}}},
 			},
 		}
 
@@ -389,9 +389,9 @@ var _ = Describe("Unit Status Reconciliation", func() {
 
 		It("Should handle multiple PVCs", func() {
 			By("Creating unit with multiple volume templates")
-			unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "data"},
+					Name: "data",
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						Resources: corev1.VolumeResourceRequirements{
@@ -402,7 +402,7 @@ var _ = Describe("Unit Status Reconciliation", func() {
 					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "logs"},
+					Name: "logs",
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						Resources: corev1.VolumeResourceRequirements{

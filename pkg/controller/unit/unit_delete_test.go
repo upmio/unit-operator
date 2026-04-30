@@ -19,7 +19,6 @@ package unit
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -78,11 +77,10 @@ var _ = Describe("UnitDelete Reconciler", func() {
 				},
 			},
 			Spec: upmiov1alpha2.UnitSpec{
-				VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				Template: validUnitPodTemplate(),
+				VolumeClaimTemplates: []upmiov1alpha2.UnitVolumeClaimTemplate{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "data",
-						},
+						Name: "data",
 						Spec: corev1.PersistentVolumeClaimSpec{
 							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 							Resources: corev1.VolumeResourceRequirements{
@@ -344,7 +342,7 @@ var _ = Describe("UnitDelete Reconciler", func() {
 
 		//It("should handle concurrent PVC deletion", func() {
 		//	// Add multiple volume claim templates
-		//	unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+		//	unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 		//		{
 		//			ObjectMeta: metav1.ObjectMeta{
 		//				Name:      "data",
@@ -417,8 +415,3 @@ var _ = Describe("UnitDelete Reconciler", func() {
 		//})
 	})
 })
-
-func TestUnitDelete(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "UnitDelete Suite")
-}

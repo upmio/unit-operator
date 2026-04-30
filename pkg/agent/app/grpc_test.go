@@ -81,4 +81,3 @@ func TestGetGrpcAppPanicsWhenMissing(t *testing.T) {
 		GetGrpcApp("missing")
 	})
 }
-

@@ -52,4 +52,3 @@ func TestRemoveContents(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, entries, 0)
 }
-

@@ -110,7 +110,7 @@ var _ = Describe("UnitSet Delete Reconciler", func() {
 							upmiov1alpha2.UnitsetName: unitSet.Name,
 						},
 					},
-					Spec: upmiov1alpha2.UnitSpec{},
+					Spec: upmiov1alpha2.UnitSpec{Template: validUnitSetUnitTemplate()},
 				}
 				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
 			}
@@ -180,7 +180,7 @@ var _ = Describe("UnitSet Delete Reconciler", func() {
 					},
 					Finalizers: []string{"test-finalizer"},
 				},
-				Spec: upmiov1alpha2.UnitSpec{},
+				Spec: upmiov1alpha2.UnitSpec{Template: validUnitSetUnitTemplate()},
 			}
 			Expect(k8sClient.Create(ctx, unit)).To(Succeed())
 
@@ -388,7 +388,7 @@ var _ = Describe("UnitSet Delete Reconciler", func() {
 							upmiov1alpha2.UnitsetName: unitSet.Name,
 						},
 					},
-					Spec: upmiov1alpha2.UnitSpec{},
+					Spec: upmiov1alpha2.UnitSpec{Template: validUnitSetUnitTemplate()},
 				}
 				Expect(k8sClient.Create(ctx, unit)).To(Succeed())
 			}
@@ -402,7 +402,7 @@ var _ = Describe("UnitSet Delete Reconciler", func() {
 						upmiov1alpha2.UnitsetName: "other-unitset",
 					},
 				},
-				Spec: upmiov1alpha2.UnitSpec{},
+				Spec: upmiov1alpha2.UnitSpec{Template: validUnitSetUnitTemplate()},
 			}
 			Expect(k8sClient.Create(ctx, otherUnit)).To(Succeed())
 

@@ -19,7 +19,6 @@ package unitset
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -121,7 +120,7 @@ var _ = Describe("UnitSet Controller", func() {
 				It("should return a delayed requeue without error", func() {
 					result, err := reconciler.Reconcile(ctx, req)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
+					Expect(result.RequeueAfter).To(Equal(requeueAfter))
 					Expect(result.Requeue).To(BeFalse())
 				})
 			})
@@ -134,7 +133,7 @@ var _ = Describe("UnitSet Controller", func() {
 				It("should attempt to reconcile and request another pass", func() {
 					result, err := reconciler.Reconcile(ctx, req)
 					// Only assert the requeue semantics; envtest env may cause errors due to missing deps
-					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
+					Expect(result.RequeueAfter).To(Equal(requeueAfter))
 					_ = err
 				})
 
@@ -149,7 +148,7 @@ var _ = Describe("UnitSet Controller", func() {
 
 					result, err := brokenReconciler.Reconcile(ctx, req)
 					Expect(err).To(HaveOccurred())
-					Expect(result.RequeueAfter).To(Equal(3 * time.Second))
+					Expect(result.RequeueAfter).To(Equal(requeueAfter))
 					Expect(result.Requeue).To(BeFalse())
 
 					// No event is recorded here because the error occurs before reconcileUnitset and its defer

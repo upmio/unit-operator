@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,6 +56,14 @@ func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Controller Suite")
+}
+
+func validUnitSetUnitTemplate() upmiov1alpha2.UnitPodTemplateSpec {
+	return upmiov1alpha2.UnitPodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "main", Image: "busybox:1"}},
+		},
+	}
 }
 
 var _ = BeforeSuite(func() {
