@@ -1,0 +1,13 @@
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: clickhouse-set-variable
+spec:
+  targetUnit: clickhouse-sample-0
+  type: clickhouse
+  action: set-variable
+  ttlSecondsAfterFinished: 3600
+  parameters:
+    username: admin
+    key: max_threads
+    value: "8"

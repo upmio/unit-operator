@@ -1,0 +1,19 @@
+apiVersion: upm.syntropycloud.io/v1alpha1
+kind: GrpcCall
+metadata:
+  name: clickhouse-restore
+spec:
+  targetUnit: clickhouse-sample-0
+  type: clickhouse
+  action: restore
+  ttlSecondsAfterFinished: 86400
+  parameters:
+    backupFile: clickhouse/full-001
+    username: admin
+    objectStorage:
+      endpoint: s3.example.com
+      bucket: upm-backups
+      accessKey: minio-access-key
+      secretKey: minio-secret-key
+      ssl: true
+      type: Minio
