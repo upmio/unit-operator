@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
+	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 )
 
@@ -20,7 +21,7 @@ func TestUnmarshalParams(t *testing.T) {
 			name: "valid parameters",
 			params: map[string]apiextensionsv1.JSON{
 				"username": {Raw: []byte(`"root"`)},
-				"password": {Raw: []byte(`"password"`)},
+				"database": {Raw: []byte(`"app"`)},
 			},
 			expectErr: false,
 		},
@@ -54,18 +55,25 @@ func TestUnmarshalParams(t *testing.T) {
 
 func TestUnmarshalParams_ComplexData(t *testing.T) {
 	params := map[string]apiextensionsv1.JSON{
-		"username": {Raw: []byte(`"root"`)},
-		"password": {Raw: []byte(`"mypassword"`)},
-		"parallel": {Raw: []byte(`4`)},
+		"backupFile": {Raw: []byte(`"mysql-backup-001"`)},
+		"username":   {Raw: []byte(`"root"`)},
+		"objectStorage": {Raw: []byte(`{
+			"endpoint": "https://s3.example.com",
+			"bucket": "mysql",
+			"accessKey": "ak",
+			"secretKey": "sk",
+			"ssl": true,
+			"type": "Minio"
+		}`)},
 	}
 
 	msg := &mysql.PhysicalBackupRequest{}
 	err := unmarshalParams(params, msg)
 
 	assert.NoError(t, err)
+	assert.Equal(t, "mysql-backup-001", msg.GetBackupFile())
 	assert.Equal(t, "root", msg.GetUsername())
-	assert.Equal(t, "mypassword", msg.GetPassword())
-	assert.Equal(t, int64(4), msg.GetParallel())
+	assert.Equal(t, "mysql", msg.GetObjectStorage().GetBucket())
 }
 
 func TestUnmarshalParams_InvalidProtobufField(t *testing.T) {
@@ -96,7 +104,7 @@ func TestUnmarshalParams_InvalidJsonStructure(t *testing.T) {
 func TestUnmarshalParams_EmptyRaw(t *testing.T) {
 	params := map[string]apiextensionsv1.JSON{
 		"username": {Raw: []byte(`""`)}, // empty string is valid
-		"password": {Raw: nil},          // nil raw data
+		"database": {Raw: nil},          // nil raw data
 	}
 
 	msg := &mysql.LogicalBackupRequest{}
@@ -107,16 +115,16 @@ func TestUnmarshalParams_EmptyRaw(t *testing.T) {
 	assert.Equal(t, "", msg.GetUsername())
 }
 
-func TestUnmarshalParams_NumericFields(t *testing.T) {
+func TestUnmarshalParams_EnumFields(t *testing.T) {
 	params := map[string]apiextensionsv1.JSON{
-		"parallel": {Raw: []byte(`8`)},
+		"tool": {Raw: []byte(`"Xtrabackup"`)},
 	}
 
 	msg := &mysql.PhysicalBackupRequest{}
 	err := unmarshalParams(params, msg)
 
 	assert.NoError(t, err)
-	assert.Equal(t, int64(8), msg.GetParallel())
+	assert.Equal(t, mysql.Tool_Xtrabackup, msg.GetTool())
 }
 
 func TestUnmarshalParams_BooleanFields(t *testing.T) {
@@ -155,4 +163,27 @@ func TestUnmarshalParams_MarshalError(t *testing.T) {
 	msg2 := &mysql.LogicalBackupRequest{}
 	err = unmarshalParams(invalidParams, msg2)
 	assert.Error(t, err)
+}
+
+func TestUnmarshalParams_ClickHouseLogicalBackup(t *testing.T) {
+	params := map[string]apiextensionsv1.JSON{
+		"backupFile": {Raw: []byte(`"ch-backup-001"`)},
+		"username":   {Raw: []byte(`"admin"`)},
+		"objectStorage": {Raw: []byte(`{
+			"endpoint": "https://s3.example.com",
+			"bucket": "clickhouse",
+			"accessKey": "ak",
+			"secretKey": "sk",
+			"ssl": true,
+			"type": "Minio"
+		}`)},
+	}
+
+	msg := &clickhouse.LogicalBackupRequest{}
+	err := unmarshalParams(params, msg)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ch-backup-001", msg.GetBackupFile())
+	assert.Equal(t, "admin", msg.GetUsername())
+	assert.Equal(t, "clickhouse", msg.GetObjectStorage().GetBucket())
 }

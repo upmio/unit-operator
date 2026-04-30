@@ -19,7 +19,6 @@ package unit
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,7 +91,7 @@ var _ = Describe("UnitServer Reconciler", func() {
 			},
 			Spec: upmiov1alpha2.UnitSpec{
 				Startup: true,
-				Template: corev1.PodTemplateSpec{
+				Template: upmiov1alpha2.UnitPodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -477,8 +476,3 @@ var _ = Describe("UnitServer Reconciler", func() {
 		})
 	})
 })
-
-func TestUnitServer(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "UnitServer Suite")
-}

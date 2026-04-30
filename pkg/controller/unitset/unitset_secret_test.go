@@ -116,7 +116,7 @@ var _ = Describe("UnitSet Certificates Reconciler", func() {
 			// Basic fields
 			Expect(cert.Spec.IssuerRef.Kind).To(Equal("Issuer"))
 			Expect(cert.Spec.IssuerRef.Group).To(Equal("cert-manager.io"))
-			Expect(cert.Spec.DNSNames).To(ContainElement(unitName))
+			Expect(cert.Spec.DNSNames).To(ContainElement(fmt.Sprintf("%s.%s-headless-svc.%s.svc.cluster.local", unitName, us.Name, namespace)))
 			Expect(cert.Spec.SecretName).To(Equal(fmt.Sprintf("%s-%s", certName, upmiov1alpha2.CertmanagerSecretNameSuffix)))
 		}
 	})

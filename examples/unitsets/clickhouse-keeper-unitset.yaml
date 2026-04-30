@@ -1,0 +1,25 @@
+apiVersion: upm.syntropycloud.io/v1alpha2
+kind: UnitSet
+metadata:
+  name: clickhouse-keeper-sample
+  labels:
+    upm.api/service-group.name: clickhouse-sample
+    upm.api/service-group.type: clickhouse-sg
+    upm.api/service.type: clickhouse-keeper
+spec:
+  type: clickhouse-keeper
+  version: 26.3.9.8
+  units: 3
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  storage:
+    - name: data
+      size: 10Gi
+      mountPath: /var/lib/clickhouse-keeper
+  unitService:
+    type: ClusterIP

@@ -234,11 +234,9 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 		It("Should merge storage correctly", func() {
 			By("Creating unit with old storage")
 			unit := createTestUnitForUpdate("test-unit-storage", namespace.Name, "8.0.40")
-			unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "data",
-					},
+					Name: "data",
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -264,11 +262,9 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			}
 
 			unit := createTestUnitForUpdate("test-unit-multi-storage", namespace.Name, "8.0.40")
-			unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "data",
-					},
+					Name: "data",
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -278,9 +274,7 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "logs",
-					},
+					Name: "logs",
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -548,12 +542,18 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			sortedNames, _ := unitSet.UnitNames()
 			sortedNames = sortUnitNamesByOrdinal(sortedNames)
 
-			By("Reconciling resources - first unit should be updated")
+			By("Reconciling resources - first pass should select the first unit")
 			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
 			highest := sortedNames[0]
 			next := sortedNames[1]
 			lowest := sortedNames[len(sortedNames)-1]
 
+			latestUnitSet := &upmiov1alpha2.UnitSet{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			Expect(latestUnitSet.Status.InUpdate).To(Equal(highest))
+
+			By("Reconciling resources - selected unit should now be updated")
+			Expect(reconciler.reconcileResources(ctx, req, latestUnitSet)).NotTo(HaveOccurred())
 			highestUnit, err := getUnit(ctx, highest, namespace.Name)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(highestUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
@@ -566,14 +566,22 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(lowestUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(resource.MustParse("250m"))).To(Equal(0))
 
-			By("Reconciling resources - second unit should now be updated")
-			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
+			By("Reconciling resources - second unit should be selected and then updated")
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			Expect(reconciler.reconcileResources(ctx, req, latestUnitSet)).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			Expect(latestUnitSet.Status.InUpdate).To(Equal(next))
+			Expect(reconciler.reconcileResources(ctx, req, latestUnitSet)).NotTo(HaveOccurred())
 			secondUpdated, err := getUnit(ctx, next, namespace.Name)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secondUpdated.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
 
-			By("Reconciling resources - final unit should now be updated")
-			Expect(reconciler.reconcileResources(ctx, req, unitSet)).NotTo(HaveOccurred())
+			By("Reconciling resources - final unit should be selected and then updated")
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			Expect(reconciler.reconcileResources(ctx, req, latestUnitSet)).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: unitSet.Name, Namespace: namespace.Name}, latestUnitSet)).To(Succeed())
+			Expect(latestUnitSet.Status.InUpdate).To(Equal(lowest))
+			Expect(reconciler.reconcileResources(ctx, req, latestUnitSet)).NotTo(HaveOccurred())
 			finalUnit, err := getUnit(ctx, lowest, namespace.Name)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(finalUnit.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().Cmp(*unitSet.Spec.Resources.Requests.Cpu())).To(Equal(0))
@@ -667,11 +675,9 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 			By("Creating units with outdated storage")
 			for _, unit := range units {
-				unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+				unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "data",
-						},
+						Name: "data",
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.VolumeResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -709,11 +715,9 @@ var _ = Describe("UnitSet Unit Update Reconciliation", func() {
 
 			By("Creating units with correct storage")
 			for _, unit := range units {
-				unit.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+				unit.Spec.VolumeClaimTemplates = []upmiov1alpha2.UnitVolumeClaimTemplate{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "data",
-						},
+						Name: "data",
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.VolumeResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -968,7 +972,7 @@ func createTestUnitForUpdate(name, namespace, version string) *upmiov1alpha2.Uni
 			},
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmiov1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{

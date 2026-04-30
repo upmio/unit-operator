@@ -564,7 +564,7 @@ func createTestUnit(name, namespace, nodeName string, phase upmiov1alpha2.UnitPh
 			},
 		},
 		Spec: upmiov1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmiov1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{

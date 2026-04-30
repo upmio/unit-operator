@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -72,10 +71,13 @@ var _ = Describe("UnitPVC Reconciler", func() {
 				Namespace: "default",
 				Labels:    map[string]string{"app": "test-app", "unit-label": "test-value"},
 			},
-			Spec: upmiov1alpha2.UnitSpec{VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{ObjectMeta: metav1.ObjectMeta{Name: "data"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "logs"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("500Mi")}}}},
-			}},
+			Spec: upmiov1alpha2.UnitSpec{
+				Template: validUnitPodTemplate(),
+				VolumeClaimTemplates: []upmiov1alpha2.UnitVolumeClaimTemplate{
+					{Name: "data", Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}}}},
+					{Name: "logs", Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("500Mi")}}}},
+				},
+			},
 		}
 
 		pvc = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcDataName, Namespace: "default"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}}}}
@@ -150,11 +152,8 @@ var _ = Describe("UnitPVC Reconciler", func() {
 
 	Context("convert2PVC", func() {
 		It("should create PVC from unit template", func() {
-			volumeClaimTemplate := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "data",
-					Namespace: "default",
-				},
+			volumeClaimTemplate := upmiov1alpha2.UnitVolumeClaimTemplate{
+				Name: "data",
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.VolumeResourceRequirements{
@@ -181,11 +180,8 @@ var _ = Describe("UnitPVC Reconciler", func() {
 		It("should copy unit labels to PVC", func() {
 			unit.Labels["custom-label"] = "custom-value"
 
-			volumeClaimTemplate := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "data",
-					Namespace: "default",
-				},
+			volumeClaimTemplate := upmiov1alpha2.UnitVolumeClaimTemplate{
+				Name: "data",
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.VolumeResourceRequirements{
@@ -204,10 +200,8 @@ var _ = Describe("UnitPVC Reconciler", func() {
 		})
 
 		It("should handle PVC with complex resource requirements", func() {
-			volumeClaimTemplate := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "data",
-				},
+			volumeClaimTemplate := upmiov1alpha2.UnitVolumeClaimTemplate{
+				Name: "data",
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce, corev1.ReadOnlyMany},
 					StorageClassName: strPtr("fast-ssd"),
@@ -238,5 +232,3 @@ var _ = Describe("UnitPVC Reconciler", func() {
 })
 
 func strPtr(s string) *string { return &s }
-
-func TestUnitPVC(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "UnitPVC Suite") }
