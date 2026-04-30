@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
+	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
@@ -191,6 +192,27 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 			newReq = func() proto.Message { return &mongodb.SetVariableRequest{} }
 			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return mc.SetVariable(ctx, msg.(*mongodb.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+	case upmv1alpha1.ClickHouseType:
+		chc := c.ClickHouse()
+		switch instance.Spec.Action {
+		case upmv1alpha1.LogicalBackupAction:
+			newReq = func() proto.Message { return &clickhouse.LogicalBackupRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return chc.LogicalBackup(ctx, msg.(*clickhouse.LogicalBackupRequest))
+			}
+		case upmv1alpha1.RestoreAction:
+			newReq = func() proto.Message { return &clickhouse.RestoreRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return chc.Restore(ctx, msg.(*clickhouse.RestoreRequest))
+			}
+		case upmv1alpha1.SetVariableAction:
+			newReq = func() proto.Message { return &clickhouse.SetVariableRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return chc.SetVariable(ctx, msg.(*clickhouse.SetVariableRequest))
 			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)

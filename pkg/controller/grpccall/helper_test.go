@@ -97,6 +97,9 @@ func TestClient_ServiceClients(t *testing.T) {
 
 	proxysqlClient := client.Proxysql()
 	assert.NotNil(t, proxysqlClient)
+
+	clickHouseClient := client.ClickHouse()
+	assert.NotNil(t, clickHouseClient)
 }
 
 func TestGatherUnitAgentEndpoint_Success(t *testing.T) {
@@ -119,7 +122,7 @@ func TestGatherUnitAgentEndpoint_Success(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: upmv1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmv1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
@@ -211,7 +214,7 @@ func TestGatherUnitAgentEndpoint_AgentContainerNotFound(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: upmv1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmv1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
@@ -266,7 +269,7 @@ func TestGatherUnitAgentEndpoint_AgentPortNotFound(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: upmv1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmv1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
@@ -350,7 +353,7 @@ func TestGatherUnitAgentEndpoint_HostFormatting(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: upmv1alpha2.UnitSpec{
-			Template: corev1.PodTemplateSpec{
+			Template: upmv1alpha2.UnitPodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{

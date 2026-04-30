@@ -19,8 +19,8 @@ import (
 )
 
 // UnitType defines the type of unit this GrpcCall will interact with.
-// Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus" and "postgresql".
-// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel;mongodb;milvus
+// Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus", "postgresql" and "clickhouse".
+// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel;mongodb;milvus;clickhouse
 type UnitType string
 
 const (
@@ -44,6 +44,9 @@ const (
 
 	// MilvusType represents a Milvus unit
 	MilvusType UnitType = "milvus"
+
+	// ClickHouseType represents a ClickHouse unit.
+	ClickHouseType UnitType = "clickhouse"
 )
 
 // Action defines the specific operation to be sent to the unit-agent.

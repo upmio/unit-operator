@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
+	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
@@ -127,6 +128,8 @@ var daemonCmd = &cobra.Command{
 			milvus.RegistryGrpcApp()
 		case "mongodb":
 			mongodb.RegistryGrpcApp()
+		case "clickhouse":
+			clickhouse.RegistryGrpcApp()
 		}
 
 		// initialize the global app

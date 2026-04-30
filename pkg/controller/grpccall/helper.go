@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
+	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
@@ -88,6 +89,11 @@ func (c *Client) MongoDB() mongodb.MongoDBOperationClient {
 // Milvus sdk
 func (c *Client) Milvus() milvus.MilvusOperationClient {
 	return milvus.NewMilvusOperationClient(c.conn)
+}
+
+// ClickHouse sdk
+func (c *Client) ClickHouse() clickhouse.ClickHouseOperationClient {
+	return clickhouse.NewClickHouseOperationClient(c.conn)
 }
 
 // gatherUnitAgentEndpoint retrieves and returns the host and port for the unit-agent container.
