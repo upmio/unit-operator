@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,11 @@ import (
 	"github.com/upmio/unit-operator/pkg/agent/pkg/util"
 	"github.com/upmio/unit-operator/pkg/agent/vars"
 	"go.uber.org/zap"
+)
+
+const (
+	expectedBackupSQL  = "BACKUP ALL TO S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
+	expectedRestoreSQL = "RESTORE ALL FROM S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
 )
 
 type fakeCommandRunner struct {
@@ -124,6 +130,19 @@ func TestBuildS3URLAddsHTTPSForBareEndpointWhenSSLEnabled(t *testing.T) {
 	require.Equal(t, "https://s3.example.com/root/backups/daily/full-001", url)
 }
 
+func TestBuildS3URLRequiresHost(t *testing.T) {
+	objectStorage := &common.ObjectStorage{
+		Endpoint:  "https:///root",
+		Bucket:    "backups",
+		AccessKey: "ak",
+		SecretKey: "sk",
+	}
+
+	_, err := buildS3URL(objectStorage, "daily/full-001")
+
+	require.EqualError(t, err, "object_storage.endpoint must include a host")
+}
+
 func TestBuildS3URLRequiresFields(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -188,11 +207,11 @@ func TestBuildBackupAndRestoreSQL(t *testing.T) {
 
 	backupSQL, err := buildBackupSQL(objectStorage, "backup-001")
 	require.NoError(t, err)
-	require.Equal(t, "BACKUP ALL TO S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')", backupSQL)
+	require.Equal(t, expectedBackupSQL, backupSQL)
 
 	restoreSQL, err := buildRestoreSQL(objectStorage, "backup-001")
 	require.NoError(t, err)
-	require.Equal(t, "RESTORE ALL FROM S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')", restoreSQL)
+	require.Equal(t, expectedRestoreSQL, restoreSQL)
 }
 
 func TestQuoteSQLStringEscapesSingleQuotesAndBackslashes(t *testing.T) {
@@ -247,6 +266,78 @@ func TestRunClickHouseQueryReturnsCommandFailure(t *testing.T) {
 	require.EqualError(t, err, "failed")
 }
 
+func TestLogicalBackupChecksSLMDecryptsPasswordAndRunsSafeCommand(t *testing.T) {
+	t.Setenv(clickHouseHostEnvKey, "")
+	t.Setenv(clickHousePortEnvKey, "9440")
+	t.Setenv(clickHouseSecureEnvKey, "true")
+	writeEncryptedPassword(t, "admin", "secret")
+
+	runner := &fakeCommandRunner{}
+	lifecycle := &fakeSLM{}
+	s := &service{
+		logger: zap.NewNop().Sugar(),
+		slm:    lifecycle,
+		runner: runner,
+	}
+
+	_, err := s.LogicalBackup(context.Background(), &LogicalBackupRequest{
+		Username:      "admin",
+		BackupFile:    "backup-001",
+		ObjectStorage: defaultObjectStorage(),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, lifecycle.checked)
+	requireSafeClickHouseCommand(t, runner, []string{"--secure"})
+	require.Equal(t, expectedBackupSQL, runner.stdin)
+}
+
+func TestRestoreChecksSLMDecryptsPasswordAndRunsSafeCommand(t *testing.T) {
+	t.Setenv(clickHouseHostEnvKey, "")
+	t.Setenv(clickHousePortEnvKey, "9440")
+	t.Setenv(clickHouseSecureEnvKey, "true")
+	writeEncryptedPassword(t, "admin", "secret")
+
+	runner := &fakeCommandRunner{}
+	lifecycle := &fakeSLM{}
+	s := &service{
+		logger: zap.NewNop().Sugar(),
+		slm:    lifecycle,
+		runner: runner,
+	}
+
+	_, err := s.Restore(context.Background(), &RestoreRequest{
+		Username:      "admin",
+		BackupFile:    "backup-001",
+		ObjectStorage: defaultObjectStorage(),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, lifecycle.checked)
+	requireSafeClickHouseCommand(t, runner, []string{"--secure"})
+	require.Equal(t, expectedRestoreSQL, runner.stdin)
+}
+
+func TestLogicalBackupSLMFailurePreventsCommandExecution(t *testing.T) {
+	runner := &fakeCommandRunner{}
+	lifecycle := &fakeSLM{err: errors.New("slm down")}
+	s := &service{
+		logger: zap.NewNop().Sugar(),
+		slm:    lifecycle,
+		runner: runner,
+	}
+
+	_, err := s.LogicalBackup(context.Background(), &LogicalBackupRequest{
+		Username:      "admin",
+		BackupFile:    "backup-001",
+		ObjectStorage: defaultObjectStorage(),
+	})
+
+	require.EqualError(t, err, "slm down")
+	require.Equal(t, 1, lifecycle.checked)
+	require.Nil(t, runner.args)
+}
+
 func TestSetVariableChecksSLMDecryptsPasswordAndRunsSafeCommand(t *testing.T) {
 	t.Setenv(clickHouseHostEnvKey, "")
 	t.Setenv(clickHousePortEnvKey, "9440")
@@ -269,14 +360,7 @@ func TestSetVariableChecksSLMDecryptsPasswordAndRunsSafeCommand(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 1, lifecycle.checked)
-	require.Equal(t, []string{
-		"clickhouse-client",
-		"--host", "127.0.0.1",
-		"--port", "9440",
-		"--user", "admin",
-		"--secure",
-	}, runner.args)
-	require.Contains(t, runner.env, "CLICKHOUSE_PASSWORD=secret")
+	requireSafeClickHouseCommand(t, runner, []string{"--secure"})
 	require.Equal(t, "ALTER USER admin SETTINGS max_threads = '8'", runner.stdin)
 }
 
@@ -298,6 +382,48 @@ func TestSetVariableSLMFailurePreventsCommandExecution(t *testing.T) {
 	require.EqualError(t, err, "slm down")
 	require.Equal(t, 1, lifecycle.checked)
 	require.Nil(t, runner.args)
+}
+
+func TestSafeCommandRunnerDoesNotReturnOutputOnFailure(t *testing.T) {
+	runner := &safeCommandRunner{logger: zap.NewNop().Sugar()}
+	cmd := exec.Command("sh", "-c", "printf 'ak sk secret' >&2; exit 7")
+
+	err := runner.ExecuteCommand(cmd, "clickhouse")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "command failed")
+	require.NotContains(t, err.Error(), "ak")
+	require.NotContains(t, err.Error(), "sk")
+	require.NotContains(t, err.Error(), "secret")
+}
+
+func requireSafeClickHouseCommand(t *testing.T, runner *fakeCommandRunner, extraArgs []string) {
+	t.Helper()
+
+	expectedArgs := []string{
+		"clickhouse-client",
+		"--host", "127.0.0.1",
+		"--port", "9440",
+		"--user", "admin",
+	}
+	expectedArgs = append(expectedArgs, extraArgs...)
+
+	require.Equal(t, expectedArgs, runner.args)
+	args := strings.Join(runner.args, "\x00")
+	require.NotContains(t, runner.args, "--password")
+	require.NotContains(t, runner.args, "--query")
+	require.NotContains(t, args, "ak")
+	require.NotContains(t, args, "sk")
+	require.Contains(t, runner.env, "CLICKHOUSE_PASSWORD=secret")
+}
+
+func defaultObjectStorage() *common.ObjectStorage {
+	return &common.ObjectStorage{
+		Endpoint:  "https://s3.example.com",
+		Bucket:    "backups",
+		AccessKey: "ak",
+		SecretKey: "sk",
+	}
 }
 
 func writeEncryptedPassword(t *testing.T, username, password string) {

@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -53,7 +54,7 @@ func (s *service) Config() error {
 	s.logger = zap.L().Named(appName).Sugar()
 
 	s.slm = app.GetGrpcApp("slm").(slm.ServiceLifecycleServer)
-	s.runner = common.NewCommandExecutor(s.logger)
+	s.runner = &safeCommandRunner{logger: s.logger}
 
 	return nil
 }
@@ -263,6 +264,9 @@ func buildS3URL(objectStorage *common.ObjectStorage, backupFile string) (string,
 	if err != nil {
 		return "", fmt.Errorf("parse object_storage.endpoint: %w", err)
 	}
+	if parsed.Scheme == "" || parsed.Hostname() == "" {
+		return "", fmt.Errorf("object_storage.endpoint must include a host")
+	}
 
 	segments := []string{
 		strings.TrimRight(parsed.Path, "/"),
@@ -326,6 +330,25 @@ func runClickHouseQuery(ctx context.Context, runner commandRunner, conn clickHou
 	cmd.Env = append(cmd.Environ(), "CLICKHOUSE_PASSWORD="+password)
 	cmd.Stdin = strings.NewReader(query)
 	return runner.ExecuteCommand(cmd, "clickhouse")
+}
+
+type safeCommandRunner struct {
+	logger *zap.SugaredLogger
+}
+
+func (r *safeCommandRunner) ExecuteCommand(cmd *exec.Cmd, _ string) error {
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+
+	if r.logger != nil {
+		r.logger.Infof("starting command: %s", strings.Join(cmd.Args, " "))
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command failed: %w", err)
+	}
+
+	return nil
 }
 
 func RegistryGrpcApp() {
