@@ -112,7 +112,7 @@ func (s *service) ensureRedisReplicationInstance(ctx context.Context, instance *
 
 	// Find the node in replica, then switchover change to source
 	for index, node := range instance.Spec.Replica {
-		if sourceHost == node.Host && sourcePort == int64(node.Port) {
+		if sourceHost == node.AnnounceHost && sourcePort == int64(node.AnnouncePort) {
 			instance.Spec.Source, instance.Spec.Replica[index] = node, instance.Spec.Source
 
 			if err := s.composeClient.Update(ctx, instance); err != nil {
