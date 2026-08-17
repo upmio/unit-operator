@@ -211,7 +211,7 @@ func buildBackupSQL(objectStorage *common.ObjectStorage, backupFile string) (str
 		return "", err
 	}
 
-	return fmt.Sprintf("BACKUP ALL TO S3(%s, %s, %s)",
+	return fmt.Sprintf("BACKUP ALL EXCEPT DATABASES system, INFORMATION_SCHEMA, information_schema TO S3(%s, %s, %s)",
 		quoteSQLString(s3URL),
 		quoteSQLString(objectStorage.GetAccessKey()),
 		quoteSQLString(objectStorage.GetSecretKey()),
@@ -224,7 +224,7 @@ func buildRestoreSQL(objectStorage *common.ObjectStorage, backupFile string) (st
 		return "", err
 	}
 
-	return fmt.Sprintf("RESTORE ALL FROM S3(%s, %s, %s)",
+	return fmt.Sprintf("RESTORE ALL EXCEPT DATABASES system, INFORMATION_SCHEMA, information_schema FROM S3(%s, %s, %s)",
 		quoteSQLString(s3URL),
 		quoteSQLString(objectStorage.GetAccessKey()),
 		quoteSQLString(objectStorage.GetSecretKey()),

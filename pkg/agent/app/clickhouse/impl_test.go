@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	expectedBackupSQL  = "BACKUP ALL TO S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
-	expectedRestoreSQL = "RESTORE ALL FROM S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
+	expectedBackupSQL  = "BACKUP ALL EXCEPT DATABASES system, INFORMATION_SCHEMA, information_schema TO S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
+	expectedRestoreSQL = "RESTORE ALL EXCEPT DATABASES system, INFORMATION_SCHEMA, information_schema FROM S3('https://s3.example.com/backups/backup-001', 'ak', 'sk')"
 )
 
 type fakeCommandRunner struct {
