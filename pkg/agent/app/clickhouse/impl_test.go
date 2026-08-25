@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -24,10 +25,14 @@ const (
 )
 
 type fakeCommandRunner struct {
-	err   error
-	args  []string
-	env   []string
-	stdin string
+	err        error
+	outputErr  error
+	output     string
+	args       []string
+	env        []string
+	stdin      string
+	outputArgs []string
+	config     string
 }
 
 func (f *fakeCommandRunner) ExecuteCommand(cmd *exec.Cmd, _ string) error {
@@ -40,7 +45,26 @@ func (f *fakeCommandRunner) ExecuteCommand(cmd *exec.Cmd, _ string) error {
 		}
 		f.stdin = string(stdin)
 	}
+	if len(cmd.Args) >= 3 && cmd.Args[0] == clickHouseBackupBinary && cmd.Args[1] == "--config" {
+		contents, err := os.ReadFile(cmd.Args[2])
+		if err != nil {
+			return err
+		}
+		f.config = string(contents)
+	}
 	return f.err
+}
+
+func (f *fakeCommandRunner) ExecuteCommandOutput(cmd *exec.Cmd, _ string) (string, error) {
+	f.outputArgs = append([]string(nil), cmd.Args...)
+	f.env = append([]string(nil), cmd.Env...)
+	if f.outputErr != nil {
+		return "", f.outputErr
+	}
+	if f.output == "" {
+		return "23.8.16.40\n", nil
+	}
+	return f.output, nil
 }
 
 type fakeSLM struct {
@@ -212,6 +236,67 @@ func TestBuildBackupAndRestoreSQL(t *testing.T) {
 	restoreSQL, err := buildRestoreSQL(objectStorage, "backup-001")
 	require.NoError(t, err)
 	require.Equal(t, expectedRestoreSQL, restoreSQL)
+}
+
+func TestDetectClickHouseVersionUsesServerQuery(t *testing.T) {
+	runner := &fakeCommandRunner{output: "26.3.9.8\n"}
+	version, err := detectClickHouseVersion(context.Background(), runner,
+		clickHouseConnection{host: "127.0.0.1", port: "9000", secure: true}, "admin", "secret")
+
+	require.NoError(t, err)
+	require.Equal(t, "26.3.9.8", version)
+	require.Equal(t, []string{
+		"clickhouse-client", "--host", "127.0.0.1", "--port", "9000", "--user", "admin",
+		"--query", clickHouseVersionQuery, "--secure",
+	}, runner.outputArgs)
+	require.Contains(t, runner.env, "CLICKHOUSE_PASSWORD=secret")
+}
+
+func TestSelectBackupDriver(t *testing.T) {
+	tests := []struct {
+		version string
+		want    string
+		wantErr string
+	}{
+		{version: "21.8.15.7", want: "clickhouse.clickHouseBackupDriver"},
+		{version: "23.8.16.40", want: "clickhouse.nativeBackupDriver"},
+		{version: "25.8.29.51", want: "clickhouse.nativeBackupDriver"},
+		{version: "26.3.9.8", want: "clickhouse.nativeBackupDriver"},
+		{version: "24.1.1.1", wantErr: "not certified"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			driver, err := selectBackupDriver(tt.version)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, fmt.Sprintf("%T", driver))
+		})
+	}
+}
+
+func TestClickHouseBackupDriverUsesDataVolumeAndRemoteSubcommand(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv(clickHouseDataDirEnvKey, dataDir)
+	runner := &fakeCommandRunner{}
+	driver := clickHouseBackupDriver{}
+
+	err := driver.Execute(context.Background(), runner, clickHouseConnection{host: "127.0.0.1", port: "9000"},
+		"admin", "secret", defaultObjectStorage(), "group/sets/backup-001", backupOperationCreate)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"clickhouse-backup", "--config", runner.args[2], "create_remote", "backup-001"}, runner.args)
+	require.Contains(t, runner.config, "path: group/sets")
+	require.Contains(t, runner.config, "password: secret")
+	require.Contains(t, runner.config, "port: 9000")
+	require.NotContains(t, runner.config, "data_path:")
+}
+
+func TestSplitBackupFileRejectsPathTraversal(t *testing.T) {
+	_, _, err := splitBackupFile("../backup")
+	require.EqualError(t, err, "backup_file must be a relative object-storage path")
 }
 
 func TestQuoteSQLStringEscapesSingleQuotesAndBackslashes(t *testing.T) {
