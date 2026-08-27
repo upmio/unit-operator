@@ -3,7 +3,7 @@ entries:
   unit-operator:
   - apiVersion: v2
     appVersion: v1.1.0
-    created: "2025-08-30T01:45:57.18829884Z"
+    created: "2026-08-27T11:34:10.889375+08:00"
     dependencies:
     - name: common
       repository: https://charts.bitnami.com/bitnami
@@ -15,7 +15,7 @@ entries:
       repository: ""
       version: 1.1.0
     description: Chart for upm unit-operator
-    digest: b11573b8a1bf3944a2bc847fe98bc971c558131a2a784753b9f0d60754cc66c3
+    digest: f61770e1a634862f2012807423e821dd2b6c9275b26fc60e25973f494250f7bf
     name: unit-operator
     type: application
     urls:
@@ -41,4 +41,4 @@ entries:
     urls:
     - https://github.com/upmio/unit-operator/releases/download/unit-operator-1.0.0/unit-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2025-08-30T01:45:57.18833097Z"
+generated: "2026-08-27T11:34:10.885686+08:00"
