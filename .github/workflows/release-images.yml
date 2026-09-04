@@ -74,7 +74,7 @@ jobs:
           context: .
           file: pkg/agent/Dockerfile.hugegraph-hubble
           push: true
-          tags: quay.io/upmio/unit-agent-hugegraph-hubble:${{ github.ref_name }}-${{ steps.vars.outputs.sha_short }}
+          tags: quay.io/upmio/unit-agent:${{ github.ref_name }}-${{ steps.vars.outputs.sha_short }}-hugegraph-hubble
           platforms: linux/amd64
 
   build-release-images:
@@ -122,7 +122,7 @@ jobs:
           context: .
           file: pkg/agent/Dockerfile.hugegraph-hubble
           push: true
-          tags: quay.io/upmio/unit-agent-hugegraph-hubble:${{ github.ref_name }}
+          tags: quay.io/upmio/unit-agent:${{ github.ref_name }}-hugegraph-hubble
           platforms: linux/amd64,linux/arm64
 
       - name: Prepare release version
