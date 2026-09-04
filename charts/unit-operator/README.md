@@ -99,7 +99,7 @@ There are two primary ways to customize the deployment:
 | `fullnameOverride` | string | `""`                    | Full name override |
 | `image.registry` | string | `"quay.io"`             | Image registry |
 | `image.repository` | string | `"upmio/unit-operator"` | Image repository |
-| `image.tag` | string | `"v1.0.0"`              | Image tag |
+| `image.tag` | string | `"v1.1.1"`              | Image tag |
 | `image.digest` | string | `""`                    | Image digest (takes precedence over tag) |
 | `image.pullPolicy` | string | `"IfNotPresent"`        | Image pull policy |
 | `image.pullSecrets` | list | `[]`                    | Image pull secrets |
