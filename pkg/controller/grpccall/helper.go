@@ -9,6 +9,7 @@ import (
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	upmv1alpha2 "github.com/upmio/unit-operator/api/v1alpha2"
 	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
+	"github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubble"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
@@ -94,6 +95,11 @@ func (c *Client) Milvus() milvus.MilvusOperationClient {
 // ClickHouse sdk
 func (c *Client) ClickHouse() clickhouse.ClickHouseOperationClient {
 	return clickhouse.NewClickHouseOperationClient(c.conn)
+}
+
+// HugeGraphHubble sdk
+func (c *Client) HugeGraphHubble() hugegraphhubble.HugeGraphHubbleOperationClient {
+	return hugegraphhubble.NewHugeGraphHubbleOperationClient(c.conn)
 }
 
 // gatherUnitAgentEndpoint retrieves and returns the host and port for the unit-agent container.

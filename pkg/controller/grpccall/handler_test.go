@@ -7,6 +7,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
+	"github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubble"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
 )
 
@@ -186,4 +187,22 @@ func TestUnmarshalParams_ClickHouseLogicalBackup(t *testing.T) {
 	assert.Equal(t, "ch-backup-001", msg.GetBackupFile())
 	assert.Equal(t, "admin", msg.GetUsername())
 	assert.Equal(t, "clickhouse", msg.GetObjectStorage().GetBucket())
+}
+
+func TestUnmarshalParams_HugeGraphHubbleConfigureGraphConnection(t *testing.T) {
+	params := map[string]apiextensionsv1.JSON{
+		"name":  {Raw: []byte(`"upm_hugegraph_example"`)},
+		"graph": {Raw: []byte(`"hugegraph"`)},
+		"host":  {Raw: []byte(`"hugegraph-svc.hugegraph-example.svc"`)},
+		"port":  {Raw: []byte(`8080`)},
+	}
+
+	msg := &hugegraphhubble.ConfigureGraphConnectionRequest{}
+	err := unmarshalParams(params, msg)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "upm_hugegraph_example", msg.GetName())
+	assert.Equal(t, "hugegraph", msg.GetGraph())
+	assert.Equal(t, "hugegraph-svc.hugegraph-example.svc", msg.GetHost())
+	assert.EqualValues(t, 8080, msg.GetPort())
 }

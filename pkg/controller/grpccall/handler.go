@@ -8,6 +8,7 @@ import (
 	upmv1alpha1 "github.com/upmio/unit-operator/api/v1alpha1"
 	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
 	"github.com/upmio/unit-operator/pkg/agent/app/common"
+	"github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubble"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
 	"github.com/upmio/unit-operator/pkg/agent/app/mysql"
@@ -213,6 +214,17 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 			newReq = func() proto.Message { return &clickhouse.SetVariableRequest{} }
 			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return chc.SetVariable(ctx, msg.(*clickhouse.SetVariableRequest))
+			}
+		default:
+			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
+		}
+	case upmv1alpha1.HugeGraphHubbleType:
+		hc := c.HugeGraphHubble()
+		switch instance.Spec.Action {
+		case upmv1alpha1.ConfigureGraphConnectionAction:
+			newReq = func() proto.Message { return &hugegraphhubble.ConfigureGraphConnectionRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return hc.ConfigureGraphConnection(ctx, msg.(*hugegraphhubble.ConfigureGraphConnectionRequest))
 			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)

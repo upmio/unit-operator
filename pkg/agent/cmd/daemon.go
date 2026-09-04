@@ -12,6 +12,7 @@ import (
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
 	"github.com/upmio/unit-operator/pkg/agent/app/clickhouse"
+	"github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubble"
 	"github.com/upmio/unit-operator/pkg/agent/app/logtail"
 	"github.com/upmio/unit-operator/pkg/agent/app/milvus"
 	"github.com/upmio/unit-operator/pkg/agent/app/mongodb"
@@ -136,6 +137,8 @@ var daemonCmd = &cobra.Command{
 			mongodb.RegistryGrpcApp()
 		case "clickhouse":
 			clickhouse.RegistryGrpcApp()
+		case "hugegraph-hubble":
+			hugegraphhubble.RegistryGrpcApp()
 		}
 
 		// initialize the global app

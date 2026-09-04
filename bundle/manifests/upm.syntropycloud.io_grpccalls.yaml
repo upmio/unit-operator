@@ -61,6 +61,7 @@ spec:
                 - set-variable
                 - clone
                 - backup
+                - configure-graph-connection
                 type: string
               parameters:
                 additionalProperties:
@@ -97,6 +98,7 @@ spec:
                 - mongodb
                 - milvus
                 - clickhouse
+                - hugegraph-hubble
                 type: string
             required:
             - action

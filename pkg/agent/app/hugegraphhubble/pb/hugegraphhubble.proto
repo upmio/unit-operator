@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package hugegraphhubble;
+
+option go_package = "github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubble";
+
+import "pkg/agent/app/common/pb/common.proto";
+
+message ConfigureGraphConnectionRequest {
+  string name = 1;
+  string graph = 2;
+  string host = 3;
+  int32 port = 4;
+}
+
+service HugeGraphHubbleOperation {
+  rpc ConfigureGraphConnection(ConfigureGraphConnectionRequest) returns (common.Empty);
+}

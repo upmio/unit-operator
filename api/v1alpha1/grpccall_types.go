@@ -19,8 +19,8 @@ import (
 )
 
 // UnitType defines the type of unit this GrpcCall will interact with.
-// Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus", "postgresql" and "clickhouse".
-// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel;mongodb;milvus;clickhouse
+// Currently supported types are "mysql", "proxysql", "redis", "redis-sentinel", "mongodb", "milvus", "postgresql", "clickhouse" and "hugegraph-hubble".
+// +kubebuilder:validation:Enum=mysql;postgresql;proxysql;redis;redis-sentinel;mongodb;milvus;clickhouse;hugegraph-hubble
 type UnitType string
 
 const (
@@ -47,11 +47,14 @@ const (
 
 	// ClickHouseType represents a ClickHouse unit.
 	ClickHouseType UnitType = "clickhouse"
+
+	// HugeGraphHubbleType represents a HugeGraph Hubble unit.
+	HugeGraphHubbleType UnitType = "hugegraph-hubble"
 )
 
 // Action defines the specific operation to be sent to the unit-agent.
 // Each action corresponds to a gRPC method exposed by the unit-agent.
-// +kubebuilder:validation:Enum=logical-backup;physical-backup;restore;gtid-purge;set-variable;clone;backup
+// +kubebuilder:validation:Enum=logical-backup;physical-backup;restore;gtid-purge;set-variable;clone;backup;configure-graph-connection
 type Action string
 
 const (
@@ -75,6 +78,9 @@ const (
 
 	// BackupAction instructs the agent to perform a backup operation from another instance.
 	BackupAction Action = "backup"
+
+	// ConfigureGraphConnectionAction initializes a HugeGraph connection in Hubble.
+	ConfigureGraphConnectionAction Action = "configure-graph-connection"
 )
 
 // GrpcCallSpec defines the desired behavior of a GrpcCall custom resource.
