@@ -16,7 +16,10 @@ type ObjectStorageFactory interface {
 
 func (s *ObjectStorage) GenerateFactory() (ObjectStorageFactory, error) {
 	switch s.GetType() {
-	case ObjectStorageType_Minio:
+	case ObjectStorageType_Minio, ObjectStorageType_Aws:
+		// minio-go implements the S3 API and works with both an AWS S3
+		// endpoint and a self-hosted MinIO endpoint. The caller supplies the
+		// endpoint and whether TLS is enabled.
 		return newMinioClient(s.GetEndpoint(), s.GetAccessKey(), s.GetSecretKey(), s.GetSsl())
 	}
 

@@ -6,24 +6,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateFactoryMinio(t *testing.T) {
-	storage := &ObjectStorage{
-		Endpoint:  "localhost:9000",
-		Bucket:    "backup",
-		AccessKey: "access",
-		SecretKey: "secret",
-		Ssl:       false,
-		Type:      ObjectStorageType_Minio,
-	}
+func TestGenerateFactoryS3Compatible(t *testing.T) {
+	for _, storageType := range []ObjectStorageType{ObjectStorageType_Minio, ObjectStorageType_Aws} {
+		t.Run(storageType.String(), func(t *testing.T) {
+			storage := &ObjectStorage{
+				Endpoint:  "localhost:9000",
+				Bucket:    "backup",
+				AccessKey: "access",
+				SecretKey: "secret",
+				Ssl:       false,
+				Type:      storageType,
+			}
 
-	factory, err := storage.GenerateFactory()
-	require.NoError(t, err)
-	require.NotNil(t, factory)
+			factory, err := storage.GenerateFactory()
+			require.NoError(t, err)
+			require.NotNil(t, factory)
+		})
+	}
 }
 
 func TestGenerateFactoryUnsupported(t *testing.T) {
 	storage := &ObjectStorage{
-		Type: ObjectStorageType_Aws,
+		Type: ObjectStorageType(99),
 	}
 
 	factory, err := storage.GenerateFactory()
