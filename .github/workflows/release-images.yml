@@ -1,0 +1,134 @@
+name: Release Images
+
+run-name: ${{ github.actor }} is releasing images
+
+on:
+  push:
+    branches:
+      - main
+      - "v2.0-dev-*"
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+    paths:
+      - "Dockerfile"
+      - "bundle.Dockerfile"
+      - "Makefile"
+      - "go.mod"
+      - "go.sum"
+      - "api/**"
+      - "bundle/**"
+      - "cmd/**"
+      - "config/**"
+      - "pkg/**"
+  workflow_dispatch:
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-development-images:
+    if: "!startsWith(github.ref, 'refs/tags/v')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAYIO_USERNAME }}
+          password: ${{ secrets.QUAYIO_TOKEN }}
+
+      - name: Build and push operator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: quay.io/upmio/unit-operator:${{ github.ref_name }}-${{ steps.vars.outputs.sha_short }}
+          platforms: linux/amd64
+
+      - name: Build and push agent image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: pkg/agent/Dockerfile
+          push: true
+          tags: quay.io/upmio/unit-agent:${{ github.ref_name }}-${{ steps.vars.outputs.sha_short }}
+          platforms: linux/amd64
+
+  build-release-images:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAYIO_USERNAME }}
+          password: ${{ secrets.QUAYIO_TOKEN }}
+
+      - name: Build and push operator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: quay.io/upmio/unit-operator:${{ github.ref_name }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build and push agent image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: pkg/agent/Dockerfile
+          push: true
+          tags: quay.io/upmio/unit-agent:${{ github.ref_name }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Prepare release version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build and push bundle image
+        run: make bundle-build bundle-push
+
+      - name: Build and push catalog image
+        run: make catalog-build catalog-push
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.32.0"
+
+      - name: Build release manifests
+        run: |
+          kubectl kustomize config/crd > crds.yaml
+          kubectl kustomize config/default > operator.yaml
+
+      - name: Upload release manifests
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            crds.yaml
+            operator.yaml

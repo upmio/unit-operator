@@ -1,17 +1,20 @@
 name: Release Charts
 
+run-name: ${{ github.actor }} is releasing charts
+
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "charts/**"
+  workflow_dispatch:
+
+concurrency:
+  group: release-charts-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
-    # depending on default permission settings for your org (contents being read-only or read-write for workloads), you will have to add permissions
-    # see: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -26,9 +29,8 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: add repos
-        run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
+      - name: Add chart dependencies
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
