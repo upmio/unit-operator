@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/upmio/unit-operator/pkg/agent/app"
@@ -35,14 +36,20 @@ type service struct {
 
 	opsCfg *opsConfig
 	client *http.Client
+
+	operationMu    sync.Mutex
+	runner         commandRunner
+	storageFactory func(*common.ObjectStorage) (common.ObjectStorageFactory, error)
 }
 
 type graphConnection struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Graph string `json:"graph"`
-	Host  string `json:"host"`
-	Port  int32  `json:"port"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Graph    string `json:"graph"`
+	Host     string `json:"host"`
+	Port     int32  `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type graphConnectionsPage struct {
@@ -78,6 +85,10 @@ func (s *service) Config() error {
 		hubblePort: port,
 	}
 	s.client = &http.Client{Timeout: 10 * time.Second}
+	s.runner = commandRunnerFunc(runCommand)
+	s.storageFactory = func(storage *common.ObjectStorage) (common.ObjectStorageFactory, error) {
+		return storage.GenerateFactory()
+	}
 	return nil
 }
 
@@ -167,6 +178,19 @@ func (s *service) listGraphConnections(ctx context.Context) ([]graphConnection, 
 		return nil, fmt.Errorf("decode graph connections response: %w", err)
 	}
 	return page.Records, nil
+}
+
+func (s *service) graphConnection(ctx context.Context, name string) (graphConnection, error) {
+	connections, err := s.listGraphConnections(ctx)
+	if err != nil {
+		return graphConnection{}, err
+	}
+	for _, connection := range connections {
+		if connection.Name == name {
+			return connection, nil
+		}
+	}
+	return graphConnection{}, fmt.Errorf("graph connection %q was not found", name)
 }
 
 func (s *service) callHubble(ctx context.Context, method, requestPath string, payload []byte) (json.RawMessage, error) {

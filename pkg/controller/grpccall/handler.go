@@ -226,6 +226,16 @@ func (r *ReconcileGrpcCall) handleGrpcCall(
 			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
 				return hc.ConfigureGraphConnection(ctx, msg.(*hugegraphhubble.ConfigureGraphConnectionRequest))
 			}
+		case upmv1alpha1.BackupAction:
+			newReq = func() proto.Message { return &hugegraphhubble.BackupRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return hc.Backup(ctx, msg.(*hugegraphhubble.BackupRequest))
+			}
+		case upmv1alpha1.RestoreAction:
+			newReq = func() proto.Message { return &hugegraphhubble.RestoreRequest{} }
+			callFn = func(ctx context.Context, msg proto.Message) (*common.Empty, error) {
+				return hc.Restore(ctx, msg.(*hugegraphhubble.RestoreRequest))
+			}
 		default:
 			return fmt.Errorf("unsupported action %q for type %q", instance.Spec.Action, instance.Spec.Type)
 		}

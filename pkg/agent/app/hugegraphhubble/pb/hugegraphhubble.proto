@@ -13,6 +13,37 @@ message ConfigureGraphConnectionRequest {
   int32 port = 4;
 }
 
+// BackupRequest creates a logical HugeGraph backup containing both graph
+// schema and data, then uploads the generated archive to S3-compatible object
+// storage.
+message BackupRequest {
+  // Name of an existing Hubble GraphConnection.
+  string connection_name = 1;
+  // Object name (key) to use for the generated .tar.gz backup archive.
+  string backup_file = 2;
+  common.ObjectStorage object_storage = 3;
+  // HugeGraph Tools request timeout in seconds. Zero uses the agent default.
+  int32 timeout_seconds = 4;
+  // HugeGraph Tools shard size in MiB. Zero uses the agent default.
+  int32 split_size_mb = 5;
+}
+
+// RestoreRequest downloads a logical HugeGraph backup from S3-compatible
+// object storage and restores its schema and graph data.
+message RestoreRequest {
+  // Name of an existing Hubble GraphConnection.
+  string connection_name = 1;
+  // Object name (key) of the .tar.gz backup archive.
+  string backup_file = 2;
+  common.ObjectStorage object_storage = 3;
+  // Existing data and schema are never removed unless this is explicitly set.
+  bool overwrite = 4;
+  // HugeGraph Tools request timeout in seconds. Zero uses the agent default.
+  int32 timeout_seconds = 5;
+}
+
 service HugeGraphHubbleOperation {
   rpc ConfigureGraphConnection(ConfigureGraphConnectionRequest) returns (common.Empty);
+  rpc Backup(BackupRequest) returns (common.Empty);
+  rpc Restore(RestoreRequest) returns (common.Empty);
 }

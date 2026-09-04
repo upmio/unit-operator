@@ -21,6 +21,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	HugeGraphHubbleOperation_ConfigureGraphConnection_FullMethodName = "/hugegraphhubble.HugeGraphHubbleOperation/ConfigureGraphConnection"
+	HugeGraphHubbleOperation_Backup_FullMethodName                   = "/hugegraphhubble.HugeGraphHubbleOperation/Backup"
+	HugeGraphHubbleOperation_Restore_FullMethodName                  = "/hugegraphhubble.HugeGraphHubbleOperation/Restore"
 )
 
 // HugeGraphHubbleOperationClient is the client API for HugeGraphHubbleOperation service.
@@ -28,6 +30,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type HugeGraphHubbleOperationClient interface {
 	ConfigureGraphConnection(ctx context.Context, in *ConfigureGraphConnectionRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error)
+	Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error)
 }
 
 type hugeGraphHubbleOperationClient struct {
@@ -48,11 +52,33 @@ func (c *hugeGraphHubbleOperationClient) ConfigureGraphConnection(ctx context.Co
 	return out, nil
 }
 
+func (c *hugeGraphHubbleOperationClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(common.Empty)
+	err := c.cc.Invoke(ctx, HugeGraphHubbleOperation_Backup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hugeGraphHubbleOperationClient) Restore(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*common.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(common.Empty)
+	err := c.cc.Invoke(ctx, HugeGraphHubbleOperation_Restore_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HugeGraphHubbleOperationServer is the server API for HugeGraphHubbleOperation service.
 // All implementations must embed UnimplementedHugeGraphHubbleOperationServer
 // for forward compatibility.
 type HugeGraphHubbleOperationServer interface {
 	ConfigureGraphConnection(context.Context, *ConfigureGraphConnectionRequest) (*common.Empty, error)
+	Backup(context.Context, *BackupRequest) (*common.Empty, error)
+	Restore(context.Context, *RestoreRequest) (*common.Empty, error)
 	mustEmbedUnimplementedHugeGraphHubbleOperationServer()
 }
 
@@ -65,6 +91,12 @@ type UnimplementedHugeGraphHubbleOperationServer struct{}
 
 func (UnimplementedHugeGraphHubbleOperationServer) ConfigureGraphConnection(context.Context, *ConfigureGraphConnectionRequest) (*common.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigureGraphConnection not implemented")
+}
+func (UnimplementedHugeGraphHubbleOperationServer) Backup(context.Context, *BackupRequest) (*common.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Backup not implemented")
+}
+func (UnimplementedHugeGraphHubbleOperationServer) Restore(context.Context, *RestoreRequest) (*common.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Restore not implemented")
 }
 func (UnimplementedHugeGraphHubbleOperationServer) mustEmbedUnimplementedHugeGraphHubbleOperationServer() {
 }
@@ -106,6 +138,42 @@ func _HugeGraphHubbleOperation_ConfigureGraphConnection_Handler(srv interface{},
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HugeGraphHubbleOperation_Backup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HugeGraphHubbleOperationServer).Backup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HugeGraphHubbleOperation_Backup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HugeGraphHubbleOperationServer).Backup(ctx, req.(*BackupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HugeGraphHubbleOperation_Restore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HugeGraphHubbleOperationServer).Restore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HugeGraphHubbleOperation_Restore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HugeGraphHubbleOperationServer).Restore(ctx, req.(*RestoreRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HugeGraphHubbleOperation_ServiceDesc is the grpc.ServiceDesc for HugeGraphHubbleOperation service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -116,6 +184,14 @@ var HugeGraphHubbleOperation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConfigureGraphConnection",
 			Handler:    _HugeGraphHubbleOperation_ConfigureGraphConnection_Handler,
+		},
+		{
+			MethodName: "Backup",
+			Handler:    _HugeGraphHubbleOperation_Backup_Handler,
+		},
+		{
+			MethodName: "Restore",
+			Handler:    _HugeGraphHubbleOperation_Restore_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

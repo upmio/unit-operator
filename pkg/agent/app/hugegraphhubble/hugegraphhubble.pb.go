@@ -90,6 +90,171 @@ func (x *ConfigureGraphConnectionRequest) GetPort() int32 {
 	return 0
 }
 
+// BackupRequest creates a logical HugeGraph backup containing both graph
+// schema and data, then uploads the generated archive to S3-compatible object
+// storage.
+type BackupRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of an existing Hubble GraphConnection.
+	ConnectionName string `protobuf:"bytes,1,opt,name=connection_name,json=connectionName,proto3" json:"connection_name,omitempty"`
+	// Object name (key) to use for the generated .tar.gz backup archive.
+	BackupFile    string                `protobuf:"bytes,2,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	ObjectStorage *common.ObjectStorage `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
+	// HugeGraph Tools request timeout in seconds. Zero uses the agent default.
+	TimeoutSeconds int32 `protobuf:"varint,4,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	// HugeGraph Tools shard size in MiB. Zero uses the agent default.
+	SplitSizeMb   int32 `protobuf:"varint,5,opt,name=split_size_mb,json=splitSizeMb,proto3" json:"split_size_mb,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupRequest) Reset() {
+	*x = BackupRequest{}
+	mi := &file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupRequest) ProtoMessage() {}
+
+func (x *BackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
+func (*BackupRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *BackupRequest) GetConnectionName() string {
+	if x != nil {
+		return x.ConnectionName
+	}
+	return ""
+}
+
+func (x *BackupRequest) GetBackupFile() string {
+	if x != nil {
+		return x.BackupFile
+	}
+	return ""
+}
+
+func (x *BackupRequest) GetObjectStorage() *common.ObjectStorage {
+	if x != nil {
+		return x.ObjectStorage
+	}
+	return nil
+}
+
+func (x *BackupRequest) GetTimeoutSeconds() int32 {
+	if x != nil {
+		return x.TimeoutSeconds
+	}
+	return 0
+}
+
+func (x *BackupRequest) GetSplitSizeMb() int32 {
+	if x != nil {
+		return x.SplitSizeMb
+	}
+	return 0
+}
+
+// RestoreRequest downloads a logical HugeGraph backup from S3-compatible
+// object storage and restores its schema and graph data.
+type RestoreRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of an existing Hubble GraphConnection.
+	ConnectionName string `protobuf:"bytes,1,opt,name=connection_name,json=connectionName,proto3" json:"connection_name,omitempty"`
+	// Object name (key) of the .tar.gz backup archive.
+	BackupFile    string                `protobuf:"bytes,2,opt,name=backup_file,json=backupFile,proto3" json:"backup_file,omitempty"`
+	ObjectStorage *common.ObjectStorage `protobuf:"bytes,3,opt,name=object_storage,json=objectStorage,proto3" json:"object_storage,omitempty"`
+	// Existing data and schema are never removed unless this is explicitly set.
+	Overwrite bool `protobuf:"varint,4,opt,name=overwrite,proto3" json:"overwrite,omitempty"`
+	// HugeGraph Tools request timeout in seconds. Zero uses the agent default.
+	TimeoutSeconds int32 `protobuf:"varint,5,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *RestoreRequest) Reset() {
+	*x = RestoreRequest{}
+	mi := &file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreRequest) ProtoMessage() {}
+
+func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
+func (*RestoreRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RestoreRequest) GetConnectionName() string {
+	if x != nil {
+		return x.ConnectionName
+	}
+	return ""
+}
+
+func (x *RestoreRequest) GetBackupFile() string {
+	if x != nil {
+		return x.BackupFile
+	}
+	return ""
+}
+
+func (x *RestoreRequest) GetObjectStorage() *common.ObjectStorage {
+	if x != nil {
+		return x.ObjectStorage
+	}
+	return nil
+}
+
+func (x *RestoreRequest) GetOverwrite() bool {
+	if x != nil {
+		return x.Overwrite
+	}
+	return false
+}
+
+func (x *RestoreRequest) GetTimeoutSeconds() int32 {
+	if x != nil {
+		return x.TimeoutSeconds
+	}
+	return 0
+}
+
 var File_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto protoreflect.FileDescriptor
 
 const file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDesc = "" +
@@ -99,9 +264,25 @@ const file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05graph\x18\x02 \x01(\tR\x05graph\x12\x12\n" +
 	"\x04host\x18\x03 \x01(\tR\x04host\x12\x12\n" +
-	"\x04port\x18\x04 \x01(\x05R\x04port2w\n" +
+	"\x04port\x18\x04 \x01(\x05R\x04port\"\xe4\x01\n" +
+	"\rBackupRequest\x12'\n" +
+	"\x0fconnection_name\x18\x01 \x01(\tR\x0econnectionName\x12\x1f\n" +
+	"\vbackup_file\x18\x02 \x01(\tR\n" +
+	"backupFile\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\x12'\n" +
+	"\x0ftimeout_seconds\x18\x04 \x01(\x05R\x0etimeoutSeconds\x12\"\n" +
+	"\rsplit_size_mb\x18\x05 \x01(\x05R\vsplitSizeMb\"\xdf\x01\n" +
+	"\x0eRestoreRequest\x12'\n" +
+	"\x0fconnection_name\x18\x01 \x01(\tR\x0econnectionName\x12\x1f\n" +
+	"\vbackup_file\x18\x02 \x01(\tR\n" +
+	"backupFile\x12<\n" +
+	"\x0eobject_storage\x18\x03 \x01(\v2\x15.common.ObjectStorageR\robjectStorage\x12\x1c\n" +
+	"\toverwrite\x18\x04 \x01(\bR\toverwrite\x12'\n" +
+	"\x0ftimeout_seconds\x18\x05 \x01(\x05R\x0etimeoutSeconds2\xeb\x01\n" +
 	"\x18HugeGraphHubbleOperation\x12[\n" +
-	"\x18ConfigureGraphConnection\x120.hugegraphhubble.ConfigureGraphConnectionRequest\x1a\r.common.EmptyB>Z<github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubbleb\x06proto3"
+	"\x18ConfigureGraphConnection\x120.hugegraphhubble.ConfigureGraphConnectionRequest\x1a\r.common.Empty\x127\n" +
+	"\x06Backup\x12\x1e.hugegraphhubble.BackupRequest\x1a\r.common.Empty\x129\n" +
+	"\aRestore\x12\x1f.hugegraphhubble.RestoreRequest\x1a\r.common.EmptyB>Z<github.com/upmio/unit-operator/pkg/agent/app/hugegraphhubbleb\x06proto3"
 
 var (
 	file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDescOnce sync.Once
@@ -115,19 +296,28 @@ func file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDescGZIP() [
 	return file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDescData
 }
 
-var file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_goTypes = []any{
 	(*ConfigureGraphConnectionRequest)(nil), // 0: hugegraphhubble.ConfigureGraphConnectionRequest
-	(*common.Empty)(nil),                    // 1: common.Empty
+	(*BackupRequest)(nil),                   // 1: hugegraphhubble.BackupRequest
+	(*RestoreRequest)(nil),                  // 2: hugegraphhubble.RestoreRequest
+	(*common.ObjectStorage)(nil),            // 3: common.ObjectStorage
+	(*common.Empty)(nil),                    // 4: common.Empty
 }
 var file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_depIdxs = []int32{
-	0, // 0: hugegraphhubble.HugeGraphHubbleOperation.ConfigureGraphConnection:input_type -> hugegraphhubble.ConfigureGraphConnectionRequest
-	1, // 1: hugegraphhubble.HugeGraphHubbleOperation.ConfigureGraphConnection:output_type -> common.Empty
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: hugegraphhubble.BackupRequest.object_storage:type_name -> common.ObjectStorage
+	3, // 1: hugegraphhubble.RestoreRequest.object_storage:type_name -> common.ObjectStorage
+	0, // 2: hugegraphhubble.HugeGraphHubbleOperation.ConfigureGraphConnection:input_type -> hugegraphhubble.ConfigureGraphConnectionRequest
+	1, // 3: hugegraphhubble.HugeGraphHubbleOperation.Backup:input_type -> hugegraphhubble.BackupRequest
+	2, // 4: hugegraphhubble.HugeGraphHubbleOperation.Restore:input_type -> hugegraphhubble.RestoreRequest
+	4, // 5: hugegraphhubble.HugeGraphHubbleOperation.ConfigureGraphConnection:output_type -> common.Empty
+	4, // 6: hugegraphhubble.HugeGraphHubbleOperation.Backup:output_type -> common.Empty
+	4, // 7: hugegraphhubble.HugeGraphHubbleOperation.Restore:output_type -> common.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_init() }
@@ -141,7 +331,7 @@ func file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDesc), len(file_pkg_agent_app_hugegraphhubble_pb_hugegraphhubble_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

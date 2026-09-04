@@ -76,7 +76,7 @@ const (
 	// CloneAction instructs the agent to perform a clone operation from another instance.
 	CloneAction Action = "clone"
 
-	// BackupAction instructs the agent to perform a backup operation from another instance.
+	// BackupAction instructs the agent to perform a backup operation.
 	BackupAction Action = "backup"
 
 	// ConfigureGraphConnectionAction initializes a HugeGraph connection in Hubble.
