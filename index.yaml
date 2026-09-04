@@ -2,6 +2,26 @@ apiVersion: v1
 entries:
   unit-operator:
   - apiVersion: v2
+    appVersion: v1.1.1
+    created: "2026-09-04T06:59:04.797199603Z"
+    dependencies:
+    - name: common
+      repository: https://charts.bitnami.com/bitnami
+      tags:
+      - bitnami-common
+      version: 2.31.4
+    - condition: crds.enabled
+      name: crds
+      repository: ""
+      version: 1.1.1
+    description: Chart for upm unit-operator
+    digest: 16fddc8372c8b193d32c4daa02f74c5bdbe5caffe259064589258679e0ac29aa
+    name: unit-operator
+    type: application
+    urls:
+    - https://github.com/upmio/unit-operator/releases/download/unit-operator-1.1.2/unit-operator-1.1.2.tgz
+    version: 1.1.2
+  - apiVersion: v2
     appVersion: v1.1.0
     created: "2026-08-27T04:01:30.064903108Z"
     dependencies:
@@ -61,4 +81,4 @@ entries:
     urls:
     - https://github.com/upmio/unit-operator/releases/download/unit-operator-1.0.0/unit-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2026-08-27T04:01:30.06491729Z"
+generated: "2026-09-04T06:59:04.797218318Z"
